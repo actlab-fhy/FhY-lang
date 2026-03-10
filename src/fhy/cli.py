@@ -40,7 +40,7 @@ from pathlib import Path
 from typing import Annotated, Optional, TypeVar
 
 import typer
-from fhy_core import IntEnum
+from fhy_core import IntEnum, add_file_handler, get_logger
 
 from fhy import __version__
 from fhy.driver import CompilationOptions, Workspace, compile_fhy
@@ -49,7 +49,6 @@ from fhy.ir.program import Program as IRProgram
 from fhy.lang.ast.pprint import pformat_ast
 from fhy.lang.ast.serialization import SerializationOptions
 from fhy.lang.ast.serialization.to_json import dump
-from fhy.logger import add_file_handler, get_logger
 
 T = TypeVar("T")
 
@@ -67,9 +66,25 @@ def make_logger(
 ) -> logging.Logger:
     """Construct a simple logger."""
     level: int = logging.DEBUG if verbose else logging.INFO
-    log: logging.Logger = get_logger("FhY", level=level)
+    log: logging.Logger = get_logger("FhY")
+    log.setLevel(level)
+
+    if not any(
+        isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+        for h in log.handlers
+    ):
+        stream = logging.StreamHandler()
+        stream.setLevel(level)
+        log.addHandler(stream)
+    else:
+        for handler in log.handlers:
+            if isinstance(handler, logging.StreamHandler) and not isinstance(
+                handler, logging.FileHandler
+            ):
+                handler.setLevel(level)
+
     if file is not None:
-        add_file_handler(log, file)
+        add_file_handler(log, file, level=level)
 
     return log
 
@@ -156,7 +171,11 @@ def compile_fhy_source(
     create_hidden_directory(hidden)
     log: logging.Logger = make_logger(verbose, where / DefaultPaths.log_file())
     if log_file is not None:
-        add_file_handler(log, log_file, logging.DEBUG if verbose else logging.INFO)
+        add_file_handler(
+            log,
+            log_file,
+            level=logging.DEBUG if verbose else logging.INFO,
+        )
 
     # NOTE: Inform client we have not currently set this portion up, but scoping
     #       here for future backward compatibility.

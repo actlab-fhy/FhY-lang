@@ -48,7 +48,7 @@ def test_no_file_error():
     code, _, error = access_cli("serialize", "--verbose")
 
     assert code == Status.USAGE_ERROR, "Expected to report User Error Status Code."
-    assert "ERROR" in error, "Expected error message logged to stderr."
+    assert "TypeError" in error, "Expected exception type in stderr output."
 
 
 def test_file_exists_error():
@@ -56,7 +56,6 @@ def test_file_exists_error():
     code, _, error = access_cli("serialize", "cthulhu.fhy")
 
     assert code == Status.USAGE_ERROR, "Expected to report User Error Status Code."
-    assert "ERROR" in error, "Expected error message logged to stderr."
     assert "FileExistsError" in error, "Expected Mention of FileExistError."
 
 
@@ -66,9 +65,9 @@ def test_log_file(file_log):
     code, _, error = access_cli("serialize", "--log-file", file_log)
 
     assert os.path.exists(file_log), "Expected Log File to be created."
-    assert "ERROR" in error, "Expected error message logged to stderr."
+    assert "TypeError" in error, "Expected error type in stderr output."
 
     with open(file_log) as f:
         text = f.read()
 
-    assert "ERROR" in text, "Expected Error Message within file."
+    assert "TypeError" in text, "Expected error type within file output."

@@ -39,7 +39,6 @@ from fhy.lang.ast import (
 )
 from fhy.lang.ast.span import Source, Span
 from fhy.lang.converter.from_fhy_source import from_fhy_source as fhy_source
-from fhy.logger import get_logger
 from fhy_core import (
     CoreDataType,
     Identifier,
@@ -49,6 +48,7 @@ from fhy_core import (
     TemplateDataType,
     TupleType,
     TypeQualifier,
+    get_logger,
 )
 from fhy_core import (
     Expression as CoreExpression,
@@ -60,7 +60,8 @@ from fhy_core import (
     LiteralExpression as CoreLiteralExpression,
 )
 
-log = get_logger(__name__, 10)
+logger = get_logger(__name__)
+logger.setLevel(10)
 TLiteral = TypeVar("TLiteral", IntLiteral, FloatLiteral, ComplexLiteral)
 T = TypeVar("T")
 fixture_node_names: list[str] = []
@@ -83,7 +84,7 @@ def construct_ast() -> Callable[[str], ASTNode]:
     """Construct an Abstract Syntax Tree (AST) from a raw text file source."""
 
     def _inner(source: str) -> ASTNode:
-        return fhy_source(source, log=log)
+        return fhy_source(source, log=logger)
 
     return _inner
 
