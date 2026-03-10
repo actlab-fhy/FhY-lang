@@ -98,7 +98,7 @@ class ASTProgramBuilder:
         return self._workspace.root
 
     @property
-    def src_dir(self):
+    def src_dir(self) -> Path:
         """Source code directory."""
         return self._workspace.source
 
@@ -226,7 +226,7 @@ class ASTProgramBuilder:
 
         return None
 
-    def _is_cyclical(self, graph: nx.Graph) -> list | None:
+    def _is_cyclical(self, graph: nx.Graph) -> list[tuple[object, object, str]] | None:
         try:
             result = list(nx.find_cycle(graph, orientation="ignore"))
             return result

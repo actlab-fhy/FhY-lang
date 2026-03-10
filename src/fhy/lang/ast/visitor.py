@@ -502,7 +502,7 @@ class Visitor(BasePass):
             node: Template data type to visit.
 
         """
-        self.visit(node.template_type)
+        self.visit(node.data_type)
 
     def visit_type_qualifier(self, type_qualifier: TypeQualifier) -> None:
         """Visit a type qualifier.
@@ -1190,9 +1190,8 @@ class Transformer(BasePass):
             node: Template data type to transform.
 
         """
-        new_primitive_data_type = self.visit(node.template_type)
-
-        return TemplateDataType(data_type=new_primitive_data_type)
+        new_template_data_type = self.visit(node.data_type)
+        return TemplateDataType(data_type=new_template_data_type)
 
     def visit_type_qualifier(self, type_qualifier: TypeQualifier) -> TypeQualifier:
         """Transform a type qualifier.

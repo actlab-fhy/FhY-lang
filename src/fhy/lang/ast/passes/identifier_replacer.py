@@ -32,6 +32,7 @@
 """Identifier replacement transformer."""
 
 from copy import copy
+from typing import cast
 
 from fhy_core import Identifier
 
@@ -72,4 +73,4 @@ def replace_identifiers(
         Node with identifiers replaced as prescribed by mapping.
 
     """
-    return IdentifierReplacer(identifier_map)(node)
+    return cast(ASTStructure, IdentifierReplacer(identifier_map)(node))

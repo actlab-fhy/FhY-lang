@@ -40,7 +40,6 @@ from pathlib import Path
 from typing import Annotated, Optional, TypeVar
 
 import typer
-import typer.core
 from fhy_core import IntEnum
 
 from fhy import __version__
@@ -61,12 +60,6 @@ app = typer.Typer(
 )
 
 _cli_log: logging.Logger = get_logger(__name__)
-
-# Make it possible to use environment variable to control help menu display
-# NOTE: Typer imports rich module, and on import error sets to None, ignoring typing
-#       We will also support not having rich as a dependency of typer
-if typer.core.rich is not None:
-    typer.core.rich = os.environ.get("FHY_HELPMENU", "rich") or None  # type: ignore
 
 
 def make_logger(
@@ -110,20 +103,20 @@ class CompilationResult:
     status: Status
 
 
-def create_hidden_directory(hidden: Path):
+def create_hidden_directory(hidden: Path) -> None:
     """Create hidden directory."""
     if not hidden.exists():
         os.mkdir(hidden)
 
 
-def clear_hidden_directory(hidden: Path):
+def clear_hidden_directory(hidden: Path) -> None:
     """Clear hidden directory cache."""
     if hidden.exists():
         shutil.rmtree(hidden)
         _cli_log.info("FhY cache has been cleared")
 
 
-def _clean_dir(value: bool):
+def _clean_dir(value: bool) -> None:
     if not value:
         return
     where: Path = standard_path(os.getcwd())
@@ -132,7 +125,7 @@ def _clean_dir(value: bool):
     sys.exit(Status.OK)
 
 
-def report_version(value: bool):
+def report_version(value: bool) -> None:
     """Report version to stdout and exit if true."""
     if value:
         sys.stdout.write(f"FhY v{__version__}\n")
@@ -225,7 +218,7 @@ def main(
             "--clean", help="Clean FhY hidden directory and exit.", callback=_clean_dir
         ),
     ] = False,
-):
+) -> None:
     """Welcome to FhY!"""
     # NOTE: We check sys.argv to make it possible to place arguments in subcommands
     #       and respond equivalently.
@@ -276,7 +269,7 @@ def serialize(
             help="Include source information in JSON output.",
         ),
     ] = False,
-):
+) -> Status | None:
     """Serialize FhY AST nodes into alternative text representations."""
     compiled: CompilationResult = compile_fhy_source(
         main_file, verbose, log_file, config, force_rebuild

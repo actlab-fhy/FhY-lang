@@ -1,4 +1,4 @@
 fhy-core>=0.0.5
 frozendict
 networkx>=3.2.1
-typer-slim
+typer>=0.24.1

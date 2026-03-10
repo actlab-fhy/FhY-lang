@@ -32,8 +32,9 @@
 """FhY source code to AST module converter."""
 
 import logging
+from typing import cast
 
-from antlr4 import (  # type: ignore[import-untyped]  # type: ignore[import-untyped]
+from antlr4 import (  # type: ignore[import-untyped]
     DFA,
     CommonTokenStream,
     InputStream,
@@ -52,7 +53,7 @@ from .from_parse_tree import from_parse_tree
 _log = logging.getLogger(__name__)
 
 
-class ThrowingErrorListener(ErrorListener):
+class ThrowingErrorListener(ErrorListener):  # type: ignore[misc]
     """An Overly Verbose, Descriptive Antlr Error Listener for Reasons."""
 
     log: logging.Logger
@@ -69,7 +70,7 @@ class ThrowingErrorListener(ErrorListener):
         column: int,
         msg: str,
         e: Exception,
-    ):
+    ) -> None:
         text = self.get_text(recognizer, None, None)
         context = type(recognizer._ctx).__name__
         message = f'context={context}(Line {line}:{column}) input="{offendingSymbol}" '
@@ -90,7 +91,7 @@ class ThrowingErrorListener(ErrorListener):
         exact: bool,
         ambigAlts: set[int],
         configs: ATNConfigSet,
-    ):
+    ) -> None:
         report = self._report(
             recognizer,
             dfa,
@@ -109,7 +110,7 @@ class ThrowingErrorListener(ErrorListener):
         stopIndex: int,
         conflictingAlts: set[int],
         configs: ATNConfigSet,
-    ):
+    ) -> None:
         report = self._report(
             recognizer,
             dfa,
@@ -127,7 +128,7 @@ class ThrowingErrorListener(ErrorListener):
         stopIndex: int,
         prediction: int,
         configs: ATNConfigSet,
-    ):
+    ) -> None:
         msg = self._report(
             recognizer,
             dfa,
@@ -167,7 +168,7 @@ class ThrowingErrorListener(ErrorListener):
         stop: int | None = None,
     ) -> str:
         stream = recognizer.getTokenStream()
-        text = stream.getText(start, stop)
+        text = cast(str, stream.getText(start, stop))
 
         return text
 
@@ -218,9 +219,9 @@ def _fhy_source_to_parse_tree(
     fhy_source_content: str, log: logging.Logger = _log
 ) -> FhYParser.ModuleContext:
     fhy_parser = create_parser(fhy_source_content, log)
-    tree = fhy_parser.module()
+    tree = fhy_parser.module()  # type: ignore[no-untyped-call]
 
-    return tree
+    return cast(FhYParser.ModuleContext, tree)
 
 
 def from_fhy_source(

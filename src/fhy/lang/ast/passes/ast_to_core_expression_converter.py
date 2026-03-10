@@ -31,7 +31,7 @@
 
 """Converter from AST expressions to core expressions."""
 
-from typing import ClassVar, NoReturn
+from typing import ClassVar, NoReturn, cast
 
 from fhy_core import BinaryExpression as CoreBinaryExpression
 from fhy_core import BinaryOperation as CoreBinaryOperation
@@ -133,4 +133,4 @@ def convert_ast_expression_to_core_expression(
     ast_expression: ASTExpression,
 ) -> CoreExpression:
     """Convert an AST expression to a core expression."""
-    return ASTToCoreExpressionConverter().visit(ast_expression)
+    return cast(CoreExpression, ASTToCoreExpressionConverter().visit(ast_expression))

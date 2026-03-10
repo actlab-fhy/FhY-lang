@@ -199,7 +199,7 @@ class ExpressionExactEqualityGetter(BasePass):
         if not isinstance(other, TemplateDataType):
             return False
         else:
-            return node.template_type == other.template_type
+            return node.data_type == other.data_type
 
 
 def _is_expressions_exactly_equal(
@@ -677,7 +677,7 @@ def test_operation_template_types(construct_ast, templates: list[str]):
     assert len(operation.templates) == len(templates)
     for j, k in zip(operation.templates, templates):
         assert_type(j, TemplateDataType, "template type")
-        assert_name(j.template_type, identifier_map[k], what_it_is="template type")
+        assert_name(j.data_type, identifier_map[k], what_it_is="template type")
 
 
 def test_operation_template_type_body(construct_ast):
@@ -695,8 +695,8 @@ def test_operation_template_type_body(construct_ast):
     assert_type(arg_base_type, NumericalType, "numerical type")
     assert_type(arg_base_type.data_type, TemplateDataType, "template type")
     assert_name(
-        arg_base_type.data_type.template_type,
-        template.template_type,
+        arg_base_type.data_type.data_type,
+        template.data_type,
         what_it_is="template type",
     )
     statement: ast_node.Statement = operation.body[0]
@@ -704,8 +704,8 @@ def test_operation_template_type_body(construct_ast):
     numerical_type = statement.variable_type.base_type
     assert_type(numerical_type, NumericalType, "numerical type")
     assert_name(
-        numerical_type.data_type.template_type,
-        template.template_type,
+        numerical_type.data_type.data_type,
+        template.data_type,
         what_it_is="template type",
     )
 

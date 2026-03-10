@@ -1,6 +1,7 @@
 """Test Behavior of various CLI Arguments."""
 
 import os
+from pathlib import Path
 
 import pytest
 from fhy import __version__
@@ -10,14 +11,14 @@ from .utils import access_cli
 
 
 @pytest.fixture
-def file_log():
-    here = os.path.abspath(os.path.join(__file__, os.pardir))
-    file = os.path.join(here, "sample.log")
+def file_log(tmp_path: Path) -> str:
+    file = str(tmp_path / "sample.log")
 
     yield file
 
     # Remove temporary log file
-    os.remove(file)
+    if os.path.exists(file):
+        os.remove(file)
     assert not os.path.exists(file), "Expected File to be removed."
 
 
@@ -28,14 +29,17 @@ def test_version():
     assert code == Status.OK, "Expected Successful Response."
 
 
-def test_clean():
+def test_clean(tmp_path: Path):
+    cwd = str(tmp_path)
+    hidden = tmp_path / ".fhy"
+
     # First create directory (assuming cli has never been called)
-    access_cli("serialize")
-    assert os.path.exists(".fhy"), "Expected temporary directory to exist"
+    access_cli("serialize", cwd=cwd)
+    assert hidden.exists(), "Expected temporary directory to exist"
 
     # Then call clean
-    code, _, error = access_cli("--clean")
-    assert not os.path.exists(".fhy"), "Expected temporary directory to be removed"
+    code, _, error = access_cli("--clean", cwd=cwd)
+    assert not hidden.exists(), "Expected temporary directory to be removed"
     assert code == Status.OK, "Expected graceful exit."
 
 

@@ -1230,7 +1230,7 @@ def dump(
 #     return obj
 
 
-def load(json_string: str, **kwargs) -> ASTStructure | Sequence[ASTStructure]:
+def load(json_string: str, **kwargs: object) -> ASTStructure | Sequence[ASTStructure]:
     """Loads a Json string to construct an ASTNode."""
     # node_almost: AlmostJson = json.loads(
     #     json_string, object_hook=to_almost_json, **kwargs

@@ -43,8 +43,7 @@ from dataclasses import dataclass, field
 from fhy_core import Identifier, TemplateDataType
 
 from .base import ASTNode
-from .core import Function, Statement
-from .expression import Expression
+from .core import Expression, Function, Statement
 from .qualified_type import QualifiedType
 
 

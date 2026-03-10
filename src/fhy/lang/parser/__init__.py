@@ -35,3 +35,5 @@ from .FhYLexer import FhYLexer
 from .FhYListener import FhYListener
 from .FhYParser import FhYParser
 from .FhYVisitor import FhYVisitor
+
+__all__ = ["FhYLexer", "FhYListener", "FhYParser", "FhYVisitor"]

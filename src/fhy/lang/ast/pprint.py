@@ -40,6 +40,7 @@ Classes:
 """
 
 from collections.abc import Sequence
+from typing import cast
 
 from fhy_core import (
     Identifier,
@@ -70,7 +71,7 @@ class ASTPrettyFormatter(BasePass):
         self._current_indent = 0
 
     @property
-    def _indentation(self):
+    def _indentation(self) -> str:
         """Current indentations."""
         return self._indent_char * self._current_indent
 
@@ -89,7 +90,7 @@ class ASTPrettyFormatter(BasePass):
         return "\n".join(self.visit(statement) for statement in module.statements)
 
     def visit_import(self, node: ast.Import) -> str:
-        return "import " + self.visit(node.name) + ";"
+        return "import " + cast(str, self.visit(node.name)) + ";"
 
     def visit_operation(self, operation: ast.Operation) -> str:
         self._increment_indent()
@@ -147,7 +148,7 @@ class ASTPrettyFormatter(BasePass):
         else:
             left = ""
 
-        return left + self.visit(expression_statement.right) + ";"
+        return left + cast(str, self.visit(expression_statement.right)) + ";"
 
     def visit_selection_statement(
         self, selection_statement: ast.SelectionStatement
@@ -248,7 +249,7 @@ class ASTPrettyFormatter(BasePass):
     def visit_identifier_expression(
         self, identifier_expression: ast.IdentifierExpression
     ) -> str:
-        return self.visit(identifier_expression.identifier)
+        return cast(str, self.visit(identifier_expression.identifier))
 
     def visit_int_literal(self, int_literal: ast.IntLiteral) -> str:
         return str(int_literal.value)
@@ -281,7 +282,7 @@ class ASTPrettyFormatter(BasePass):
         return str(node.core_data_type.value)
 
     def visit_template_data_type(self, node: TemplateDataType) -> str:
-        return self.visit_identifier(node.template_type)
+        return self.visit_identifier(node.data_type)
 
     def visit_index_type(self, index_type: IndexType) -> str:
         index_range = (
@@ -328,4 +329,4 @@ def pformat_ast(
 
     """
     pformatter = ASTPrettyFormatter(indent_char, show_id)
-    return pformatter(ast)
+    return cast(str, pformatter(ast))
