@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "fhy"
-description = "Cross Domain Compiler for Accelerators"
+description = "Cross-domain-language frontend for the FhY compiler framework."
 license = {file = "LICENSE"}
 authors = [
    {name = "Christopher Priebe", email = "cpriebe@ucsd.edu"},
@@ -12,7 +12,6 @@ authors = [
 ]
 maintainers = [
    {name = "Christopher Priebe", email = "cpriebe@ucsd.edu"},
-   {name = "Jason C Del Rio", email = "j3delrio@ucsd.edu"},
 ]
 requires-python = ">=3.10"
 keywords = [
@@ -85,6 +84,7 @@ exclude_also = [
 [tool.mypy]
 mypy_path = "src"
 pretty = false
+strict = true
 
 [[tool.mypy.overrides]]
 module = [
