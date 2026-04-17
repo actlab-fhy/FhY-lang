@@ -29,17 +29,7 @@
 # WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-"""FhY AST Node Definitions, broken down into several grammar construct categories.
-
-1. Base and Core Nodes (Abstract)
-2. Expressions
-3. Components
-4. Statements
-5. Qualified Type Node
-
-We also have visitor and listener patterns for FhY ASTNodes.
-
-"""
+"""FhY language AST."""
 
 __all__ = [
     "Node",
@@ -117,6 +107,5 @@ from .node import (
 )
 from .passes import (
     collect_identifiers,
-    collect_imported_identifiers,
     replace_identifiers,
 )
