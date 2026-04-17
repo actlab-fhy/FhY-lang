@@ -31,9 +31,6 @@ def _iter_lines(text: str):
 
 def _clean_pretty_print_output(output: str) -> str:
     generator = _iter_lines(output)
-    for line in generator:
-        if line.startswith("=") and line.endswith("="):
-            break
     return "\n".join(generator).strip()
 
 
@@ -41,6 +38,7 @@ def _clean_pretty_print_output(output: str) -> str:
 def test_single_file_examples_through_cli_pretty(file: str):
     """Test the FhY CLI using pretty print on a collection of example files."""
     code, output, _ = access_cli("main", file, "-f", "pretty")
+    assert code == 0
     result = _clean_pretty_print_output(output)
 
     out_path = _grab_expected_output_file(file)
@@ -51,4 +49,3 @@ def test_single_file_examples_through_cli_pretty(file: str):
         get_diff(result, expected)
 
     assert result == expected
-    assert code == 0
