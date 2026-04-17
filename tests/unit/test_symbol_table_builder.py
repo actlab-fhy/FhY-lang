@@ -1,11 +1,11 @@
 """Tests the symbol table builder AST pass."""
 
 import pytest
-from fhy.error import FhYSemanticsError
 from fhy.lang.ast import (
     Argument,
     DeclarationStatement,
     ExpressionStatement,
+    FhYSemanticsError,
     IdentifierExpression,
     Module,
     Procedure,

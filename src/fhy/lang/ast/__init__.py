@@ -39,9 +39,11 @@ __all__ = [
     "Visitor",
     "BasePass",
     "Transformer",
+    "FhYSemanticsError",
 ]
 
 
+from .error import FhYSemanticsError
 from .node import (
     Argument,
     ArrayAccessExpression,

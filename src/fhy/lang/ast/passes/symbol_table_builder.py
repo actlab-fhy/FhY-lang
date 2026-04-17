@@ -26,7 +26,7 @@ from fhy_core import (
     collect_identifiers as collect_core_identifiers,
 )
 
-from fhy.error import FhYSemanticsError
+from fhy.lang.ast.error import FhYSemanticsError
 from fhy.lang.ast.node import (
     Argument,
     DeclarationStatement,
