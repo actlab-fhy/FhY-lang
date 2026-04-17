@@ -58,7 +58,7 @@ class IndexCollector(AnalysisVisitablePass):
     def indices(self) -> frozenset[Identifier]:
         return frozenset(self._indices)
 
-    def visit_identifier_exxpression(self, node: IdentifierExpression) -> None:
+    def visit_identifier_expression(self, node: IdentifierExpression) -> None:
         if self._is_identifier_index(node):
             self._indices.add(node)
 

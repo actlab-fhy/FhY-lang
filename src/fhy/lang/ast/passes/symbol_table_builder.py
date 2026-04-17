@@ -220,8 +220,7 @@ class _SymbolTableBuilder(VisitablePass[ASTStructure, None]):
             self.visit(arg)
         for statement in node.body:
             self.visit(statement)
-        for return_type in node.return_type:
-            self.visit(return_type)
+        self.visit(node.return_type)
         self._pop_namespace()
 
     def visit_argument(self, node: Argument) -> None:

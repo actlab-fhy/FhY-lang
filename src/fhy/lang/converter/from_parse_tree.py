@@ -210,10 +210,8 @@ class ParseTreeConverter(FhYVisitor):
 
         if keyword == "proc":
             if return_type is not None:
-                pos: Span | None = self._get_provenance(
-                    ctx.function_header().qualified_type()
-                )
-                text: str = _get_src_pos_msg(pos)
+                pos = self._get_provenance(ctx.function_header().qualified_type())
+                text: str = _get_src_pos_msg(pos.span)
                 raise FhYSyntaxError(f"Procedures do not have return types. {text}")
 
             return ast.Procedure(

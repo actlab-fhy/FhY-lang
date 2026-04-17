@@ -96,10 +96,4 @@ class Node(
         return isinstance(other, Node) and self._provenance == other._provenance
 
     def serialize_data_to_dict(self) -> SerializedDict:
-        return {
-            "provenance": (
-                self._provenance.serialize_to_dict()
-                if self._provenance is not None
-                else None
-            )
-        }
+        return {"provenance": (self._provenance.serialize_to_dict())}

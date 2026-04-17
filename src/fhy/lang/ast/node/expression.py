@@ -104,7 +104,7 @@ def _is_valid_unary_expression_data(
 ) -> TypeGuard[_UnaryExpressionData]:
     return (
         "operation" in data
-        and is_serialized_dict(data["operation"])
+        and isinstance(data["operation"], str)
         and "expression" in data
         and is_serialized_dict(data["expression"])
         and is_valid_expression_data(data)
@@ -224,7 +224,7 @@ def _is_valid_binary_expression_data(
 ) -> TypeGuard[_BinaryExpressionData]:
     return (
         "operation" in data
-        and is_serialized_dict(data["operation"])
+        and isinstance(data["operation"], str)
         and "left" in data
         and is_serialized_dict(data["left"])
         and "right" in data
