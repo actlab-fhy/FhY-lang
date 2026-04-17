@@ -31,6 +31,8 @@
 
 """FhY errors."""
 
+__all__ = ["FhYSyntaxError", "FhYASTBuildError", "FhYSemanticsError"]
+
 from fhy_core import register_error
 
 
@@ -45,10 +47,5 @@ class FhYASTBuildError(Exception):
 
 
 @register_error
-class FhYImportError(ImportError):
-    """Raised when an error occurs during the import of a FhY module."""
-
-
-@register_error
 class FhYSemanticsError(Exception):
-    """Raised when a semantics error in a FhY program is detected."""
+    """Raised when a semantic error in a FhY program is detected."""

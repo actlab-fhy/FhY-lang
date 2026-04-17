@@ -793,6 +793,9 @@ def from_parse_tree(
         parse_tree: FhY concrete syntax tree, module context.
         provenance: Provenance of the parse tree.
 
+    Returns:
+        The AST module.
+
     Raises:
         NotImplementedError: Attempted use of unsupported features of FhY language.
         FhYSyntaxError: Syntax error(s) found in FhY source code.

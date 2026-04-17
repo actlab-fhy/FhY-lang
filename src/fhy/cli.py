@@ -93,7 +93,7 @@ def compile_fhy_source(
 
     if main_file is None:
         _logger.error(
-            "Please provide a valid filepath to the main FhY module source code."
+            "Please provide a valid file path to the main FhY module source code."
         )
         sys.exit(1)
 
@@ -105,15 +105,15 @@ def compile_fhy_source(
 
     except KeyboardInterrupt as e:
         _logger.error(
-            "FhY Compilation has been Interrupted by client.",
+            "Compilation has been interrupted by client.",
             exc_info=e,
         )
         sys.exit(1)
     except Exception as e:
-        _logger.error("FhY Compilation has failed.", exc_info=e)
+        _logger.error("Compilation has failed.", exc_info=e)
         sys.exit(1)
     else:
-        _logger.info("FhY compilation completed successfully.")
+        _logger.info("Compilation completed successfully.")
 
     return program
 

@@ -82,12 +82,16 @@ def build_ast_program(workspace: Workspace, options: CompilationOptions) -> Modu
     """Build an AST Module.
 
     Args:
-        workspace: The workspace containing the FhY source program.
+        workspace: The workspace containing the FhY program.
         options: The compilation options.
 
     Returns:
-        The compiled FhY source program.
+        The compiled FhY program.
 
     """
     builder = _ASTProgramBuilder(workspace, options)
-    return builder.build()
+
+    _logger.info("Building the FhY AST module...")
+    module = builder.build()
+    _logger.info("FhY AST module built successfully.")
+    return module

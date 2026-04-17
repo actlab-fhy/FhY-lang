@@ -45,14 +45,17 @@ _logger: logging.Logger = get_logger(__name__)
 
 
 def compile_fhy(workspace: Workspace, options: CompilationOptions) -> Module:
-    """Compile a FhY source program.
+    """Compile a FhY program.
 
     Args:
-        workspace: The workspace containing the FhY source program.
+        workspace: The workspace containing the FhY  program.
         options: The compilation options.
 
     Returns:
-        The compiled FhY source program.
+        The compiled FhY program.
 
     """
-    return build_ast_program(workspace, options)
+    _logger.info("Compiling the FhY program...")
+    ast_program = build_ast_program(workspace, options)
+    _logger.info("FhY program compilation finished successfully.")
+    return ast_program

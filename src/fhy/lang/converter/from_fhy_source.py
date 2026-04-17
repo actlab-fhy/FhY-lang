@@ -217,7 +217,6 @@ def create_parser(input_str: str) -> FhYParser:
 def _fhy_source_to_parse_tree(fhy_source_content: str) -> FhYParser.ModuleContext:
     fhy_parser = create_parser(fhy_source_content)
     tree = fhy_parser.module()  # type: ignore[no-untyped-call]
-
     return cast(FhYParser.ModuleContext, tree)
 
 
