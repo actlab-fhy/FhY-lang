@@ -33,7 +33,7 @@
 
 __all__ = ["Transformer"]
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from functools import singledispatchmethod
 from typing import TypeVar, cast
 
@@ -89,12 +89,16 @@ class Transformer(VisitablePass[Node, Node]):
         return ir
 
     def visit_sequence(
-        self, nodes: Sequence[_T], is_length_same: bool = True
+        self,
+        nodes: Sequence[_T],
+        visit_fn: Callable[[_T], _T] | Callable[[_T], _T | Sequence[_T]],
+        is_length_same: bool = True,
     ) -> tuple[_T, ...]:
         """Visit a list of nodes or structures.
 
         Args:
             nodes: Nodes to visit.
+            visit_fn: Function to visit each node.
             is_length_same: Whether the length of the transformed nodes or
                 nodes should be the same as the input nodes.
 
@@ -102,20 +106,19 @@ class Transformer(VisitablePass[Node, Node]):
             Transformed nodes or structures.
 
         """
-        if is_length_same:
-            return tuple(self.visit(node) for node in nodes)
-        else:
-            new_nodes: list[_T] = []
-            for node in nodes:
-                new_node = self.visit(node)
-                # TODO: Implement returning "None" to remove the element.
-                # if new_node is None:
-                #     continue
-                if isinstance(new_node, Sequence):
-                    new_nodes.extend(new_node)
+        new_nodes: list[_T] = []
+        for node in nodes:
+            new_node = visit_fn(node)
+            if isinstance(new_node, Sequence):
+                if is_length_same:
+                    raise RuntimeError(
+                        "visit_fn returned a sequence, but is_length_same is True."
+                    )
                 else:
-                    new_nodes.append(new_node)
-            return tuple(new_nodes)
+                    new_nodes.extend(new_node)
+            else:
+                new_nodes.append(new_node)
+        return tuple(new_nodes)
 
     def visit_module(self, node: Module) -> Module:
         """Transform a module node.
@@ -125,7 +128,9 @@ class Transformer(VisitablePass[Node, Node]):
 
         """
         new_statements = self.visit_sequence(
-            cast(Sequence[Statement], node.statements), is_length_same=False
+            cast(Sequence[Statement], node.statements),
+            self.visit_statement,
+            is_length_same=False,
         )
 
         return Module(
@@ -177,10 +182,12 @@ class Transformer(VisitablePass[Node, Node]):
         new_templates = tuple(
             self.visit_template_data_type(template) for template in node.templates
         )
-        new_args = self.visit_sequence(node.args)
+        new_args = self.visit_sequence(node.args, self.visit_argument)
         new_return_type: QualifiedType = self.visit_qualified_type(node.return_type)
         new_body = self.visit_sequence(
-            cast(Sequence[Statement], node.body), is_length_same=False
+            cast(Sequence[Statement], node.body),
+            self.visit_statement,
+            is_length_same=False,
         )
 
         return Operation(
@@ -202,8 +209,10 @@ class Transformer(VisitablePass[Node, Node]):
         new_templates = tuple(
             self.visit_template_data_type(template) for template in node.templates
         )
-        new_args = self.visit_sequence(node.args)
-        new_body = self.visit_sequence(node.body, is_length_same=False)
+        new_args = self.visit_sequence(node.args, self.visit_argument)
+        new_body = self.visit_sequence(
+            node.body, self.visit_statement, is_length_same=False
+        )
 
         return Procedure(
             name=node.name,
@@ -262,8 +271,12 @@ class Transformer(VisitablePass[Node, Node]):
         """
         return SelectionStatement(
             condition=self.visit_expression(node.condition),
-            true_body=self.visit_sequence(node.true_body, is_length_same=False),
-            false_body=self.visit_sequence(node.false_body, is_length_same=False),
+            true_body=self.visit_sequence(
+                node.true_body, self.visit_statement, is_length_same=False
+            ),
+            false_body=self.visit_sequence(
+                node.false_body, self.visit_statement, is_length_same=False
+            ),
             provenance=node.provenance,
         )
 
@@ -276,7 +289,9 @@ class Transformer(VisitablePass[Node, Node]):
         """
         return ForAllStatement(
             index=self.visit_expression(node.index),
-            body=self.visit_sequence(node.body, is_length_same=False),
+            body=self.visit_sequence(
+                node.body, self.visit_statement, is_length_same=False
+            ),
             provenance=node.provenance,
         )
 
@@ -371,8 +386,10 @@ class Transformer(VisitablePass[Node, Node]):
             template_types=tuple(
                 self.visit_data_type(template) for template in node.template_types
             ),
-            indices=self.visit_sequence(cast(Sequence[Expression], node.indices)),
-            args=self.visit_sequence(node.args),
+            indices=self.visit_sequence(
+                cast(Sequence[Expression], node.indices), self.visit_expression
+            ),
+            args=self.visit_sequence(node.args, self.visit_expression),
             provenance=node.provenance,
         )
 
@@ -385,7 +402,9 @@ class Transformer(VisitablePass[Node, Node]):
         """
         return ArrayAccessExpression(
             array_expression=self.visit_expression(node.array_expression),
-            indices=self.visit_sequence(cast(Sequence[Expression], node.indices)),
+            indices=self.visit_sequence(
+                cast(Sequence[Expression], node.indices), self.visit_expression
+            ),
             provenance=node.provenance,
         )
 
@@ -398,7 +417,7 @@ class Transformer(VisitablePass[Node, Node]):
         """
         return TupleExpression(
             expressions=self.visit_sequence(
-                cast(Sequence[Expression], node.expressions)
+                cast(Sequence[Expression], node.expressions), self.visit_expression
             ),
             provenance=node.provenance,
         )
