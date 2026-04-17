@@ -11,8 +11,7 @@ from fhy_core import StrEnum, add_file_handler, get_logger
 
 from fhy import __version__
 from fhy.driver import CompilationOptions, Workspace, compile_fhy
-from fhy.lang.ast import Module
-from fhy.lang.ast.pprint import pformat_ast
+from fhy.lang import ASTModule, pformat_ast
 
 app = typer.Typer(
     name="FhY Language and Frontend",
@@ -51,7 +50,7 @@ def compile_fhy_source(
     main_file: Path | None = None,
     verbose: bool = False,
     log_file: Path | None = None,
-) -> Module:
+) -> ASTModule:
     """Parse a FhY project, compile it, and return the final AST module."""
     if log_file is not None:
         add_file_handler(
@@ -70,7 +69,7 @@ def compile_fhy_source(
     options = CompilationOptions(verbose=verbose)
 
     try:
-        program: Module = compile_fhy(workspace, options)
+        program: ASTModule = compile_fhy(workspace, options)
 
     except KeyboardInterrupt as e:
         _logger.error(

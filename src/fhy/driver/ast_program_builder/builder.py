@@ -8,8 +8,7 @@ from fhy_core import (
     Span,
 )
 
-from fhy.lang.ast import Module
-from fhy.lang.converter import from_fhy_source
+from fhy.lang import ASTModule, from_fhy_source
 
 from ..compilation_options import CompilationOptions
 from ..workspace import Workspace
@@ -29,7 +28,7 @@ class _ASTProgramBuilder:
         self._workspace = workspace
         self._options = options
 
-    def build(self) -> Module:
+    def build(self) -> ASTModule:
         with open(self._workspace.source_file) as f:
             source_text = f.read()
         span = Span(
@@ -43,7 +42,7 @@ class _ASTProgramBuilder:
         return from_fhy_source(source_text, Provenance(span=span))
 
 
-def build_ast_program(workspace: Workspace, options: CompilationOptions) -> Module:
+def build_ast_program(workspace: Workspace, options: CompilationOptions) -> ASTModule:
     """Build an AST Module.
 
     Args:

@@ -34,12 +34,15 @@ __all__ = [
     "collect_identifiers",
     "collect_imported_identifiers",
     "replace_identifiers",
-    "Source",
-    "Span",
+    "convert_ast_expression_to_core_expression",
+    "collect_indices",
+    "collect_reduced_indices",
+    "build_symbol_table",
     "Visitor",
     "BasePass",
     "Transformer",
     "FhYSemanticsError",
+    "pformat_ast",
 ]
 
 
@@ -77,6 +80,11 @@ from .node import (
     UnaryOperation,
 )
 from .passes import (
+    build_symbol_table,
     collect_identifiers,
+    collect_indices,
+    collect_reduced_indices,
+    convert_ast_expression_to_core_expression,
     replace_identifiers,
 )
+from .pprint import pformat_ast
