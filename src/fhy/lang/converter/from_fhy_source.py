@@ -43,6 +43,7 @@ from antlr4.atn.ATNConfigSet import ATNConfigSet  # type: ignore[import-untyped]
 from antlr4.error.ErrorListener import (  # type: ignore[import-untyped]
     ErrorListener,
 )
+from fhy_core import Provenance, get_logger
 
 from fhy.error import FhYSyntaxError
 from fhy.lang import ast
@@ -50,17 +51,15 @@ from fhy.lang.parser import FhYLexer, FhYParser
 
 from .from_parse_tree import from_parse_tree
 
-_log = logging.getLogger(__name__)
+_logger = get_logger(__name__)
 
 
 class ThrowingErrorListener(ErrorListener):  # type: ignore[misc]
     """An Overly Verbose, Descriptive Antlr Error Listener for Reasons."""
 
-    log: logging.Logger
-
-    def __init__(self, log: logging.Logger = _log) -> None:
+    def __init__(self, log: logging.Logger = _logger) -> None:
         super().__init__()
-        self.log = log
+        self.logger = log
 
     def syntaxError(
         self,
@@ -78,7 +77,7 @@ class ThrowingErrorListener(ErrorListener):  # type: ignore[misc]
         # message += f'text="{text}" - msg={msg} - ast={result}'
         message += f'text="{text}" - msg={msg}'
 
-        self.log.error(message)
+        self.logger.error(message)
 
         raise FhYSyntaxError(message) from e
 
@@ -100,7 +99,7 @@ class ThrowingErrorListener(ErrorListener):  # type: ignore[misc]
             configs,
         )
         report += f" exact={exact}"
-        self.log.debug(report)
+        self.logger.debug(report)
 
     def reportAttemptingFullContext(
         self,
@@ -118,7 +117,7 @@ class ThrowingErrorListener(ErrorListener):  # type: ignore[misc]
             stopIndex,
             configs,
         )
-        self.log.debug(report)
+        self.logger.debug(report)
 
     def reportContextSensitivity(
         self,
@@ -137,7 +136,7 @@ class ThrowingErrorListener(ErrorListener):  # type: ignore[misc]
             configs,
         )
         msg += f" predict={prediction}"
-        self.log.debug(msg)
+        self.logger.debug(msg)
 
     def _report(
         self,
@@ -193,7 +192,7 @@ class ThrowingErrorListener(ErrorListener):  # type: ignore[misc]
         return {i.alt for i in configs}
 
 
-def create_lexer(input_str: str, log: logging.Logger = _log) -> FhYLexer:
+def create_lexer(input_str: str, log: logging.Logger = _logger) -> FhYLexer:
     """Construct the FhyLexer from input string source code."""
     input_stream = InputStream(input_str)
     lexer = FhYLexer(input_stream)
@@ -203,22 +202,22 @@ def create_lexer(input_str: str, log: logging.Logger = _log) -> FhYLexer:
     return lexer
 
 
-def create_parser(input_str: str, log: logging.Logger = _log) -> FhYParser:
+def create_parser(input_str: str, logger: logging.Logger = _logger) -> FhYParser:
     """Construct the FhyParser from input string source code."""
-    lexer = create_lexer(input_str, log)
+    lexer = create_lexer(input_str, logger)
     token_stream = CommonTokenStream(lexer)
     parser = FhYParser(token_stream)
     # parser._errHandler = BailErrorStrategy()
     parser.removeErrorListeners()
-    parser.addErrorListener(ThrowingErrorListener(log))
+    parser.addErrorListener(ThrowingErrorListener(logger))
 
     return parser
 
 
 def _fhy_source_to_parse_tree(
-    fhy_source_content: str, log: logging.Logger = _log
+    fhy_source_content: str, logger: logging.Logger = _logger
 ) -> FhYParser.ModuleContext:
-    fhy_parser = create_parser(fhy_source_content, log)
+    fhy_parser = create_parser(fhy_source_content, logger)
     tree = fhy_parser.module()  # type: ignore[no-untyped-call]
 
     return cast(FhYParser.ModuleContext, tree)
@@ -226,22 +225,22 @@ def _fhy_source_to_parse_tree(
 
 def from_fhy_source(
     fhy_source_content: str,
-    source: ast.Source | None = None,
-    log: logging.Logger = _log,
+    provenance: Provenance,
+    logger: logging.Logger = _logger,
 ) -> ast.Module:
     """Convert FhY source code into corresponding AST module representation.
 
     Args:
-        fhy_source_content (str): FhY source code text.
-        source (optional, Source): Define code module source path or namespace.
-        log (logging.Logger): Inject a logger to control debugging information during
+        fhy_source_content: FhY source code text.
+        provenance: Provenance of the source code.
+        logger: Inject a logger to control debugging information during
             parsing.
 
     Returns:
-        (ast.Module): AST module representation of input source code.
+        AST module representation of input source code.
 
     """
-    tree = _fhy_source_to_parse_tree(fhy_source_content, log)
-    _ast = from_parse_tree(tree, source)
+    tree = _fhy_source_to_parse_tree(fhy_source_content, logger)
+    _ast = from_parse_tree(tree, provenance)
 
     return _ast

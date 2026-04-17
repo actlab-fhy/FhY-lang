@@ -25,11 +25,13 @@ def test_empty_procedure():
     """Tests empty procedure body containing procedure name in symbol table."""
     function_name = Identifier("main")
     program_ast = Module(
-        statements=Procedure(
-            name=function_name,
-            templates=[],
-            args=[],
-            body=[],
+        statements=(
+            Procedure(
+                name=function_name,
+                templates=[],
+                args=[],
+                body=[],
+            ),
         )
     )
     module_name = program_ast.name

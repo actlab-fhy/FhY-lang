@@ -31,14 +31,18 @@
 
 """AST visitor pass to collect import identifiers."""
 
-from fhy_core import Identifier
+from fhy_core import Identifier, register_pass
+from fhy_core.pass_infrastructure import AnalysisVisitablePass
 
 from fhy.lang.ast import node as ast
 from fhy.lang.ast.alias import ASTStructure
-from fhy.lang.ast.visitor import Visitor
 
 
-class ImportedIdentifierCollector(Visitor):
+@register_pass(
+    "fhy_ast_imported_identifier_collector",
+    "Collects all imported identifiers from the FhY AST.",
+)
+class ImportedIdentifierCollector(AnalysisVisitablePass):
     """Visitor pass to collect import identifiers from AST nodes."""
 
     _identifiers: set[Identifier]
@@ -48,25 +52,24 @@ class ImportedIdentifierCollector(Visitor):
         self._identifiers = set()
 
     @property
-    def identifiers(self) -> set[Identifier]:
-        return self._identifiers
+    def identifiers(self) -> frozenset[Identifier]:
+        return frozenset(self._identifiers)
 
     def visit_import(self, node: ast.Import) -> None:
         self._identifiers.add(node.name)
         super().visit_import(node)
 
 
-def collect_imported_identifiers(node: ASTStructure) -> set[Identifier]:
+def collect_imported_identifiers(node: ASTStructure) -> frozenset[Identifier]:
     """Collect all identifiers from import statements from a given node.
 
     Args:
-        node (ASTObject): AST node object.
+        node: AST node object.
 
     Returns:
-        Set[ir.Identifier]: Set of discovered import identifiers from node graph.
+        Set of discovered import identifiers from node graph.
 
     """
     collector = ImportedIdentifierCollector()
     collector(node)
-
     return collector.identifiers

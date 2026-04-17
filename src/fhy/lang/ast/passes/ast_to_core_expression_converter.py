@@ -31,7 +31,9 @@
 
 """Converter from AST expressions to core expressions."""
 
-from typing import ClassVar, NoReturn, cast
+__all__ = ["convert_ast_expression_to_core_expression"]
+
+from typing import ClassVar, cast
 
 from fhy_core import BinaryExpression as CoreBinaryExpression
 from fhy_core import BinaryOperation as CoreBinaryOperation
@@ -40,9 +42,9 @@ from fhy_core import IdentifierExpression as CoreIdentifierExpression
 from fhy_core import LiteralExpression as CoreLiteralExpression
 from fhy_core import UnaryExpression as CoreUnaryExpression
 from fhy_core import UnaryOperation as CoreUnaryOperation
+from fhy_core import VisitablePass, register_pass
 from frozendict import frozendict
 
-from fhy.lang.ast.node import ASTNode
 from fhy.lang.ast.node import BinaryExpression as ASTBinaryExpression
 from fhy.lang.ast.node import BinaryOperation as ASTBinaryOperation
 from fhy.lang.ast.node import ComplexLiteral as ASTComplexLiteralExpression
@@ -52,10 +54,13 @@ from fhy.lang.ast.node import IdentifierExpression as ASTIdentifierExpression
 from fhy.lang.ast.node import IntLiteral as ASTIntLiteralExpression
 from fhy.lang.ast.node import UnaryExpression as ASTUnaryExpression
 from fhy.lang.ast.node import UnaryOperation as ASTUnaryOperation
-from fhy.lang.ast.visitor import BasePass
 
 
-class ASTToCoreExpressionConverter(BasePass):
+@register_pass(
+    "fhy_ast_to_core_expression_converter",
+    "Converts FhY AST expressions to FhY Core expressions.",
+)
+class ASTToCoreExpressionConverter(VisitablePass[ASTExpression, CoreExpression]):
     """Convert AST expressions to core expressions."""
 
     _AST_TO_CORE_UNARY_OPERATIONS: ClassVar[
@@ -88,10 +93,8 @@ class ASTToCoreExpressionConverter(BasePass):
         }
     )
 
-    def default(self, node: ASTNode) -> NoReturn:
-        raise RuntimeError(
-            f"Core expressions do not support {node.__class__.__name__} AST nodes."
-        )
+    def get_noop_output(self, ir: ASTExpression) -> CoreExpression:
+        raise RuntimeError("This pass does not support a noop output.")
 
     def visit_unary_expression(self, node: ASTUnaryExpression) -> CoreUnaryExpression:
         return CoreUnaryExpression(

@@ -39,7 +39,10 @@ Classes:
 
 """
 
-from typing import Any
+__all__ = [
+    "build_symbol_table",
+]
+
 
 from fhy_core import (
     CoreDataType,
@@ -54,20 +57,32 @@ from fhy_core import (
     SymbolTableFrame,
     TypeQualifier,
     VariableSymbolTableFrame,
+    VisitablePass,
+    register_pass,
 )
-from fhy_core import (
-    IdentifierExpression as CoreIdentifierExpression,
-)
+from fhy_core import IdentifierExpression as CoreIdentifierExpression
 
 from fhy.error import FhYSemanticsError
 from fhy.ir.builtins import BUILTIN_LANG_IDENTIFIERS, BUILTINS_NAMESPACE_NAME
-from fhy.lang.ast.node import core, expression, statement
-from fhy.lang.ast.visitor import Visitor
+from fhy.lang.ast.alias import ASTStructure
+from fhy.lang.ast.node import (
+    Argument,
+    DeclarationStatement,
+    Import,
+    Operation,
+    Procedure,
+    core,
+    expression,
+)
 
 from .identifier_collector import collect_identifiers
 
 
-class SymbolTableBuilder(Visitor):
+@register_pass(
+    "fhy_ast_symbol_table_builder",
+    "Builds a symbol table for the given AST module node.",
+)
+class _SymbolTableBuilder(VisitablePass[ASTStructure, None]):
     """Builds a symbol table for the given AST module node.
 
     The class will throw an exception if a variable is used before being declared or if
@@ -112,6 +127,9 @@ class SymbolTableBuilder(Visitor):
     ) -> SymbolTable:
         return self._symbol_table
 
+    def get_noop_output(self, ir: ASTStructure) -> None:
+        raise RuntimeError("This pass does not support a noop output.")
+
     def _push_namespace(self, namespace_name: Identifier) -> None:
         if len(self._namespace_stack) == 0:
             parent_namespace_name = None
@@ -146,14 +164,10 @@ class SymbolTableBuilder(Visitor):
             )
         self._symbol_table.add_symbol(self._namespace_stack.peek(), symbol, frame)
 
-    def __call__(self, node: core.Module, *args: Any, **kwargs: Any) -> Any:
-        if not isinstance(node, core.Module):
-            raise TypeError(f'Expected a "Module" node. Received: {type(node)}')
-        return super().__call__(node, *args, **kwargs)
-
     def visit_module(self, node: core.Module) -> None:
         self._push_namespace(node.name)
-        super().visit_module(node)
+        for statement in node.statements:
+            self.visit(statement)
         self._pop_namespace()
 
         if len(self._namespace_stack) != 1:
@@ -162,13 +176,12 @@ class SymbolTableBuilder(Visitor):
             error_message += "module node."
             raise RuntimeError(error_message)
 
-    def visit_import(self, node: statement.Import) -> None:
+    def visit_import(self, node: Import) -> None:
         self._assert_symbol_not_defined(node.name)
         import_frame = ImportSymbolTableFrame(name=node.name)
         self._add_symbol(node.name, import_frame)
-        super().visit_import(node)
 
-    def visit_procedure(self, node: statement.Procedure) -> None:
+    def visit_procedure(self, node: Procedure) -> None:
         self._assert_symbol_not_defined(node.name)
         proc_frame = FunctionSymbolTableFrame(
             name=node.name,
@@ -180,10 +193,15 @@ class SymbolTableBuilder(Visitor):
         )
         self._add_symbol(node.name, proc_frame)
         self._push_namespace(node.name)
-        super().visit_procedure(node)
+        for template in node.templates:
+            self.visit(template)
+        for arg in node.args:
+            self.visit(arg)
+        for statement in node.body:
+            self.visit(statement)
         self._pop_namespace()
 
-    def visit_operation(self, node: statement.Operation) -> None:
+    def visit_operation(self, node: Operation) -> None:
         self._assert_symbol_not_defined(node.name)
         op_frame = FunctionSymbolTableFrame(
             name=node.name,
@@ -196,10 +214,17 @@ class SymbolTableBuilder(Visitor):
         )
         self._add_symbol(node.name, op_frame)
         self._push_namespace(node.name)
-        super().visit_operation(node)
+        for template in node.templates:
+            self.visit(template)
+        for arg in node.args:
+            self.visit(arg)
+        for statement in node.body:
+            self.visit(statement)
+        for return_type in node.return_type:
+            self.visit(return_type)
         self._pop_namespace()
 
-    def visit_argument(self, node: statement.Argument) -> None:
+    def visit_argument(self, node: Argument) -> None:
         arg_frame = VariableSymbolTableFrame(
             name=node.name,
             type=node.qualified_type.base_type,
@@ -221,9 +246,7 @@ class SymbolTableBuilder(Visitor):
                     )
                     self._add_symbol(dimension, var_frame)
 
-        super().visit_argument(node)
-
-    def visit_declaration_statement(self, node: statement.DeclarationStatement) -> None:
+    def visit_declaration_statement(self, node: DeclarationStatement) -> None:
         self._assert_symbol_not_defined(node.variable_name)
         var_frame = VariableSymbolTableFrame(
             name=node.variable_name,
@@ -231,27 +254,24 @@ class SymbolTableBuilder(Visitor):
             type_qualifier=node.variable_type.type_qualifier,
         )
         self._add_symbol(node.variable_name, var_frame)
-        super().visit_declaration_statement(node)
 
     def visit_identifier_expression(
         self, node: expression.IdentifierExpression
     ) -> None:
         self._assert_symbol_defined(node.identifier)
-        super().visit_identifier_expression(node)
 
     def visit_core_identifier_expression(self, node: CoreIdentifierExpression) -> None:
         self._assert_symbol_defined(node.identifier)
-        return super().visit_core_identifier_expression(node)
 
 
 def build_symbol_table(node: core.Module) -> SymbolTable:
     """Build a symbol table from a module AST node.
 
     Argument:
-        node (ast.Module): FhY module AST node
+        node: FhY module AST node
 
     Returns:
-        (SymbolTable) Symbol table cataloging all variables from the provided module,
+         Symbol table cataloging all variables from the provided module,
             by appropriate frame.
 
     Raises:
@@ -261,7 +281,7 @@ def build_symbol_table(node: core.Module) -> SymbolTable:
         TypeError: Received wrong argument (node) type.
 
     """
-    builder = SymbolTableBuilder()
+    builder = _SymbolTableBuilder()
     builder(node)
 
     return builder.symbol_table
