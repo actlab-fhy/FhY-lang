@@ -43,7 +43,7 @@ from fhy.lang.ast.node.expression import FunctionExpression, IdentifierExpressio
 @register_pass(
     "fhy_ast_index_collector", "Collects all the indices used in an AST expression."
 )
-class IndexCollector(AnalysisVisitablePass):
+class IndexCollector(AnalysisVisitablePass[core.Expression]):
     """Collect all the indices used in an AST expression."""
 
     _is_identifier_index: Callable[[Identifier], bool]
@@ -59,8 +59,8 @@ class IndexCollector(AnalysisVisitablePass):
         return frozenset(self._indices)
 
     def visit_identifier_expression(self, node: IdentifierExpression) -> None:
-        if self._is_identifier_index(node):
-            self._indices.add(node)
+        if self._is_identifier_index(node.identifier):
+            self._indices.add(node.identifier)
 
 
 def collect_indices(
@@ -88,7 +88,7 @@ def collect_indices(
     "fhy_ast_reduced_index_collector",
     "Collects all the indices used in an AST expression that are reduced.",
 )
-class ReducedIndexCollector(AnalysisVisitablePass):
+class ReducedIndexCollector(AnalysisVisitablePass[core.Expression]):
     """Collect all the indices used in an AST expression that are reduced."""
 
     _is_identifier_index: Callable[[Identifier], bool]

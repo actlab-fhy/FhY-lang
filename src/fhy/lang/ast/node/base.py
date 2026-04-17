@@ -39,7 +39,7 @@ __all__ = [
 ]
 
 from abc import ABC
-from dataclasses import InitVar, dataclass, field
+from dataclasses import dataclass
 from typing import TypedDict, TypeGuard
 
 from fhy_core import (
@@ -82,18 +82,13 @@ class Node(
 ):
     """A node in the FhY AST."""
 
-    provenance: InitVar[Provenance]
-    _provenance: Provenance = field(init=False)
+    provenance: Provenance
 
-    def __post_init__(self, provenance: Provenance) -> None:
-        object.__setattr__(self, "_provenance", provenance)
-
-    @property
-    def provenance(self) -> Provenance:
-        return self._provenance
+    def get_provenance(self) -> Provenance:
+        return self.provenance
 
     def is_structurally_equivalent(self, other: object) -> bool:
-        return isinstance(other, Node) and self._provenance == other._provenance
+        return isinstance(other, Node) and self.provenance == other.provenance
 
     def serialize_data_to_dict(self) -> SerializedDict:
-        return {"provenance": (self._provenance.serialize_to_dict())}
+        return {"provenance": (self.provenance.serialize_to_dict())}

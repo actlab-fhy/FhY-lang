@@ -61,13 +61,16 @@ from fhy_core import (
     register_pass,
 )
 from fhy_core import IdentifierExpression as CoreIdentifierExpression
+from fhy_core import (
+    collect_identifiers as collect_core_identifiers,
+)
 
 from fhy.error import FhYSemanticsError
-from fhy.lang.ast.alias import ASTStructure
 from fhy.lang.ast.node import (
     Argument,
     DeclarationStatement,
     Import,
+    Node,
     Operation,
     Procedure,
     core,
@@ -75,14 +78,12 @@ from fhy.lang.ast.node import (
 )
 from fhy.lang.builtins import BUILTIN_LANG_IDENTIFIERS, BUILTINS_NAMESPACE_NAME
 
-from .identifier_collector import collect_identifiers
-
 
 @register_pass(
     "fhy_ast_symbol_table_builder",
     "Builds a symbol table for the given AST module node.",
 )
-class _SymbolTableBuilder(VisitablePass[ASTStructure, None]):
+class _SymbolTableBuilder(VisitablePass[Node, None]):
     """Builds a symbol table for the given AST module node.
 
     The class will throw an exception if a variable is used before being declared or if
@@ -127,7 +128,7 @@ class _SymbolTableBuilder(VisitablePass[ASTStructure, None]):
     ) -> SymbolTable:
         return self._symbol_table
 
-    def get_noop_output(self, ir: ASTStructure) -> None:
+    def get_noop_output(self, ir: Node) -> None:
         raise RuntimeError("This pass does not support a noop output.")
 
     def _push_namespace(self, namespace_name: Identifier) -> None:
@@ -193,8 +194,6 @@ class _SymbolTableBuilder(VisitablePass[ASTStructure, None]):
         )
         self._add_symbol(node.name, proc_frame)
         self._push_namespace(node.name)
-        for template in node.templates:
-            self.visit(template)
         for arg in node.args:
             self.visit(arg)
         for statement in node.body:
@@ -214,8 +213,6 @@ class _SymbolTableBuilder(VisitablePass[ASTStructure, None]):
         )
         self._add_symbol(node.name, op_frame)
         self._push_namespace(node.name)
-        for template in node.templates:
-            self.visit(template)
         for arg in node.args:
             self.visit(arg)
         for statement in node.body:
@@ -234,7 +231,7 @@ class _SymbolTableBuilder(VisitablePass[ASTStructure, None]):
         if isinstance(node.qualified_type.base_type, NumericalType):
             shape_dimension_identifiers: set[Identifier] = set()
             for shape in node.qualified_type.base_type.shape:
-                shape_dimension_identifiers.update(collect_identifiers(shape))
+                shape_dimension_identifiers.update(collect_core_identifiers(shape))
 
             for dimension in shape_dimension_identifiers:
                 if not self._is_symbol_defined(dimension):

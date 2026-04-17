@@ -63,7 +63,6 @@ from fhy_core import (
 
 from fhy.error import FhYSyntaxError
 from fhy.lang import ast
-from fhy.lang.ast.alias import ASTExpressionStructure
 from fhy.lang.ast.passes import convert_ast_expression_to_core_expression
 from fhy.lang.builtins import BUILTIN_LANG_IDENTIFIERS
 from fhy.lang.parser import FhYParser, FhYVisitor  # type: ignore[import-untyped]
@@ -617,9 +616,7 @@ class ParseTreeConverter(FhYVisitor):
         id_express: FhYParser.Identifier_expressionContext | None
 
         if (tup := ctx.tuple_()) is not None:
-            expressions: Sequence[ASTExpressionStructure] = self.visitExpression_list(
-                tup
-            )
+            expressions: Sequence[ast.Expression] = self.visitExpression_list(tup)
 
             return ast.TupleExpression(
                 provenance=provenance,

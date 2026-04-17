@@ -93,8 +93,7 @@ class Module(Node, HasIdentifierMixin):
     name: Identifier = field(default=Identifier("module"))
     statements: tuple["Statement", ...] = field(default_factory=tuple)
 
-    @property
-    def identifier(self) -> Identifier:
+    def get_identifier(self) -> Identifier:
         return self.name
 
     def get_visit_children(self) -> Sequence[Visitable]:
@@ -174,8 +173,7 @@ class Function(Statement, HasIdentifierMixin, ABC):
 
     name: Identifier
 
-    @property
-    def identifier(self) -> Identifier:
+    def get_identifier(self) -> Identifier:
         return self.name
 
     def is_structurally_equivalent(self, other: object) -> bool:

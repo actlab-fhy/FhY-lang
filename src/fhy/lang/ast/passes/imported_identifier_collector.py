@@ -35,14 +35,13 @@ from fhy_core import Identifier, register_pass
 from fhy_core.pass_infrastructure import AnalysisVisitablePass
 
 from fhy.lang.ast import node as ast
-from fhy.lang.ast.alias import ASTStructure
 
 
 @register_pass(
     "fhy_ast_imported_identifier_collector",
     "Collects all imported identifiers from the FhY AST.",
 )
-class ImportedIdentifierCollector(AnalysisVisitablePass):
+class ImportedIdentifierCollector(AnalysisVisitablePass[ast.Node]):
     """Visitor pass to collect import identifiers from AST nodes."""
 
     _identifiers: set[Identifier]
@@ -57,10 +56,9 @@ class ImportedIdentifierCollector(AnalysisVisitablePass):
 
     def visit_import(self, node: ast.Import) -> None:
         self._identifiers.add(node.name)
-        super().visit_import(node)
 
 
-def collect_imported_identifiers(node: ASTStructure) -> frozenset[Identifier]:
+def collect_imported_identifiers(node: ast.Node) -> frozenset[Identifier]:
     """Collect all identifiers from import statements from a given node.
 
     Args:

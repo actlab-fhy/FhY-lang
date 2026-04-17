@@ -67,14 +67,13 @@ def _is_valid_qualified_type_data(
 
 @register_serializable(type_id="fhy_ast_qualified_type")
 @dataclass(frozen=True, kw_only=True)
-class QualifiedType(Node, HasTypeMixin):
+class QualifiedType(Node, HasTypeMixin[Type]):
     """FhY qualified type AST node."""
 
     base_type: Type
     type_qualifier: TypeQualifier
 
-    @property
-    def type(self) -> Type:
+    def get_type(self) -> Type:
         return self.base_type
 
     def is_structurally_equivalent(self, other: object) -> bool:

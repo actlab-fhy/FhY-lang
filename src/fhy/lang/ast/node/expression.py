@@ -119,8 +119,7 @@ class UnaryExpression(Expression, HasOperandsMixin[Expression]):
     operation: UnaryOperation
     expression: Expression
 
-    @property
-    def operands(self) -> tuple[Expression, ...]:
+    def get_operands(self) -> tuple[Expression, ...]:
         return (self.expression,)
 
     def get_visit_children(self) -> Sequence[Visitable]:
@@ -242,8 +241,7 @@ class BinaryExpression(Expression, HasOperandsMixin[Expression]):
     left: Expression
     right: Expression
 
-    @property
-    def operands(self) -> tuple[Expression, ...]:
+    def get_operands(self) -> tuple[Expression, Expression]:
         return (self.left, self.right)
 
     def get_visit_children(self) -> Sequence[Visitable]:
@@ -373,8 +371,7 @@ class TupleAccessExpression(Expression, HasOperandsMixin[Expression]):
     tuple_expression: Expression
     element_index: "IntLiteral"
 
-    @property
-    def operands(self) -> tuple[Expression, Expression]:
+    def get_operands(self) -> tuple[Expression, Expression]:
         return (
             self.tuple_expression,
             self.element_index,
@@ -453,8 +450,7 @@ class FunctionExpression(Expression, HasOperandsMixin[Expression]):
     indices: tuple[Expression, ...] = field(default_factory=tuple)
     args: tuple[Expression, ...] = field(default_factory=tuple)
 
-    @property
-    def operands(self) -> tuple[Expression, ...]:
+    def get_operands(self) -> tuple[Expression, ...]:
         return self.args
 
     def get_visit_children(self) -> Sequence[Visitable]:
@@ -542,8 +538,7 @@ class ArrayAccessExpression(Expression, HasOperandsMixin[Expression]):
     array_expression: Expression
     indices: tuple[Expression, ...] = field(default_factory=tuple)
 
-    @property
-    def operands(self) -> tuple[Expression, ...]:
+    def get_operands(self) -> tuple[Expression, ...]:
         return (self.array_expression, *self.indices)
 
     def get_visit_children(self) -> Sequence[Visitable]:
@@ -607,8 +602,7 @@ class TupleExpression(Expression, HasOperandsMixin[Expression]):
 
     expressions: tuple[Expression, ...] = field(default_factory=tuple)
 
-    @property
-    def operands(self) -> tuple[Expression, ...]:
+    def get_operands(self) -> tuple[Expression, ...]:
         return self.expressions
 
     def get_visit_children(self) -> Sequence[Visitable]:

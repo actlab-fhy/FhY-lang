@@ -31,7 +31,7 @@ from fhy_core import IdentifierExpression as CoreIdentifierExpression
 
 def test_empty_module():
     """Test an empty module returns empty set."""
-    module = Module()
+    module = Module(provenance=Provenance.unknown())
     identifiers = collect_identifiers(module)
     assert len(identifiers) == 1
     identifier = next(iter(identifiers))
@@ -51,7 +51,8 @@ def test_declaration_statement():
             type_qualifier=TypeQualifier.TEMP,
             provenance=Provenance.unknown(),
         ),
-        expression=IntLiteral(value=5),
+        expression=IntLiteral(value=5, provenance=Provenance.unknown()),
+        provenance=Provenance.unknown(),
     )
 
     result = collect_identifiers(statement)
@@ -68,7 +69,8 @@ def test_expression_statement():
             right=IdentifierExpression(identifier=y, provenance=Provenance.unknown()),
             operation=BinaryOperation.ADDITION,
             provenance=Provenance.unknown(),
-        )
+        ),
+        provenance=Provenance.unknown(),
     )
     result = collect_identifiers(statement)
     assert result == {x, y}
@@ -92,6 +94,7 @@ def test_function_expression():
                     type_qualifier=TypeQualifier.TEMP,
                     provenance=Provenance.unknown(),
                 ),
+                provenance=Provenance.unknown(),
             ),
             Argument(
                 name=y,
@@ -100,6 +103,7 @@ def test_function_expression():
                     type_qualifier=TypeQualifier.TEMP,
                     provenance=Provenance.unknown(),
                 ),
+                provenance=Provenance.unknown(),
             ),
         ],
         provenance=Provenance.unknown(),
@@ -117,6 +121,7 @@ def test_array_access_expression():
             identifier=arr, provenance=Provenance.unknown()
         ),
         indices=[IdentifierExpression(identifier=i, provenance=Provenance.unknown())],
+        provenance=Provenance.unknown(),
     )
     result = collect_identifiers(arr_access)
     assert result == {i, arr}
@@ -125,7 +130,9 @@ def test_array_access_expression():
 def test_empty_procedure():
     """Test retrieval of identifiers from an empty procedure."""
     foo = Identifier("foo")
-    proc = Procedure(name=foo, templates=[], args=[], body=[])
+    proc = Procedure(
+        name=foo, templates=[], args=[], body=[], provenance=Provenance.unknown()
+    )
     result = collect_identifiers(proc)
     assert result == {foo}
 
@@ -143,6 +150,7 @@ def test_empty_operation():
             type_qualifier=TypeQualifier.TEMP,
             provenance=Provenance.unknown(),
         ),
+        provenance=Provenance.unknown(),
     )
     result = collect_identifiers(op)
     assert result == {foo}
@@ -164,6 +172,7 @@ def test_function_arguments():
                     type_qualifier=TypeQualifier.TEMP,
                     provenance=Provenance.unknown(),
                 ),
+                provenance=Provenance.unknown(),
             ),
             Argument(
                 name=y,
@@ -172,9 +181,11 @@ def test_function_arguments():
                     type_qualifier=TypeQualifier.TEMP,
                     provenance=Provenance.unknown(),
                 ),
+                provenance=Provenance.unknown(),
             ),
         ],
         body=[],
+        provenance=Provenance.unknown(),
     )
     result = collect_identifiers(proc)
     assert result == {x, y, bar}
@@ -184,6 +195,12 @@ def test_function_template_types():
     """Test retrieval of identifiers from template types."""
     T = Identifier("T")
     bar = Identifier("bar")
-    proc = Procedure(name=bar, templates=[TemplateDataType(T)], args=[], body=[])
+    proc = Procedure(
+        name=bar,
+        templates=[TemplateDataType(T)],
+        args=[],
+        body=[],
+        provenance=Provenance.unknown(),
+    )
     result = collect_identifiers(proc)
     assert result == {T, bar}

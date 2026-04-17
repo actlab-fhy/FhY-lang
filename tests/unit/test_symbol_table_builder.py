@@ -2,12 +2,12 @@
 
 from fhy.lang.ast import Module, Procedure
 from fhy.lang.ast.passes import build_symbol_table
-from fhy_core import Identifier
+from fhy_core import Identifier, Provenance
 
 
 def test_empty_program():
     """Tests an empty program."""
-    program_ast = Module()
+    program_ast = Module(provenance=Provenance.unknown())
     module_name = program_ast.name
 
     symbol_table = build_symbol_table(program_ast)
@@ -31,8 +31,10 @@ def test_empty_procedure():
                 templates=[],
                 args=[],
                 body=[],
+                provenance=Provenance.unknown(),
             ),
-        )
+        ),
+        provenance=Provenance.unknown(),
     )
     module_name = program_ast.name
 

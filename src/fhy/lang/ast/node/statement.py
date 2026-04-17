@@ -246,16 +246,16 @@ class Procedure(Function):
             )
         return cls(
             name=Identifier.deserialize_from_dict(data["name"]),
-            templates=[
+            templates=tuple(
                 TemplateDataType.deserialize_from_dict(template)
                 for template in data["templates"]
-            ],
-            args=[
+            ),
+            args=tuple(
                 Argument.deserialize_from_dict(argument) for argument in data["args"]
-            ],
-            body=[
+            ),
+            body=tuple(
                 Statement.deserialize_from_dict(statement) for statement in data["body"]
-            ],
+            ),
             provenance=deserialize_node_provenance(data),
         )
 
@@ -337,16 +337,16 @@ class Operation(Function):
             )
         return cls(
             name=Identifier.deserialize_from_dict(data["name"]),
-            templates=[
+            templates=tuple(
                 TemplateDataType.deserialize_from_dict(template)
                 for template in data["templates"]
-            ],
-            args=[
+            ),
+            args=tuple(
                 Argument.deserialize_from_dict(argument) for argument in data["args"]
-            ],
-            body=[
+            ),
+            body=tuple(
                 Statement.deserialize_from_dict(statement) for statement in data["body"]
-            ],
+            ),
             return_type=QualifiedType.deserialize_from_dict(data["return_type"]),
             provenance=deserialize_node_provenance(data),
         )
@@ -399,9 +399,9 @@ class Native(Function):
             )
         return cls(
             name=Identifier.deserialize_from_dict(data["name"]),
-            args=[
+            args=tuple(
                 Argument.deserialize_from_dict(argument) for argument in data["args"]
-            ],
+            ),
             provenance=deserialize_node_provenance(data),
         )
 
@@ -612,9 +612,9 @@ class ForAllStatement(Statement):
             )
         return cls(
             index=Expression.deserialize_from_dict(data["index"]),
-            body=[
+            body=tuple(
                 Statement.deserialize_from_dict(statement) for statement in data["body"]
-            ],
+            ),
             provenance=deserialize_node_provenance(data),
         )
 
@@ -696,14 +696,14 @@ class SelectionStatement(Statement):
             )
         return cls(
             condition=Expression.deserialize_from_dict(data["condition"]),
-            true_body=[
+            true_body=tuple(
                 Statement.deserialize_from_dict(statement)
                 for statement in data["true_body"]
-            ],
-            false_body=[
+            ),
+            false_body=tuple(
                 Statement.deserialize_from_dict(statement)
                 for statement in data["false_body"]
-            ],
+            ),
             provenance=deserialize_node_provenance(data),
         )
 

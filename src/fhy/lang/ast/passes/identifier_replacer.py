@@ -31,11 +31,9 @@
 
 """Identifier replacement transformer."""
 
-from typing import cast
-
 from fhy_core import Identifier, register_pass
 
-from fhy.lang.ast.alias import ASTStructure
+from fhy.lang.ast.node import Node
 from fhy.lang.ast.transformer import Transformer
 
 
@@ -60,17 +58,16 @@ class IdentifierReplacer(Transformer):
 
 
 def replace_identifiers(
-    node: ASTStructure, identifier_map: dict[Identifier, Identifier]
-) -> ASTStructure:
+    node: Node, identifier_map: dict[Identifier, Identifier]
+) -> Node:
     """Replace identifiers within AST.
 
     Args:
-        node: AST structure.
-        identifier_map (Dict[ir.Identifier, ir.Identifier]): mapping describing
-            identifiers to change from and to.
+        node: AST node.
+        identifier_map: mapping describing identifiers to change from and to.
 
     Returns:
         Node with identifiers replaced as prescribed by mapping.
 
     """
-    return cast(ASTStructure, IdentifierReplacer(identifier_map)(node))
+    return IdentifierReplacer(identifier_map)(node)

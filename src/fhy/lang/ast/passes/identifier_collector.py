@@ -49,13 +49,13 @@ from fhy_core.pass_infrastructure import (
     AnalysisVisitablePass,  # get from top-level; also, fix other places
 )
 
-from fhy.lang.ast.alias import ASTStructure
 from fhy.lang.ast.node import (
     Argument,
     DeclarationStatement,
     FunctionExpression,
     IdentifierExpression,
     Module,
+    Node,
     Operation,
     Procedure,
     QualifiedType,
@@ -66,7 +66,7 @@ from fhy.lang.ast.node import (
     "fhy_ast_identifier_collector",
     "Collects all identifiers in the FhY AST for any given node.",
 )
-class IdentifierCollector(AnalysisVisitablePass):
+class IdentifierCollector(AnalysisVisitablePass[Node]):
     """Collect all identifiers in the AST for any given node."""
 
     _identifiers: set[Identifier]
@@ -154,7 +154,7 @@ class IdentifierCollector(AnalysisVisitablePass):
         return
 
 
-def collect_identifiers(node: ASTStructure) -> frozenset[Identifier]:
+def collect_identifiers(node: Node) -> frozenset[Identifier]:
     """Return a set of identifier objects from a given AST node object."""
     collector = IdentifierCollector()
     collector(node)
