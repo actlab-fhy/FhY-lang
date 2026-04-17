@@ -1,10 +1,14 @@
-"""Test the Identifier Collector AST Pass."""
+"""Tests the identifier collector AST pass."""
 
-from collections.abc import Callable, Generator
-
-import pytest
 from fhy.lang.ast import (
+    Argument,
+    ArrayAccessExpression,
+    BinaryExpression,
+    BinaryOperation,
     DeclarationStatement,
+    ExpressionStatement,
+    FunctionExpression,
+    IdentifierExpression,
     IntLiteral,
     Module,
     Operation,
@@ -12,86 +16,174 @@ from fhy.lang.ast import (
     QualifiedType,
 )
 from fhy.lang.ast.passes.identifier_collector import (
-    IdentifierCollector,
     collect_identifiers,
 )
-from fhy_core import CoreDataType, Identifier, NumericalType, TypeQualifier
-
-
-@pytest.fixture
-def build_id() -> Generator[Callable[[str, int], Identifier], None, None]:
-    """Build an Identifier Node, with a hacked ID."""
-
-    def inner(name: str, value: int) -> Identifier:
-        i = Identifier(name)
-        i._id = value
-
-        return i
-
-    yield inner
-
-
-@pytest.mark.parametrize("name", ["queen", "honey", "butter"])
-@pytest.mark.parametrize("value", [7, 15, 27])
-def test_collector_cls(build_id, name, value):
-    """Test collection of Identifiers using the class directly on Identifier nodes."""
-    node = build_id(name, value)
-    instance = IdentifierCollector()
-    instance(node)
-
-    assert instance.identifiers == {node}, "Expected found Identifiers to Match."
-
-
-@pytest.mark.parametrize("name", ["truffle", "pig"])
-@pytest.mark.parametrize("value", [29, 121])
-def test_collector_function(build_id, name, value):
-    """Test Identifiers Collected by function api."""
-    node = build_id(name, value)
-    result = collect_identifiers(node)
-    assert result == {node}, "Expected found Identifiers to Match."
+from fhy_core import (
+    CoreDataType,
+    Identifier,
+    NumericalType,
+    Provenance,
+    TemplateDataType,
+    TypeQualifier,
+)
+from fhy_core import IdentifierExpression as CoreIdentifierExpression
 
 
 def test_empty_module():
     """Test an empty module returns empty set."""
-    collect_identifiers(Module()) == set()
+    module = Module()
+    identifiers = collect_identifiers(module)
+    assert len(identifiers) == 1
+    identifier = next(iter(identifiers))
+    assert identifier == module.name
 
 
-def _qualified_type():
-    return QualifiedType(
-        base_type=NumericalType(data_type=CoreDataType.INT32, shape=[]),
-        type_qualifier=TypeQualifier.INPUT,
-    )
-
-
-def test_declaration_statement(build_id):
-    """Test retrieval of ID from Declaration Statement."""
-    identity = build_id("rosanne", 23)
-
+def test_declaration_statement():
+    """Test retrieval of identifiers from a declaration statement."""
+    x = Identifier("x")
+    N = Identifier("N")
     statement = DeclarationStatement(
-        variable_name=identity,
-        variable_type=_qualified_type(),
+        variable_name=x,
+        variable_type=QualifiedType(
+            base_type=NumericalType(
+                CoreDataType.INT32, shape=[CoreIdentifierExpression(N)]
+            ),
+            type_qualifier=TypeQualifier.TEMP,
+            provenance=Provenance.unknown(),
+        ),
         expression=IntLiteral(value=5),
     )
 
     result = collect_identifiers(statement)
-    assert result == {identity}, "Expected to retrieve one Identifier"
+    assert result == {x, N}
 
 
-def test_empty_procedure(build_id):
-    """Test retrieval of ID from Empty Procedure Component."""
-    identity = build_id("bar", 96)
+def test_expression_statement():
+    """Test retrieval of identifiers from an expression statement."""
+    x = Identifier("x")
+    y = Identifier("y")
+    statement = ExpressionStatement(
+        right=BinaryExpression(
+            left=IdentifierExpression(identifier=x, provenance=Provenance.unknown()),
+            right=IdentifierExpression(identifier=y, provenance=Provenance.unknown()),
+            operation=BinaryOperation.ADDITION,
+            provenance=Provenance.unknown(),
+        )
+    )
+    result = collect_identifiers(statement)
+    assert result == {x, y}
 
-    proc = Procedure(name=identity, args=[], body=[])
 
+def test_function_expression():
+    """Test retrieval of identifiers from a function expression."""
+    x = Identifier("x")
+    y = Identifier("y")
+    i = Identifier("i")
+    foo = Identifier("foo")
+    func = FunctionExpression(
+        function=IdentifierExpression(identifier=foo, provenance=Provenance.unknown()),
+        indices=[IdentifierExpression(identifier=i, provenance=Provenance.unknown())],
+        template_types=[],
+        args=[
+            Argument(
+                name=x,
+                qualified_type=QualifiedType(
+                    base_type=NumericalType(CoreDataType.INT32),
+                    type_qualifier=TypeQualifier.TEMP,
+                    provenance=Provenance.unknown(),
+                ),
+            ),
+            Argument(
+                name=y,
+                qualified_type=QualifiedType(
+                    base_type=NumericalType(CoreDataType.INT32),
+                    type_qualifier=TypeQualifier.TEMP,
+                    provenance=Provenance.unknown(),
+                ),
+            ),
+        ],
+        provenance=Provenance.unknown(),
+    )
+    result = collect_identifiers(func)
+    assert result == {x, y, foo, i}
+
+
+def test_array_access_expression():
+    """Test retrieval of identifiers from an array access expression."""
+    i = Identifier("i")
+    arr = Identifier("arr")
+    arr_access = ArrayAccessExpression(
+        array_expression=IdentifierExpression(
+            identifier=arr, provenance=Provenance.unknown()
+        ),
+        indices=[IdentifierExpression(identifier=i, provenance=Provenance.unknown())],
+    )
+    result = collect_identifiers(arr_access)
+    assert result == {i, arr}
+
+
+def test_empty_procedure():
+    """Test retrieval of identifiers from an empty procedure."""
+    foo = Identifier("foo")
+    proc = Procedure(name=foo, templates=[], args=[], body=[])
     result = collect_identifiers(proc)
-    assert result == {identity}, "Expected to retrieve one Identifier"
+    assert result == {foo}
 
 
-def test_empty_operation(build_id):
-    """Test retrieval of ID from Empty Operation Component."""
-    identity = build_id("foo", 117)
-
-    op = Operation(name=identity, args=[], body=[], return_type=_qualified_type())
-
+def test_empty_operation():
+    """Test retrieval of identifiers from an empty operation."""
+    foo = Identifier("foo")
+    op = Operation(
+        name=foo,
+        templates=[],
+        args=[],
+        body=[],
+        return_type=QualifiedType(
+            base_type=NumericalType(data_type=CoreDataType.INT32),
+            type_qualifier=TypeQualifier.TEMP,
+            provenance=Provenance.unknown(),
+        ),
+    )
     result = collect_identifiers(op)
-    assert result == {identity}, "Expected to retrieve one Identifier"
+    assert result == {foo}
+
+
+def test_function_arguments():
+    """Test retrieval of identifiers from arguments."""
+    x = Identifier("x")
+    y = Identifier("y")
+    bar = Identifier("bar")
+    proc = Procedure(
+        name=bar,
+        templates=[],
+        args=[
+            Argument(
+                name=x,
+                qualified_type=QualifiedType(
+                    base_type=NumericalType(CoreDataType.INT32),
+                    type_qualifier=TypeQualifier.TEMP,
+                    provenance=Provenance.unknown(),
+                ),
+            ),
+            Argument(
+                name=y,
+                qualified_type=QualifiedType(
+                    base_type=NumericalType(CoreDataType.INT32),
+                    type_qualifier=TypeQualifier.TEMP,
+                    provenance=Provenance.unknown(),
+                ),
+            ),
+        ],
+        body=[],
+    )
+    result = collect_identifiers(proc)
+    assert result == {x, y, bar}
+
+
+def test_function_template_types():
+    """Test retrieval of identifiers from template types."""
+    T = Identifier("T")
+    bar = Identifier("bar")
+    proc = Procedure(name=bar, templates=[TemplateDataType(T)], args=[], body=[])
+    result = collect_identifiers(proc)
+    assert result == {T, bar}

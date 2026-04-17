@@ -1,4 +1,4 @@
-"""Common Integration Test Utilities."""
+"""Common integration test utilities."""
 
 import difflib
 import os
@@ -7,7 +7,7 @@ import sys
 
 
 def get_diff(a: str, b: str) -> None:
-    """Helper Utility to print a diff between two strings"""
+    """Print a diff between two strings."""
     for i, s in enumerate(difflib.ndiff(a, b)):
         if s[0] == " ":
             continue
@@ -18,7 +18,16 @@ def get_diff(a: str, b: str) -> None:
 
 
 def access_cli(*args: str, cwd: str | None = None) -> tuple[int, str, str]:
-    """Access FhY Entry Point using subprocess and return the decoded stdout"""
+    """Access FhY entry point using subprocess and return the decoded stdout.
+
+    Args:
+        args: Arguments to pass to the FhY CLI.
+        cwd: Current working directory to run the CLI in.
+
+    Returns:
+        A tuple containing the return code, stdout, and stderr.
+
+    """
     cli_executable = os.path.join(os.path.dirname(sys.executable), "fhy")
     result = subprocess.run(
         [cli_executable, *args],

@@ -1254,22 +1254,6 @@ def test_line_comment(construct_ast):
     _assert_is_expected_module(ast, 0)
 
 
-# def test_empty_procedure_with_line_comment(construct_ast):
-#     """Test procedure is found and converted with line comments in the mix."""
-#     source: str = "# this is a comment!\nproc foo(input int32[m,n] A) {}"
-#     ast = construct_ast(source)
-
-#     _assert_is_expected_module(ast, 1)
-#     proc = ast.statements[0]
-#     _assert_is_expected_procedure(proc, "foo", 0, 1, 0)
-#     # Procedure should be on second line
-#     line = proc.span.line.start
-#     assert line == 2, f"Expected procedure to be on second line, but got {line}."
-#     # NOTE: New line character is in first column.
-#     col = proc.span.line.start
-#     assert col == 2, f"Expected procedure to be on first column: but got {col}."
-
-
 # ===============
 # EXPECTED ERRORS
 # ===============

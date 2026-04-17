@@ -1,3 +1,0 @@
-import circular_import.b.B;
-
-temp int32 A = circular_import.b.B + 5;
