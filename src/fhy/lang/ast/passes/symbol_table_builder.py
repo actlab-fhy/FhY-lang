@@ -187,10 +187,10 @@ class _SymbolTableBuilder(VisitablePass[Node, None]):
         proc_frame = FunctionSymbolTableFrame(
             name=node.name,
             keyword=FunctionKeyword.PROCEDURE,
-            signature=[
+            signature=tuple(
                 (arg.qualified_type.type_qualifier, arg.qualified_type.base_type)
                 for arg in node.args
-            ],
+            ),
         )
         self._add_symbol(node.name, proc_frame)
         self._push_namespace(node.name)
@@ -205,11 +205,13 @@ class _SymbolTableBuilder(VisitablePass[Node, None]):
         op_frame = FunctionSymbolTableFrame(
             name=node.name,
             keyword=FunctionKeyword.OPERATION,
-            signature=[
-                (arg.qualified_type.type_qualifier, arg.qualified_type.base_type)
-                for arg in node.args
-            ]
-            + [(node.return_type.type_qualifier, node.return_type.base_type)],
+            signature=tuple(
+                [
+                    (arg.qualified_type.type_qualifier, arg.qualified_type.base_type)
+                    for arg in node.args
+                ]
+                + [(node.return_type.type_qualifier, node.return_type.base_type)]
+            ),
         )
         self._add_symbol(node.name, op_frame)
         self._push_namespace(node.name)
