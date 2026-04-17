@@ -35,7 +35,7 @@ This subpackage contains all the defined AST nodes to support the FhY Language.
 
 """
 
-from .base import ASTNode
+from .base import Node
 from .core import Expression, Function, Module, Statement
 from .expression import (
     ArrayAccessExpression,
@@ -66,3 +66,36 @@ from .statement import (
     ReturnStatement,
     SelectionStatement,
 )
+
+__all__ = [
+    "Node",
+    "Module",
+    "Function",
+    "Statement",
+    "Expression",
+    "UnaryOperation",
+    "BinaryOperation",
+    "UnaryExpression",
+    "BinaryExpression",
+    "TernaryExpression",
+    "TupleExpression",
+    "TupleAccessExpression",
+    "FunctionExpression",
+    "ArrayAccessExpression",
+    "IdentifierExpression",
+    "Literal",
+    "IntLiteral",
+    "FloatLiteral",
+    "ComplexLiteral",
+    "QualifiedType",
+    "Import",
+    "Argument",
+    "Procedure",
+    "Operation",
+    "DeclarationStatement",
+    "ExpressionStatement",
+    "SelectionStatement",
+    "ForAllStatement",
+    "ReturnStatement",
+    "Native",
+]

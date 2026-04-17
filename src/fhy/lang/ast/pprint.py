@@ -29,35 +29,42 @@
 # WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-"""Pretty print serialization of AST nodes into FhY language.
+"""Pretty print serialization of AST nodes into FhY language."""
 
-Functions:
-    pprint_ast: Helper function to serialize the AST node into text
-
-Classes:
-    ASTPrettyPrinter: Deconstructs AST nodes into FhY language text
-
-"""
+__all__ = ["pformat_ast"]
 
 from collections.abc import Sequence
+from functools import singledispatchmethod
+from typing import cast
 
 from fhy_core import (
+    DataType,
     Identifier,
     IndexType,
     NumericalType,
     PrimitiveDataType,
     TemplateDataType,
     TupleType,
+    Type,
+    VisitablePass,
     pformat_expression,
+    register_pass,
 )
 
 from fhy.lang import ast
 from fhy.lang.ast.alias import ASTStructure
-from fhy.lang.ast.visitor import BasePass
 
 
-class ASTPrettyFormatter(BasePass):
-    """Formats an AST node back into pseudo-FhY language source."""
+@register_pass(
+    "fhy_ast_pretty_formatter",
+    "Formats a FhY AST node back into pseudo-FhY language source.",
+)
+class ASTPrettyFormatter(VisitablePass[ASTStructure, str]):
+    """Formats an AST node back into pseudo-FhY language source.
+
+    The output is not guaranteed to be a valid FhY program.
+
+    """
 
     _show_id: bool
     _indent_char: str
@@ -70,9 +77,12 @@ class ASTPrettyFormatter(BasePass):
         self._current_indent = 0
 
     @property
-    def _indentation(self):
+    def _indentation(self) -> str:
         """Current indentations."""
         return self._indent_char * self._current_indent
+
+    def get_noop_output(self, ir: ASTStructure) -> str:
+        raise RuntimeError("This pass does not support a noop output.")
 
     def _increment_indent(self) -> None:
         self._current_indent += 1
@@ -89,7 +99,7 @@ class ASTPrettyFormatter(BasePass):
         return "\n".join(self.visit(statement) for statement in module.statements)
 
     def visit_import(self, node: ast.Import) -> str:
-        return "import " + self.visit(node.name) + ";"
+        return "import " + cast(str, self._pformat_identifier(node.name)) + ";"
 
     def visit_operation(self, operation: ast.Operation) -> str:
         self._increment_indent()
@@ -97,8 +107,10 @@ class ASTPrettyFormatter(BasePass):
             [self.visit(statement) for statement in operation.body]
         )
         self._decrement_indent()
-        name = self.visit(operation.name)
-        templates = ", ".join(self.visit(arg) for arg in operation.templates)
+        name = self._pformat_identifier(operation.name)
+        templates = ", ".join(
+            self._pformat_data_type(arg) for arg in operation.templates
+        )
         args = ", ".join(self.visit(arg) for arg in operation.args)
         ret = self.visit(operation.return_type)
 
@@ -115,8 +127,10 @@ class ASTPrettyFormatter(BasePass):
             [self.visit(statement) for statement in procedure.body]
         )
         self._decrement_indent()
-        name = self.visit(procedure.name)
-        templates = ", ".join(self.visit(arg) for arg in procedure.templates)
+        name = self._pformat_identifier(procedure.name)
+        templates = ", ".join(
+            self._pformat_data_type(template) for template in procedure.templates
+        )
         args = ", ".join(self.visit(arg) for arg in procedure.args)
 
         return (
@@ -130,7 +144,7 @@ class ASTPrettyFormatter(BasePass):
         self, declaration_statement: ast.DeclarationStatement
     ) -> str:
         left_type = self.visit(declaration_statement.variable_type)
-        left_name = self.visit(declaration_statement.variable_name)
+        left_name = self._pformat_identifier(declaration_statement.variable_name)
         left = f"{left_type} {left_name}"
         if declaration_statement.expression is not None:
             right = f" = {self.visit(declaration_statement.expression)};"
@@ -147,7 +161,7 @@ class ASTPrettyFormatter(BasePass):
         else:
             left = ""
 
-        return left + self.visit(expression_statement.right) + ";"
+        return left + cast(str, self.visit(expression_statement.right)) + ";"
 
     def visit_selection_statement(
         self, selection_statement: ast.SelectionStatement
@@ -213,7 +227,7 @@ class ASTPrettyFormatter(BasePass):
         self, function_expression: ast.FunctionExpression
     ) -> str:
         template_types = ", ".join(
-            self.visit(template_type)
+            self._pformat_data_type(template_type)
             for template_type in function_expression.template_types
         )
         indices = ", ".join(self.visit(index) for index in function_expression.indices)
@@ -248,7 +262,7 @@ class ASTPrettyFormatter(BasePass):
     def visit_identifier_expression(
         self, identifier_expression: ast.IdentifierExpression
     ) -> str:
-        return self.visit(identifier_expression.identifier)
+        return cast(str, self._pformat_identifier(identifier_expression.identifier))
 
     def visit_int_literal(self, int_literal: ast.IntLiteral) -> str:
         return str(int_literal.value)
@@ -262,10 +276,15 @@ class ASTPrettyFormatter(BasePass):
     def visit_qualified_type(self, qualified_type: ast.QualifiedType) -> str:
         return (
             f"{qualified_type.type_qualifier.value} "
-            f"{self.visit(qualified_type.base_type)}"
+            f"{self._pformat_type(qualified_type.base_type)}"
         )
 
-    def visit_numerical_type(self, numerical_type: NumericalType) -> str:
+    @singledispatchmethod
+    def _pformat_type(self, type: Type) -> str:
+        raise NotImplementedError(f"Pretty formatting type {type} not implemented")
+
+    @_pformat_type.register(NumericalType)
+    def _(self, numerical_type: NumericalType) -> str:
         if len(numerical_type.shape) == 0:
             shape = ""
         else:
@@ -275,15 +294,10 @@ class ASTPrettyFormatter(BasePass):
             )
             shape = f"[{shape}]"
 
-        return f"{self.visit(numerical_type.data_type)}{shape}"
+        return f"{self._pformat_data_type(numerical_type.data_type)}{shape}"
 
-    def visit_primitive_data_type(self, node: PrimitiveDataType) -> str:
-        return str(node.core_data_type.value)
-
-    def visit_template_data_type(self, node: TemplateDataType) -> str:
-        return self.visit_identifier(node.template_type)
-
-    def visit_index_type(self, index_type: IndexType) -> str:
+    @_pformat_type.register(IndexType)
+    def _(self, index_type: IndexType) -> str:
         index_range = (
             f"{pformat_expression(index_type.lower_bound, show_id=self._show_id)}:"
         )
@@ -300,22 +314,32 @@ class ASTPrettyFormatter(BasePass):
 
         return f"index[{index_range}]"
 
-    def visit_tuple_type(self, tuple_type: TupleType) -> str:
+    @_pformat_type.register(TupleType)
+    def _(self, tuple_type: TupleType) -> str:
         return "tuple " + self._build_base_tuple(tuple_type._types)
 
-    def visit_identifier(self, identifier: Identifier) -> str:
+    @singledispatchmethod
+    def _pformat_data_type(self, data_type: DataType) -> str:
+        raise NotImplementedError(
+            f"Pretty formatting data type {data_type} not implemented"
+        )
+
+    @_pformat_data_type.register(PrimitiveDataType)
+    def _(self, primitive_data_type: PrimitiveDataType) -> str:
+        return str(primitive_data_type.core_data_type.value)
+
+    @_pformat_data_type.register(TemplateDataType)
+    def _(self, template_data_type: TemplateDataType) -> str:
+        return self._pformat_identifier(template_data_type.data_type)
+
+    def _pformat_identifier(self, identifier: Identifier) -> str:
         if self._show_id:
             return f"({identifier.name_hint}::{identifier.id})"
         else:
             return identifier.name_hint
 
-    def default(self, node: ast.ASTNode) -> str:
-        return f"{type(node).__name__} NOT IMPLEMENTED"
 
-
-def pformat_ast(
-    ast: ast.ASTNode, indent_char: str = "  ", show_id: bool = False
-) -> str:
+def pformat_ast(ast: ast.Node, indent_char: str = "  ", show_id: bool = False) -> str:
     """Returns FhY text from a given an AST node.
 
     Args:
@@ -328,4 +352,4 @@ def pformat_ast(
 
     """
     pformatter = ASTPrettyFormatter(indent_char, show_id)
-    return pformatter(ast)
+    return cast(str, pformatter(ast))

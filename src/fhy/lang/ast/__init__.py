@@ -41,10 +41,51 @@ We also have visitor and listener patterns for FhY ASTNodes.
 
 """
 
+__all__ = [
+    "Node",
+    "Module",
+    "Function",
+    "Statement",
+    "Expression",
+    "UnaryOperation",
+    "BinaryOperation",
+    "UnaryExpression",
+    "BinaryExpression",
+    "TernaryExpression",
+    "TupleExpression",
+    "TupleAccessExpression",
+    "FunctionExpression",
+    "ArrayAccessExpression",
+    "IdentifierExpression",
+    "Literal",
+    "IntLiteral",
+    "FloatLiteral",
+    "ComplexLiteral",
+    "QualifiedType",
+    "Import",
+    "Argument",
+    "Procedure",
+    "Operation",
+    "DeclarationStatement",
+    "ExpressionStatement",
+    "SelectionStatement",
+    "ForAllStatement",
+    "ReturnStatement",
+    "Native",
+    "collect_identifiers",
+    "collect_imported_identifiers",
+    "replace_identifiers",
+    "Source",
+    "Span",
+    "Visitor",
+    "BasePass",
+    "Transformer",
+]
+
+
 from .node import (
     Argument,
     ArrayAccessExpression,
-    ASTNode,
     BinaryExpression,
     BinaryOperation,
     ComplexLiteral,
@@ -61,6 +102,7 @@ from .node import (
     Literal,
     Module,
     Native,
+    Node,
     Operation,
     Procedure,
     QualifiedType,
@@ -78,5 +120,3 @@ from .passes import (
     collect_imported_identifiers,
     replace_identifiers,
 )
-from .span import Source, Span
-from .visitor import BasePass, Transformer, Visitor

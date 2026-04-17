@@ -37,3 +37,13 @@ from .identifier_replacer import replace_identifiers
 from .imported_identifier_collector import collect_imported_identifiers
 from .index_collector import collect_indices, collect_reduced_indices
 from .symbol_table_builder import build_symbol_table
+
+__all__ = [
+    "convert_ast_expression_to_core_expression",
+    "collect_identifiers",
+    "replace_identifiers",
+    "collect_imported_identifiers",
+    "collect_indices",
+    "collect_reduced_indices",
+    "build_symbol_table",
+]

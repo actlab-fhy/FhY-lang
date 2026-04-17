@@ -42,16 +42,13 @@ from fhy_core import (
 )
 from fhy_core import Expression as CoreExpression
 
-from fhy.lang.ast.node import ASTNode
 from fhy.lang.ast.node import Expression as ASTExpression
-from fhy.lang.ast.span import Source, Span
+from fhy.lang.ast.node import Node as ASTNode
 
 ASTExpressionStructure = CoreExpression | ASTExpression
 
 _Non_AST_Node_Structures = (
-    Span
-    | Source
-    | Identifier
+    Identifier
     | CoreExpression
     | Type
     | DataType

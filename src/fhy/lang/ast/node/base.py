@@ -29,44 +29,71 @@
 # WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-"""Base abstract AST node.
+"""Base abstract AST node."""
 
-Typical Usage:
+__all__ = [
+    "Node",
+    "NodeData",
+    "deserialize_node_provenance",
+    "is_valid_node_data",
+]
 
-    .. code-block:: python
+from abc import ABC
+from dataclasses import InitVar, dataclass, field
+from typing import TypedDict, TypeGuard
 
-        from fhy.lang.ast.base import ASTNode
+from fhy_core import (
+    FrozenMixin,
+    HasProvenanceMixin,
+    Provenance,
+    SerializedDict,
+    StructuralEquivalenceMixin,
+    VisitableMixin,
+    WrappedFamilySerializable,
+    is_serialized_dict,
+)
 
-        class NewASTNode(ASTNode):
-            ...
-"""
 
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+class NodeData(TypedDict):
+    """Data for a node."""
 
-from ..span import Span
+    provenance: SerializedDict
+
+
+def is_valid_node_data(data: SerializedDict) -> TypeGuard[NodeData]:
+    """Return True if the data is a valid node data."""
+    return "provenance" in data and is_serialized_dict(data["provenance"])
+
+
+def deserialize_node_provenance(data: NodeData) -> Provenance:
+    """Deserialize node provenance from validated node data."""
+    provenance_data = data["provenance"]
+    return Provenance.deserialize_from_dict(provenance_data)
 
 
 @dataclass(frozen=True, kw_only=True)
-class ASTNode(ABC):
-    """A node in the FhY AST.
+class Node(
+    WrappedFamilySerializable,
+    VisitableMixin,
+    FrozenMixin,
+    HasProvenanceMixin,
+    StructuralEquivalenceMixin,
+    ABC,
+):
+    """A node in the FhY AST."""
 
-    Args:
-        span (Span, optional): The Span of the node in the source code.
+    provenance: InitVar[Provenance]
+    _provenance: Provenance = field(init=False)
 
-    Attributes:
-        span (Span): The Span of the node in the source code.
+    def __post_init__(self, provenance: Provenance) -> None:
+        object.__setattr__(self, "_provenance", provenance)
 
-    """
+    @property
+    def provenance(self) -> Provenance:
+        return self._provenance
 
-    span: Span | None = field(default=None)
+    def is_structurally_equivalent(self, other: object) -> bool:
+        return isinstance(other, Node) and self._provenance == other._provenance
 
-    @classmethod
-    def get_key_name(cls) -> str:
-        """Return the unique name of the node."""
-        return cls.__name__
-
-    @abstractmethod
-    def get_visit_attrs(self) -> list[str]:
-        """Return a list of node fields defining the contents of the node."""
-        return ["span"]
+    def serialize_data_to_dict(self) -> SerializedDict:
+        return {"provenance": (self._provenance.serialize_to_dict())}

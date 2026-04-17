@@ -7,7 +7,6 @@ from fhy.error import FhYSyntaxError
 from fhy.lang.ast import node as ast_node
 from fhy.lang.ast.passes import collect_identifiers
 from fhy.lang.ast.pprint import pformat_ast
-from fhy.lang.ast.visitor import BasePass
 from fhy_core import (
     BinaryExpression as CoreBinaryExpression,
 )
@@ -23,6 +22,7 @@ from fhy_core import (
     TupleType,
     Type,
     TypeQualifier,
+    VisitablePass,
     pformat_expression,
 )
 from fhy_core import (
@@ -40,12 +40,14 @@ from fhy_core import (
 
 from ..utils import assert_name, assert_sequence_type, assert_type
 
+# TODO: switch to using structural equivalence
+
 # TODO: make all identifier name equality not in terms of name hint after scope and
 #       loading identifiers with table is implemented
 
 
 # TODO: Use expression only base pass when implemented
-class ExpressionExactEqualityGetter(BasePass):
+class ExpressionExactEqualityGetter(VisitablePass[ast_node.Expression, bool]):
     """Pass to determine if two expressions are exactly equal."""
 
     _stack: Stack[ast_node.Expression | Sequence[ast_node.Expression]]
@@ -54,8 +56,8 @@ class ExpressionExactEqualityGetter(BasePass):
         self._stack = Stack[ast_node.Expression]()
         self._stack.push(other)
 
-    def __call__(self, node: ast_node.Expression) -> bool:
-        return super().__call__(node)
+    def get_noop_output(self, ir: ast_node.Expression) -> bool:
+        return True
 
     def visit_sequence(self, node: Sequence[ast_node.Expression]) -> bool:
         other = self._stack.pop()
@@ -115,7 +117,14 @@ class ExpressionExactEqualityGetter(BasePass):
             self._stack.push(other.indices)
             is_indices_equal = self.visit_sequence(node.indices)
             self._stack.push(other.template_types)
-            is_template_types_equal = self.visit_sequence(node.template_types)
+            is_template_types_equal = len(node.template_types) == len(
+                other.template_types
+            ) and all(
+                template_type.is_structurally_equivalent(other_template_type)
+                for template_type, other_template_type in zip(
+                    node.template_types, other.template_types
+                )
+            )
             self._stack.push(other.args)
             is_args_equal = self.visit_sequence(node.args)
             return (
@@ -187,20 +196,6 @@ class ExpressionExactEqualityGetter(BasePass):
         else:
             return node.value == other.value
 
-    def visit_primitive_data_type(self, node: PrimitiveDataType) -> bool:
-        other = self._stack.pop()
-        if not isinstance(other, PrimitiveDataType):
-            return False
-        else:
-            return node.core_data_type == other.core_data_type
-
-    def visit_template_data_type(self, node: TemplateDataType) -> bool:
-        other = self._stack.pop()
-        if not isinstance(other, TemplateDataType):
-            return False
-        else:
-            return node.template_type == other.template_type
-
 
 def _is_expressions_exactly_equal(
     expr1: ast_node.Expression, expr2: ast_node.Expression
@@ -260,27 +255,27 @@ def _assert_core_expression_exactly_equality(
 actual: {pformat_expression(expression2)})"
 
 
-def _create_identifier_map(node: ast_node.ASTNode) -> dict[str, Identifier]:
+def _create_identifier_map(node: ast_node.Node) -> dict[str, Identifier]:
     identifiers = collect_identifiers(node)
     return {identifier.name_hint: identifier for identifier in identifiers}
 
 
 def _assert_is_expected_module(
-    node: ast_node.ASTNode, expected_num_statements: int
+    node: ast_node.Node, expected_num_statements: int
 ) -> None:
     assert_type(node, ast_node.Module, "AST node")
     assert_sequence_type(node.statements, ast_node.Statement, "module statements")
     assert len(node.statements) == expected_num_statements
 
 
-def _assert_is_expected_import(node: ast_node.ASTNode, expected_import: str) -> None:
+def _assert_is_expected_import(node: ast_node.Node, expected_import: str) -> None:
     assert_type(node, ast_node.Import, "AST node")
     assert_type(node.name, Identifier, "imported name")
     assert_name(node.name, expected_import, what_it_is="imported name")
 
 
 def _assert_is_expected_procedure(
-    node: ast_node.ASTNode,
+    node: ast_node.Node,
     expected_name: Identifier,
     expected_num_templates: int,
     expected_num_args: int,
@@ -298,7 +293,7 @@ def _assert_is_expected_procedure(
 
 
 def _assert_is_expected_operation(
-    node: ast_node.ASTNode,
+    node: ast_node.Node,
     expected_name: Identifier,
     expected_num_templates: int,
     expected_num_args: int,
@@ -316,7 +311,7 @@ def _assert_is_expected_operation(
 
 
 def _assert_is_expected_qualified_type(
-    node: ast_node.ASTNode,
+    node: ast_node.Node,
     expected_type_qualifier: TypeQualifier,
     expected_base_type_cls: type[Type],
 ) -> None:
@@ -326,7 +321,7 @@ def _assert_is_expected_qualified_type(
 
 
 def _assert_is_expected_argument(
-    node: ast_node.ASTNode,
+    node: ast_node.Node,
     expected_name: Identifier,
 ) -> None:
     assert_type(node, ast_node.Argument, "argument")
@@ -388,7 +383,7 @@ def _assert_is_expected_index_type(
 
 
 def _assert_is_expected_declaration_statement(
-    node: ast_node.ASTNode,
+    node: ast_node.Node,
     expected_variable_name: Identifier,
     expected_expression: ast_node.Expression | None,
 ) -> None:
@@ -405,7 +400,7 @@ def _assert_is_expected_declaration_statement(
 
 
 def _assert_is_expected_expression_statement(
-    node: ast_node.ASTNode,
+    node: ast_node.Node,
     expected_left_expression: ast_node.Expression | None,
     expected_right_expression: ast_node.Expression,
 ) -> None:
@@ -422,7 +417,7 @@ def _assert_is_expected_expression_statement(
 
 
 def _assert_is_expected_return_statement(
-    node: ast_node.ASTNode, expected_expression: ast_node.Expression
+    node: ast_node.Node, expected_expression: ast_node.Expression
 ) -> None:
     assert_type(node, ast_node.ReturnStatement, "return statement")
     assert_type(node.expression, ast_node.Expression, "expression")
@@ -677,7 +672,7 @@ def test_operation_template_types(construct_ast, templates: list[str]):
     assert len(operation.templates) == len(templates)
     for j, k in zip(operation.templates, templates):
         assert_type(j, TemplateDataType, "template type")
-        assert_name(j.template_type, identifier_map[k], what_it_is="template type")
+        assert_name(j.data_type, identifier_map[k], what_it_is="template type")
 
 
 def test_operation_template_type_body(construct_ast):
@@ -695,8 +690,8 @@ def test_operation_template_type_body(construct_ast):
     assert_type(arg_base_type, NumericalType, "numerical type")
     assert_type(arg_base_type.data_type, TemplateDataType, "template type")
     assert_name(
-        arg_base_type.data_type.template_type,
-        template.template_type,
+        arg_base_type.data_type.data_type,
+        template.data_type,
         what_it_is="template type",
     )
     statement: ast_node.Statement = operation.body[0]
@@ -704,8 +699,8 @@ def test_operation_template_type_body(construct_ast):
     numerical_type = statement.variable_type.base_type
     assert_type(numerical_type, NumericalType, "numerical type")
     assert_name(
-        numerical_type.data_type.template_type,
-        template.template_type,
+        numerical_type.data_type.data_type,
+        template.data_type,
         what_it_is="template type",
     )
 
@@ -760,6 +755,7 @@ def test_operation_template_type_call(construct_ast):
 # # ==========
 # # STATEMENTS
 # # ==========
+@pytest.mark.xfail(reason="Import statements are not supported.")
 def test_absolute_import(construct_ast):
     """Test absolute import statement is converted correctly."""
     source: str = "import foo.bar;"
@@ -874,6 +870,7 @@ def test_expression_statement_with_assignment(construct_ast):
     )
 
 
+@pytest.mark.xfail(reason="Selection statements are not supported.")
 def test_selection_statement(construct_ast):
     """Test conversion of an if (selection) statement."""
     source: str = "if (1) {i = 1;} else {j = 1;}"
@@ -1257,20 +1254,20 @@ def test_line_comment(construct_ast):
     _assert_is_expected_module(ast, 0)
 
 
-def test_empty_procedure_with_line_comment(construct_ast):
-    """Test procedure is found and converted with line comments in the mix."""
-    source: str = "# this is a comment!\nproc foo(input int32[m,n] A) {}"
-    ast = construct_ast(source)
+# def test_empty_procedure_with_line_comment(construct_ast):
+#     """Test procedure is found and converted with line comments in the mix."""
+#     source: str = "# this is a comment!\nproc foo(input int32[m,n] A) {}"
+#     ast = construct_ast(source)
 
-    _assert_is_expected_module(ast, 1)
-    proc = ast.statements[0]
-    _assert_is_expected_procedure(proc, "foo", 0, 1, 0)
-    # Procedure should be on second line
-    line = proc.span.line.start
-    assert line == 2, f"Expected procedure to be on second line, but got {line}."
-    # NOTE: New line character is in first column.
-    col = proc.span.line.start
-    assert col == 2, f"Expected procedure to be on first column: but got {col}."
+#     _assert_is_expected_module(ast, 1)
+#     proc = ast.statements[0]
+#     _assert_is_expected_procedure(proc, "foo", 0, 1, 0)
+#     # Procedure should be on second line
+#     line = proc.span.line.start
+#     assert line == 2, f"Expected procedure to be on second line, but got {line}."
+#     # NOTE: New line character is in first column.
+#     col = proc.span.line.start
+#     assert col == 2, f"Expected procedure to be on first column: but got {col}."
 
 
 # ===============

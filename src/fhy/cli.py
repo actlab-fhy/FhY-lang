@@ -40,8 +40,7 @@ from pathlib import Path
 from typing import Annotated, Optional, TypeVar
 
 import typer
-import typer.core
-from fhy_core import IntEnum
+from fhy_core import IntEnum, add_file_handler, get_logger
 
 from fhy import __version__
 from fhy.driver import CompilationOptions, Workspace, compile_fhy
@@ -50,7 +49,6 @@ from fhy.ir.program import Program as IRProgram
 from fhy.lang.ast.pprint import pformat_ast
 from fhy.lang.ast.serialization import SerializationOptions
 from fhy.lang.ast.serialization.to_json import dump
-from fhy.logger import add_file_handler, get_logger
 
 T = TypeVar("T")
 
@@ -62,21 +60,31 @@ app = typer.Typer(
 
 _cli_log: logging.Logger = get_logger(__name__)
 
-# Make it possible to use environment variable to control help menu display
-# NOTE: Typer imports rich module, and on import error sets to None, ignoring typing
-#       We will also support not having rich as a dependency of typer
-if typer.core.rich is not None:
-    typer.core.rich = os.environ.get("FHY_HELPMENU", "rich") or None  # type: ignore
-
 
 def make_logger(
     verbose: bool = False, file: str | Path | None = None
 ) -> logging.Logger:
     """Construct a simple logger."""
     level: int = logging.DEBUG if verbose else logging.INFO
-    log: logging.Logger = get_logger("FhY", level=level)
+    log: logging.Logger = get_logger("FhY")
+    log.setLevel(level)
+
+    if not any(
+        isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)
+        for h in log.handlers
+    ):
+        stream = logging.StreamHandler()
+        stream.setLevel(level)
+        log.addHandler(stream)
+    else:
+        for handler in log.handlers:
+            if isinstance(handler, logging.StreamHandler) and not isinstance(
+                handler, logging.FileHandler
+            ):
+                handler.setLevel(level)
+
     if file is not None:
-        add_file_handler(log, file)
+        add_file_handler(log, file, level=level)
 
     return log
 
@@ -110,20 +118,20 @@ class CompilationResult:
     status: Status
 
 
-def create_hidden_directory(hidden: Path):
+def create_hidden_directory(hidden: Path) -> None:
     """Create hidden directory."""
     if not hidden.exists():
         os.mkdir(hidden)
 
 
-def clear_hidden_directory(hidden: Path):
+def clear_hidden_directory(hidden: Path) -> None:
     """Clear hidden directory cache."""
     if hidden.exists():
         shutil.rmtree(hidden)
         _cli_log.info("FhY cache has been cleared")
 
 
-def _clean_dir(value: bool):
+def _clean_dir(value: bool) -> None:
     if not value:
         return
     where: Path = standard_path(os.getcwd())
@@ -132,7 +140,7 @@ def _clean_dir(value: bool):
     sys.exit(Status.OK)
 
 
-def report_version(value: bool):
+def report_version(value: bool) -> None:
     """Report version to stdout and exit if true."""
     if value:
         sys.stdout.write(f"FhY v{__version__}\n")
@@ -163,7 +171,11 @@ def compile_fhy_source(
     create_hidden_directory(hidden)
     log: logging.Logger = make_logger(verbose, where / DefaultPaths.log_file())
     if log_file is not None:
-        add_file_handler(log, log_file, logging.DEBUG if verbose else logging.INFO)
+        add_file_handler(
+            log,
+            log_file,
+            level=logging.DEBUG if verbose else logging.INFO,
+        )
 
     # NOTE: Inform client we have not currently set this portion up, but scoping
     #       here for future backward compatibility.
@@ -225,7 +237,7 @@ def main(
             "--clean", help="Clean FhY hidden directory and exit.", callback=_clean_dir
         ),
     ] = False,
-):
+) -> None:
     """Welcome to FhY!"""
     # NOTE: We check sys.argv to make it possible to place arguments in subcommands
     #       and respond equivalently.
@@ -276,7 +288,7 @@ def serialize(
             help="Include source information in JSON output.",
         ),
     ] = False,
-):
+) -> Status | None:
     """Serialize FhY AST nodes into alternative text representations."""
     compiled: CompilationResult = compile_fhy_source(
         main_file, verbose, log_file, config, force_rebuild

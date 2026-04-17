@@ -33,14 +33,17 @@
 
 from collections.abc import Callable
 
-from fhy_core import Identifier
+from fhy_core import Identifier, register_pass
+from fhy_core.pass_infrastructure import AnalysisVisitablePass
 
 from fhy.lang.ast.node import core
 from fhy.lang.ast.node.expression import FunctionExpression, IdentifierExpression
-from fhy.lang.ast.visitor import ExpressionVisitor
 
 
-class IndexCollector(ExpressionVisitor):
+@register_pass(
+    "fhy_ast_index_collector", "Collects all the indices used in an AST expression."
+)
+class IndexCollector(AnalysisVisitablePass):
     """Collect all the indices used in an AST expression."""
 
     _is_identifier_index: Callable[[Identifier], bool]
@@ -52,10 +55,10 @@ class IndexCollector(ExpressionVisitor):
         self._is_identifier_index = is_identifier_index_func
 
     @property
-    def indices(self) -> set[Identifier]:
-        return self._indices
+    def indices(self) -> frozenset[Identifier]:
+        return frozenset(self._indices)
 
-    def visit_identifier(self, node: Identifier) -> None:
+    def visit_identifier_expression(self, node: IdentifierExpression) -> None:
         if self._is_identifier_index(node):
             self._indices.add(node)
 
@@ -63,16 +66,15 @@ class IndexCollector(ExpressionVisitor):
 def collect_indices(
     node: core.Expression,
     is_identifier_index: Callable[[Identifier], bool],
-) -> set[Identifier]:
+) -> frozenset[Identifier]:
     """Collect all the indices used in an AST expression.
 
     Args:
-        node (core.Expression): The AST expression node to collect indices from.
-        is_identifier_index (Callable[[Identifier], bool]): A function that
-            determines if an identifier is an index.
+        node: The AST expression node to collect indices from.
+        is_identifier_index: A function that determines if an identifier is an index.
 
     Returns:
-        set[Identifier]: The set of indices used in the AST expression.
+        The set of indices used in the AST expression.
 
     """
     index_collector = IndexCollector(is_identifier_index)
@@ -82,7 +84,11 @@ def collect_indices(
 
 # NOTE: if FhY supports indices in reduction's parameters that are not just the
 #       identifier itself, this pass must be modified
-class ReducedIndexCollector(ExpressionVisitor):
+@register_pass(
+    "fhy_ast_reduced_index_collector",
+    "Collects all the indices used in an AST expression that are reduced.",
+)
+class ReducedIndexCollector(AnalysisVisitablePass):
     """Collect all the indices used in an AST expression that are reduced."""
 
     _is_identifier_index: Callable[[Identifier], bool]
@@ -94,33 +100,30 @@ class ReducedIndexCollector(ExpressionVisitor):
         self._is_identifier_index = is_identifier_index_func
 
     @property
-    def reduced_indices(self) -> set[Identifier]:
-        return self._reduced_indices
+    def reduced_indices(self) -> frozenset[Identifier]:
+        return frozenset(self._reduced_indices)
 
     def visit_function_expression(self, node: FunctionExpression) -> None:
         for index in node.indices:
             if not isinstance(index, IdentifierExpression):
-                raise RuntimeError()
+                raise RuntimeError(f"Index {index} is not an identifier expression.")
             if self._is_identifier_index(index.identifier):
                 self._reduced_indices.add(index.identifier)
-
-        super().visit_function_expression(node)
 
 
 def collect_reduced_indices(
     node: core.Expression,
     is_identifier_index: Callable[[Identifier], bool],
-) -> set[Identifier]:
+) -> frozenset[Identifier]:
     """Collect all the indices used in an AST expression that are reduced.
 
     Args:
-        node (core.Expression): The AST expression node to collect indices from.
-        is_identifier_index (Callable[[Identifier], bool]): A function that
+        node: The AST expression node to collect indices from.
+        is_identifier_index: A function that
             determines if an identifier is an index.
 
     Returns:
-        set[Identifier]: The set of indices used in the AST expression that
-            are reduced.
+        The set of indices used in the AST expression that are reduced.
 
     """
     reduced_index_collector = ReducedIndexCollector(is_identifier_index)
