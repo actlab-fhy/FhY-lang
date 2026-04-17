@@ -1,4 +1,4 @@
-"""Common Utilities (not fixtures) used in Unit and Integration Tests."""
+"""Common utilities (not fixtures) used in unit and integration tests."""
 
 from typing import Any
 
