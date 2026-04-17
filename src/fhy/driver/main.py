@@ -33,20 +33,26 @@
 
 import logging
 
-from fhy.ir.program import Program as IRProgram
+from fhy_core import get_logger
+
+from fhy.lang.ast import Module
 
 from .ast_program_builder import build_ast_program
 from .compilation_options import CompilationOptions
 from .workspace import Workspace
 
-_log = logging.getLogger(__name__)
-_log.setLevel(logging.INFO)
+_logger: logging.Logger = get_logger(__name__)
 
 
-def compile_fhy(
-    workspace: Workspace, options: CompilationOptions, log: logging.Logger = _log
-) -> IRProgram:
-    """Compile Fhy source into a ir.Program."""
-    ast_program = build_ast_program(workspace, options, log)
+def compile_fhy(workspace: Workspace, options: CompilationOptions) -> Module:
+    """Compile a FhY source program.
 
-    return ast_program
+    Args:
+        workspace: The workspace containing the FhY source program.
+        options: The compilation options.
+
+    Returns:
+        The compiled FhY source program.
+
+    """
+    return build_ast_program(workspace, options)

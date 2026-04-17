@@ -36,11 +36,6 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True, kw_only=True)
 class CompilationOptions:
-    """Supported FhY compilation options.
-
-    Args:
-        verbose (bool): provide more debugging logs if true.
-
-    """
+    """Supported FhY compilation options."""
 
     verbose: bool = field(default=False)

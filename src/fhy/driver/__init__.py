@@ -29,7 +29,7 @@
 # WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-"""Fhy driver subpackage."""
+"""FhY driver package."""
 
 from .compilation_options import CompilationOptions
 from .main import compile_fhy

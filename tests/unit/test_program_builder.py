@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 from fhy.driver import utils
-from fhy.driver.ast_program_builder.builder import ASTProgramBuilder
+from fhy.driver.ast_program_builder.builder import _ASTProgramBuilder
 from fhy.driver.ast_program_builder.module_tree import ModuleTree
 from fhy.driver.ast_program_builder.source_file_ast import SourceFileAST
 from fhy.driver.compilation_options import CompilationOptions
@@ -70,7 +70,7 @@ def test_program_instantiation():
 
 
 def test_builder_file_asts(unidirectional_import, config):
-    program = ASTProgramBuilder(unidirectional_import, config)
+    program = _ASTProgramBuilder(unidirectional_import, config)
     ast_files = program._build_source_file_asts()
 
     assert isinstance(ast_files, list), "Expected to return a list"
@@ -84,7 +84,7 @@ def test_builder_file_asts(unidirectional_import, config):
 
 
 def test_get_filepath_names(unidirectional_import, config):
-    program = ASTProgramBuilder(unidirectional_import, config)
+    program = _ASTProgramBuilder(unidirectional_import, config)
     ast_files = program._build_source_file_asts()
     paths = {i.path for i in ast_files}
 
@@ -97,14 +97,14 @@ def test_get_filepath_names(unidirectional_import, config):
 
 def test_get_path_from_symbol(unidirectional_import, config):
     symbol = "unidirectional_import.a.A"
-    program = ASTProgramBuilder(unidirectional_import, config)
+    program = _ASTProgramBuilder(unidirectional_import, config)
     result = program._get_source_file_path_from_imported_symbol(symbol)
 
     assert result == unidirectional_import.main
 
 
 def test_builder_module_tree(unidirectional_import, config):
-    program = ASTProgramBuilder(unidirectional_import, config)
+    program = _ASTProgramBuilder(unidirectional_import, config)
     ast_files = program._build_source_file_asts()
     paths = {i.path for i in ast_files}
 
@@ -139,7 +139,7 @@ def test_builder_module_tree(unidirectional_import, config):
 
 
 def test_get_correct_module_by_name(unidirectional_import, config):
-    program = ASTProgramBuilder(unidirectional_import, config)
+    program = _ASTProgramBuilder(unidirectional_import, config)
     ast_files = program._build_source_file_asts()
     paths = {i.path for i in ast_files}
     tree = program._build_module_tree(paths)
@@ -159,7 +159,7 @@ def test_get_correct_module_by_name(unidirectional_import, config):
 
 def test_identifier_validation(unidirectional_import, config):
     """Confirm that Identifiers are Correctly Replaced."""
-    program = ASTProgramBuilder(unidirectional_import, config)
+    program = _ASTProgramBuilder(unidirectional_import, config)
     ast_files: list[SourceFileAST] = program._build_source_file_asts()
     paths: set[Path] = {i.path for i in ast_files}
     tree: ModuleTree = program._build_module_tree(paths)
@@ -186,7 +186,7 @@ def test_identifier_validation(unidirectional_import, config):
 
 def test_identifier_validation_circular_import(circular_dir, config):
     """Raise ImportError when Encountering Circular Import."""
-    program = ASTProgramBuilder(circular_dir, config)
+    program = _ASTProgramBuilder(circular_dir, config)
     ast_files = program._build_source_file_asts()
     paths = {i.path for i in ast_files}
     tree = program._build_module_tree(paths)
@@ -196,7 +196,7 @@ def test_identifier_validation_circular_import(circular_dir, config):
 
 
 def test_program_build(unidirectional_import, config):
-    builder = ASTProgramBuilder(unidirectional_import, config)
+    builder = _ASTProgramBuilder(unidirectional_import, config)
     program = builder.build()
 
     assert isinstance(program, IRProgram), "Expected an Program to be built."

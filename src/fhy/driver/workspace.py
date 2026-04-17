@@ -29,52 +29,22 @@
 # WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-"""Workspace root path."""
+"""FhY project workspace."""
+
+__all__ = ["Workspace"]
 
 from pathlib import Path
 
 
 class Workspace:
-    """Workspace describing project root main file path.
+    """Workspace describing FhY project."""
 
-    Args:
-        root (Path): Path to main FhY filepath in src directory
+    _source_file: Path
 
-    Usage:
-        If we have the following project diagram:
-        .. code-block:: text
-
-            Root/
-            └── Src/
-                ├── main.fhy
-                ├── other_module.fhy
-                └── subpackage/
-                    └── submodule.fhy
-
-        Then we point to the main module (entry point) within the src directory:
-        .. code-block:: python
-
-            path = Path("Root/Src/main.fhy")
-            workspace = Workspace(path)
-
-    """
-
-    _root: Path
-
-    def __init__(self, root: Path):
-        self._root = root
+    def __init__(self, source_file: Path):
+        self._source_file = source_file
 
     @property
-    def main(self) -> Path:
-        """Path indicating primary entry point module of project."""
-        return self._root
-
-    @property
-    def source(self) -> Path:
-        """Parent source directory containing project."""
-        return self._root.parent
-
-    @property
-    def root(self) -> Path:
-        """Root directory encapsulating source."""
-        return self.source.parent
+    def source_file(self) -> Path:
+        """The FhY source file."""
+        return self._source_file

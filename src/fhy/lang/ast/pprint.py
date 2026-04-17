@@ -138,7 +138,10 @@ class ASTPrettyFormatter(VisitablePass[ASTStructure, str]):
         )
 
     def visit_argument(self, argument: ast.Argument) -> str:
-        return f"{self.visit(argument.qualified_type)} {self.visit(argument.name)}"
+        return (
+            f"{self.visit(argument.qualified_type)} "
+            f"{self._pformat_identifier(argument.name)}"
+        )
 
     def visit_declaration_statement(
         self, declaration_statement: ast.DeclarationStatement

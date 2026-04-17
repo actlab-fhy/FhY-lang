@@ -29,7 +29,7 @@
 # WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-"""Fhy Builder Module."""
+"""FhY builder package."""
 
 from .builder import build_ast_program
 
