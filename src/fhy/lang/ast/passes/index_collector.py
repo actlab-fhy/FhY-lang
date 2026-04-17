@@ -2,8 +2,7 @@
 
 from collections.abc import Callable
 
-from fhy_core import Identifier, register_pass
-from fhy_core.pass_infrastructure import AnalysisVisitablePass
+from fhy_core import AnalysisVisitablePass, Identifier, register_pass
 
 from fhy.lang.ast.node import core
 from fhy.lang.ast.node.expression import FunctionExpression, IdentifierExpression

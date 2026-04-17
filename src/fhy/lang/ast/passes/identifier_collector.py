@@ -3,6 +3,7 @@
 from functools import singledispatchmethod
 
 from fhy_core import (
+    AnalysisVisitablePass,
     DataType,
     Identifier,
     IndexType,
@@ -14,9 +15,6 @@ from fhy_core import (
     register_pass,
 )
 from fhy_core import collect_identifiers as collect_core_identifiers
-from fhy_core.pass_infrastructure import (
-    AnalysisVisitablePass,  # get from top-level; also, fix other places
-)
 
 from fhy.lang.ast.node import (
     Argument,
