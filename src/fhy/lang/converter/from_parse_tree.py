@@ -62,10 +62,10 @@ from fhy_core import (
 )
 
 from fhy.error import FhYSyntaxError
-from fhy.ir.builtins import BUILTIN_LANG_IDENTIFIERS
 from fhy.lang import ast
 from fhy.lang.ast.alias import ASTExpressionStructure
 from fhy.lang.ast.passes import convert_ast_expression_to_core_expression
+from fhy.lang.builtins import BUILTIN_LANG_IDENTIFIERS
 from fhy.lang.parser import FhYParser, FhYVisitor  # type: ignore[import-untyped]
 
 

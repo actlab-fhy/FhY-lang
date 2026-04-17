@@ -29,6 +29,6 @@
 # WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
 # DAMAGE.
 
-"""FhY Compiler."""
+"""FhY language and frontend."""
 
-__version__ = "0.0.1"
+__version__ = "1.0.0"

@@ -63,7 +63,6 @@ from fhy_core import (
 from fhy_core import IdentifierExpression as CoreIdentifierExpression
 
 from fhy.error import FhYSemanticsError
-from fhy.ir.builtins import BUILTIN_LANG_IDENTIFIERS, BUILTINS_NAMESPACE_NAME
 from fhy.lang.ast.alias import ASTStructure
 from fhy.lang.ast.node import (
     Argument,
@@ -74,6 +73,7 @@ from fhy.lang.ast.node import (
     core,
     expression,
 )
+from fhy.lang.builtins import BUILTIN_LANG_IDENTIFIERS, BUILTINS_NAMESPACE_NAME
 
 from .identifier_collector import collect_identifiers
 
