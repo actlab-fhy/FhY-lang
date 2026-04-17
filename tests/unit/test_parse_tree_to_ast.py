@@ -3,7 +3,7 @@
 from collections.abc import Sequence
 
 import pytest
-from fhy.error import FhYSyntaxError
+from fhy.lang import FhYSyntaxError
 from fhy.lang.ast import node as ast_node
 from fhy.lang.ast.passes import collect_identifiers
 from fhy.lang.ast.pprint import pformat_ast

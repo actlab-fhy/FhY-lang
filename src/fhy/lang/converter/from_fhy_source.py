@@ -14,10 +14,10 @@ from antlr4.error.ErrorListener import (  # type: ignore[import-untyped]
 )
 from fhy_core import Provenance, get_logger
 
-from fhy.error import FhYSyntaxError
 from fhy.lang import ast
 from fhy.lang.parser import FhYLexer, FhYParser
 
+from .error import FhYSyntaxError
 from .from_parse_tree import from_parse_tree
 
 _logger = get_logger(__name__)

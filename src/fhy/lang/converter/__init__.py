@@ -1,5 +1,6 @@
 """Conversion to the FhY AST."""
 
-from .from_fhy_source import from_fhy_source
+__all__ = ["from_fhy_source", "FhYSyntaxError"]
 
-__all__ = ["from_fhy_source"]
+from .error import FhYSyntaxError
+from .from_fhy_source import from_fhy_source

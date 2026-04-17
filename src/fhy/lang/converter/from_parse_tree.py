@@ -22,11 +22,12 @@ from fhy_core import (
     TypeQualifier,
 )
 
-from fhy.error import FhYSyntaxError
 from fhy.lang import ast
 from fhy.lang.ast.passes import convert_ast_expression_to_core_expression
 from fhy.lang.builtins import BUILTIN_LANG_IDENTIFIERS
 from fhy.lang.parser import FhYParser, FhYVisitor  # type: ignore[import-untyped]
+
+from .error import FhYSyntaxError
 
 
 def _get_source_info(
