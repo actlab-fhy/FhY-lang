@@ -10,6 +10,7 @@ from .node import Module
 from .passes import (
     build_symbol_table,
     validate_expression_statement_lhs,
+    validate_for_all_statements,
     validate_type_qualifiers,
 )
 
@@ -67,4 +68,5 @@ def validate_ast(ast: Module) -> tuple[Module, SymbolTable]:
     symbol_table = build_symbol_table(ast)
     validate_expression_statement_lhs(ast)
     validate_type_qualifiers(ast, symbol_table)
+    validate_for_all_statements(ast, symbol_table)
     return ast, symbol_table
