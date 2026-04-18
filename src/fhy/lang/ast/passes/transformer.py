@@ -12,6 +12,7 @@ from fhy_core import (
     IndexType,
     NumericalType,
     PrimitiveDataType,
+    Stack,
     TemplateDataType,
     TupleType,
     Type,
@@ -46,6 +47,7 @@ from fhy.lang.ast.node import (
     TupleExpression,
     UnaryExpression,
 )
+from fhy.lang.builtins import BUILTINS_NAMESPACE_NAME
 
 Statements = Statement | list[Statement]
 _T = TypeVar("_T", bound=Node)
@@ -57,6 +59,17 @@ _T = TypeVar("_T", bound=Node)
 
 class Transformer(VisitablePass[Node, Node]):
     """AST node transformer."""
+
+    _namespace_stack: Stack[Identifier]
+
+    def __init__(self) -> None:
+        super().__init__()
+        self._namespace_stack = Stack[Identifier]()
+        self._namespace_stack.push(BUILTINS_NAMESPACE_NAME)
+
+    def get_current_namespace(self) -> Identifier:
+        """Return the current namespace."""
+        return self._namespace_stack.peek()
 
     def get_noop_output(self, ir: Node) -> Node:
         return ir
@@ -100,13 +113,16 @@ class Transformer(VisitablePass[Node, Node]):
             node: Module node to transform.
 
         """
-        new_name = self.visit_identifier(node.name)
-        new_statements = self.visit_sequence(
-            cast(Sequence[Statement], node.statements),
-            self.visit_statement,
-            is_length_same=False,
-        )
-
+        self._namespace_stack.push(node.name)
+        try:
+            new_name = self.visit_identifier(node.name)
+            new_statements = self.visit_sequence(
+                cast(Sequence[Statement], node.statements),
+                self.visit_statement,
+                is_length_same=False,
+            )
+        finally:
+            self._namespace_stack.pop()
         return Module(
             name=new_name, statements=new_statements, provenance=node.provenance
         )
@@ -153,17 +169,21 @@ class Transformer(VisitablePass[Node, Node]):
             node: Operation node to transform.
 
         """
-        new_name = self.visit_identifier(node.name)
-        new_templates = tuple(
-            self.visit_template_data_type(template) for template in node.templates
-        )
-        new_args = self.visit_sequence(node.args, self.visit_argument)
-        new_return_type: QualifiedType = self.visit_qualified_type(node.return_type)
-        new_body = self.visit_sequence(
-            cast(Sequence[Statement], node.body),
-            self.visit_statement,
-            is_length_same=False,
-        )
+        self._namespace_stack.push(node.name)
+        try:
+            new_name = self.visit_identifier(node.name)
+            new_templates = tuple(
+                self.visit_template_data_type(template) for template in node.templates
+            )
+            new_args = self.visit_sequence(node.args, self.visit_argument)
+            new_return_type: QualifiedType = self.visit_qualified_type(node.return_type)
+            new_body = self.visit_sequence(
+                cast(Sequence[Statement], node.body),
+                self.visit_statement,
+                is_length_same=False,
+            )
+        finally:
+            self._namespace_stack.pop()
 
         return Operation(
             name=new_name,
@@ -181,14 +201,18 @@ class Transformer(VisitablePass[Node, Node]):
             node: Procedure node to transform.
 
         """
-        new_name = self.visit_identifier(node.name)
-        new_templates = tuple(
-            self.visit_template_data_type(template) for template in node.templates
-        )
-        new_args = self.visit_sequence(node.args, self.visit_argument)
-        new_body = self.visit_sequence(
-            node.body, self.visit_statement, is_length_same=False
-        )
+        self._namespace_stack.push(node.name)
+        try:
+            new_name = self.visit_identifier(node.name)
+            new_templates = tuple(
+                self.visit_template_data_type(template) for template in node.templates
+            )
+            new_args = self.visit_sequence(node.args, self.visit_argument)
+            new_body = self.visit_sequence(
+                node.body, self.visit_statement, is_length_same=False
+            )
+        finally:
+            self._namespace_stack.pop()
 
         return Procedure(
             name=new_name,
@@ -245,6 +269,7 @@ class Transformer(VisitablePass[Node, Node]):
             node: Selection statement node to transform.
 
         """
+        # TODO: handle namespace stack
         return SelectionStatement(
             condition=self.visit_expression(node.condition),
             true_body=self.visit_sequence(
@@ -263,11 +288,18 @@ class Transformer(VisitablePass[Node, Node]):
             node: For-all statement node to transform.
 
         """
-        return ForAllStatement(
-            index=self.visit_expression(node.index),
-            body=self.visit_sequence(
+        self._namespace_stack.push(node.name)
+        try:
+            new_index = self.visit_expression(node.index)
+            new_body = self.visit_sequence(
                 node.body, self.visit_statement, is_length_same=False
-            ),
+            )
+        finally:
+            self._namespace_stack.pop()
+
+        return ForAllStatement(
+            index=new_index,
+            body=new_body,
             provenance=node.provenance,
         )
 
