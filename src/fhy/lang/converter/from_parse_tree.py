@@ -1,43 +1,4 @@
-# Copyright (c) 2024 FhY Developers
-# Christopher Priebe <cpriebe@ucsd.edu>
-# Jason C Del Rio <j3delrio@ucsd.edu>
-# Hadi S Esmaeilzadeh <hadi@ucsd.edu>
-# All Rights Reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification, are
-# permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this list of
-# conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list
-# of conditions and the following disclaimer in the documentation and/or other materials
-# provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its contributors may be
-# used to endorse or promote products derived from this software without specific prior
-# written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS” AND ANY
-# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
-# SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-# TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-# BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
-# WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
-# DAMAGE.
-
-"""Tools to construct an AST from a FhY concrete syntax tree using visitors.
-
-Classes:
-    ParseTreeConverter: Handles the actual construction of the AST from CST
-
-Functions:
-    from_parse_tree: Primary entry point to build an AST from a CST
-
-"""
+"""Tools to construct an AST from a FhY concrete syntax tree using visitors."""
 
 import re
 from collections import ChainMap
@@ -61,12 +22,12 @@ from fhy_core import (
     TypeQualifier,
 )
 
-from fhy.error import FhYSyntaxError
-from fhy.ir.builtins import BUILTIN_LANG_IDENTIFIERS
 from fhy.lang import ast
-from fhy.lang.ast.alias import ASTExpressionStructure
 from fhy.lang.ast.passes import convert_ast_expression_to_core_expression
+from fhy.lang.builtins import BUILTIN_LANG_IDENTIFIERS
 from fhy.lang.parser import FhYParser, FhYVisitor  # type: ignore[import-untyped]
+
+from .error import FhYSyntaxError
 
 
 def _get_source_info(
@@ -80,8 +41,8 @@ def _get_source_info(
             return parse_tree_provenance.with_span(
                 Span(
                     file_path=parse_tree_provenance.span.file_path,
-                    start_position=Position(start.line, start.column),
-                    end_position=Position(stop.line, stop.column),
+                    start_position=Position(start.line + 1, start.column + 1),
+                    end_position=Position(stop.line + 1, stop.column + 1),
                 )
             )
         else:
@@ -617,9 +578,7 @@ class ParseTreeConverter(FhYVisitor):
         id_express: FhYParser.Identifier_expressionContext | None
 
         if (tup := ctx.tuple_()) is not None:
-            expressions: Sequence[ASTExpressionStructure] = self.visitExpression_list(
-                tup
-            )
+            expressions: Sequence[ast.Expression] = self.visitExpression_list(tup)
 
             return ast.TupleExpression(
                 provenance=provenance,
@@ -792,6 +751,9 @@ def from_parse_tree(
     Args:
         parse_tree: FhY concrete syntax tree, module context.
         provenance: Provenance of the parse tree.
+
+    Returns:
+        The AST module.
 
     Raises:
         NotImplementedError: Attempted use of unsupported features of FhY language.

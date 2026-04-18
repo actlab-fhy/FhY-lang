@@ -1,54 +1,23 @@
-# Copyright (c) 2024 FhY Developers
-# Christopher Priebe <cpriebe@ucsd.edu>
-# Jason C Del Rio <j3delrio@ucsd.edu>
-# Hadi S Esmaeilzadeh <hadi@ucsd.edu>
-# All Rights Reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification, are
-# permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this list of
-# conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list
-# of conditions and the following disclaimer in the documentation and/or other materials
-# provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its contributors may be
-# used to endorse or promote products derived from this software without specific prior
-# written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS” AND ANY
-# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
-# SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-# TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-# BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
-# WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
-# DAMAGE.
-
 """Transformer pattern for the FhY AST nodes."""
 
 __all__ = ["Transformer"]
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from functools import singledispatchmethod
-from typing import TypeVar
+from typing import TypeVar, cast
 
 from fhy_core import (
     DataType,
+    Identifier,
     IndexType,
     NumericalType,
     PrimitiveDataType,
     TemplateDataType,
     TupleType,
     Type,
+    TypeQualifier,
     VisitablePass,
 )
-
-from fhy.lang.ast.alias import ASTStructure
 
 from .node import (
     Argument,
@@ -65,6 +34,7 @@ from .node import (
     Import,
     IntLiteral,
     Module,
+    Node,
     Operation,
     Procedure,
     QualifiedType,
@@ -78,43 +48,50 @@ from .node import (
 )
 
 Statements = Statement | list[Statement]
-_T = TypeVar("_T")
+_T = TypeVar("_T", bound=Node)
 
 
-class Transformer(VisitablePass[ASTStructure, ASTStructure]):
+# TODO: do not create new objects when not necessary;
+#       test this behavior too!
+
+
+class Transformer(VisitablePass[Node, Node]):
     """AST node transformer."""
 
-    def get_noop_output(self, ir: ASTStructure) -> ASTStructure:
+    def get_noop_output(self, ir: Node) -> Node:
         return ir
 
     def visit_sequence(
-        self, nodes: Sequence[_T], is_length_same: bool = True
+        self,
+        nodes: Sequence[_T],
+        visit_fn: Callable[[_T], _T] | Callable[[_T], _T | Sequence[_T]],
+        is_length_same: bool = True,
     ) -> tuple[_T, ...]:
         """Visit a list of nodes or structures.
 
         Args:
-            nodes: Nodes or structures to visit.
+            nodes: Nodes to visit.
+            visit_fn: Function to visit each node.
             is_length_same: Whether the length of the transformed nodes or
-                structures should be the same as the input nodes or structures.
+                nodes should be the same as the input nodes.
 
         Returns:
             Transformed nodes or structures.
 
         """
-        if is_length_same:
-            return tuple(self.visit(node) for node in nodes)
-        else:
-            new_nodes: list[_T] = []
-            for node in nodes:
-                new_node = self.visit(node)
-                # TODO: Implement returning "None" to remove the element.
-                # if new_node is None:
-                #     continue
-                if isinstance(new_node, Sequence):
-                    new_nodes.extend(new_node)
+        new_nodes: list[_T] = []
+        for node in nodes:
+            new_node = visit_fn(node)
+            if isinstance(new_node, Sequence):
+                if is_length_same:
+                    raise RuntimeError(
+                        "visit_fn returned a sequence, but is_length_same is True."
+                    )
                 else:
-                    new_nodes.append(new_node)
-            return tuple(new_nodes)
+                    new_nodes.extend(new_node)
+            else:
+                new_nodes.append(new_node)
+        return tuple(new_nodes)
 
     def visit_module(self, node: Module) -> Module:
         """Transform a module node.
@@ -123,11 +100,42 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
             node: Module node to transform.
 
         """
-        new_statements = self.visit_sequence(node.statements, is_length_same=False)
+        new_name = self.visit_identifier(node.name)
+        new_statements = self.visit_sequence(
+            cast(Sequence[Statement], node.statements),
+            self.visit_statement,
+            is_length_same=False,
+        )
 
         return Module(
-            name=node.name, statements=new_statements, provenance=node.provenance
+            name=new_name, statements=new_statements, provenance=node.provenance
         )
+
+    def visit_statement(self, node: Statement) -> Statements:
+        """Transform a statement node.
+
+        Args:
+            node: Statement node to transform.
+
+        """
+        if isinstance(node, Import):
+            return self.visit_import(node)
+        elif isinstance(node, Operation):
+            return self.visit_operation(node)
+        elif isinstance(node, Procedure):
+            return self.visit_procedure(node)
+        elif isinstance(node, DeclarationStatement):
+            return self.visit_declaration_statement(node)
+        elif isinstance(node, ExpressionStatement):
+            return self.visit_expression_statement(node)
+        elif isinstance(node, SelectionStatement):
+            return self.visit_selection_statement(node)
+        elif isinstance(node, ForAllStatement):
+            return self.visit_for_all_statement(node)
+        elif isinstance(node, ReturnStatement):
+            return self.visit_return_statement(node)
+        else:
+            raise NotImplementedError(f'Statement "{type(node)}" is not supported.')
 
     def visit_import(self, node: Import) -> Import:
         """Transform an import node.
@@ -145,17 +153,25 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
             node: Operation node to transform.
 
         """
-        new_templates = self.visit_sequence(node.templates)
-        new_args = self.visit_sequence(node.args)
+        new_name = self.visit_identifier(node.name)
+        new_templates = tuple(
+            self.visit_template_data_type(template) for template in node.templates
+        )
+        new_args = self.visit_sequence(node.args, self.visit_argument)
         new_return_type: QualifiedType = self.visit_qualified_type(node.return_type)
-        new_body = self.visit_sequence(node.body, is_length_same=False)
+        new_body = self.visit_sequence(
+            cast(Sequence[Statement], node.body),
+            self.visit_statement,
+            is_length_same=False,
+        )
 
         return Operation(
-            name=node.name,
+            name=new_name,
             templates=new_templates,
             args=new_args,
             return_type=new_return_type,
             body=new_body,
+            provenance=node.provenance,
         )
 
     def visit_procedure(self, node: Procedure) -> Procedure:
@@ -165,12 +181,21 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
             node: Procedure node to transform.
 
         """
-        new_templates = self.visit_sequence(node.templates)
-        new_args = self.visit_sequence(node.args)
-        new_body = self.visit_sequence(node.body, is_length_same=False)
+        new_name = self.visit_identifier(node.name)
+        new_templates = tuple(
+            self.visit_template_data_type(template) for template in node.templates
+        )
+        new_args = self.visit_sequence(node.args, self.visit_argument)
+        new_body = self.visit_sequence(
+            node.body, self.visit_statement, is_length_same=False
+        )
 
         return Procedure(
-            name=node.name, templates=new_templates, args=new_args, body=new_body
+            name=new_name,
+            templates=new_templates,
+            args=new_args,
+            body=new_body,
+            provenance=node.provenance,
         )
 
     def visit_argument(self, node: Argument) -> Argument:
@@ -181,8 +206,9 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
 
         """
         return Argument(
+            name=self.visit_identifier(node.name),
             qualified_type=self.visit_qualified_type(node.qualified_type),
-            name=node.name,
+            provenance=node.provenance,
         )
 
     def visit_declaration_statement(self, node: DeclarationStatement) -> Statements:
@@ -192,16 +218,24 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
             node: Declaration statement node to transform.
 
         """
+        new_expression = (
+            self.visit_expression(node.expression)
+            if node.expression is not None
+            else None
+        )
         return DeclarationStatement(
             variable_name=node.variable_name,
             variable_type=self.visit_qualified_type(node.variable_type),
-            expression=self.visit_expression(node.expression),
+            expression=new_expression,
+            provenance=node.provenance,
         )
 
     def visit_expression_statement(self, node: ExpressionStatement) -> Statements:
+        new_left = self.visit_expression(node.left) if node.left is not None else None
         return ExpressionStatement(
-            left=self.visit_expression(node.left),
+            left=new_left,
             right=self.visit_expression(node.right),
+            provenance=node.provenance,
         )
 
     def visit_selection_statement(self, node: SelectionStatement) -> Statements:
@@ -213,8 +247,13 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
         """
         return SelectionStatement(
             condition=self.visit_expression(node.condition),
-            true_body=self.visit_sequence(node.true_body, is_length_same=False),
-            false_body=self.visit_sequence(node.false_body, is_length_same=False),
+            true_body=self.visit_sequence(
+                node.true_body, self.visit_statement, is_length_same=False
+            ),
+            false_body=self.visit_sequence(
+                node.false_body, self.visit_statement, is_length_same=False
+            ),
+            provenance=node.provenance,
         )
 
     def visit_for_all_statement(self, node: ForAllStatement) -> Statements:
@@ -226,7 +265,10 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
         """
         return ForAllStatement(
             index=self.visit_expression(node.index),
-            body=self.visit_sequence(node.body, is_length_same=False),
+            body=self.visit_sequence(
+                node.body, self.visit_statement, is_length_same=False
+            ),
+            provenance=node.provenance,
         )
 
     def visit_return_statement(self, node: ReturnStatement) -> Statements:
@@ -236,11 +278,48 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
             node: Return statement node to transform.
 
         """
-        return ReturnStatement(expression=self.visit_expression(node.expression))
+        return ReturnStatement(
+            expression=self.visit_expression(node.expression),
+            provenance=node.provenance,
+        )
+
+    def visit_expression(self, node: Expression) -> Expression:  # noqa: C901
+        """Transform an expression node.
+
+        Args:
+            node: Expression node to transform.
+
+        """
+        if isinstance(node, UnaryExpression):
+            return self.visit_unary_expression(node)
+        elif isinstance(node, BinaryExpression):
+            return self.visit_binary_expression(node)
+        elif isinstance(node, TernaryExpression):
+            return self.visit_ternary_expression(node)
+        elif isinstance(node, FunctionExpression):
+            return self.visit_function_expression(node)
+        elif isinstance(node, ArrayAccessExpression):
+            return self.visit_array_access_expression(node)
+        elif isinstance(node, TupleExpression):
+            return self.visit_tuple_expression(node)
+        elif isinstance(node, TupleAccessExpression):
+            return self.visit_tuple_access_expression(node)
+        elif isinstance(node, IdentifierExpression):
+            return self.visit_identifier_expression(node)
+        elif isinstance(node, IntLiteral):
+            return self.visit_int_literal(node)
+        elif isinstance(node, FloatLiteral):
+            return self.visit_float_literal(node)
+        elif isinstance(node, ComplexLiteral):
+            return self.visit_complex_literal(node)
+        else:
+            raise NotImplementedError(f'Expression "{type(node)}" is not supported.')
 
     def visit_unary_expression(self, node: UnaryExpression) -> UnaryExpression:
         return UnaryExpression(
-            operation=node.operation, expression=self.visit_expression(node.expression)
+            operation=node.operation,
+            expression=self.visit_expression(node.expression),
+            provenance=node.provenance,
         )
 
     def visit_binary_expression(self, node: BinaryExpression) -> Expression:
@@ -254,6 +333,7 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
             operation=node.operation,
             left=self.visit_expression(node.left),
             right=self.visit_expression(node.right),
+            provenance=node.provenance,
         )
 
     def visit_ternary_expression(self, node: TernaryExpression) -> Expression:
@@ -267,6 +347,7 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
             condition=self.visit_expression(node.condition),
             true=self.visit_expression(node.true),
             false=self.visit_expression(node.false),
+            provenance=node.provenance,
         )
 
     def visit_function_expression(self, node: FunctionExpression) -> Expression:
@@ -278,9 +359,14 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
         """
         return FunctionExpression(
             function=self.visit_expression(node.function),
-            template_types=self.visit_sequence(node.template_types),
-            indices=self.visit_sequence(node.indices),
-            args=self.visit_sequence(node.args),
+            template_types=tuple(
+                self.visit_data_type(template) for template in node.template_types
+            ),
+            indices=self.visit_sequence(
+                cast(Sequence[Expression], node.indices), self.visit_expression
+            ),
+            args=self.visit_sequence(node.args, self.visit_expression),
+            provenance=node.provenance,
         )
 
     def visit_array_access_expression(self, node: ArrayAccessExpression) -> Expression:
@@ -292,7 +378,10 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
         """
         return ArrayAccessExpression(
             array_expression=self.visit_expression(node.array_expression),
-            indices=self.visit_sequence(node.indices),
+            indices=self.visit_sequence(
+                cast(Sequence[Expression], node.indices), self.visit_expression
+            ),
+            provenance=node.provenance,
         )
 
     def visit_tuple_expression(self, node: TupleExpression) -> Expression:
@@ -302,7 +391,12 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
             node: Tuple expression node to transform.
 
         """
-        return TupleExpression(expressions=self.visit_sequence(node.expressions))
+        return TupleExpression(
+            expressions=self.visit_sequence(
+                cast(Sequence[Expression], node.expressions), self.visit_expression
+            ),
+            provenance=node.provenance,
+        )
 
     def visit_tuple_access_expression(self, node: TupleAccessExpression) -> Expression:
         """Transform a tuple access expression node.
@@ -314,6 +408,7 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
         return TupleAccessExpression(
             tuple_expression=self.visit_expression(node.tuple_expression),
             element_index=self.visit_int_literal(node.element_index),
+            provenance=node.provenance,
         )
 
     def visit_identifier_expression(self, node: IdentifierExpression) -> Expression:
@@ -323,7 +418,10 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
             node: Identifier expression node to transform.
 
         """
-        return IdentifierExpression(identifier=self.visit_identifier(node.identifier))
+        return IdentifierExpression(
+            identifier=self.visit_identifier(node.identifier),
+            provenance=node.provenance,
+        )
 
     def visit_int_literal(self, node: IntLiteral) -> IntLiteral:
         """Transform an int literal node.
@@ -362,6 +460,7 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
         return QualifiedType(
             base_type=self.visit_type(node.base_type),
             type_qualifier=self.visit_type_qualifier(node.type_qualifier),
+            provenance=node.provenance,
         )
 
     @singledispatchmethod
@@ -402,4 +501,33 @@ class Transformer(VisitablePass[ASTStructure, ASTStructure]):
 
     @visit_data_type.register(TemplateDataType)
     def _(self, template_data_type: TemplateDataType) -> TemplateDataType:
+        return self.visit_template_data_type(template_data_type)
+
+    def visit_template_data_type(
+        self, template_data_type: TemplateDataType
+    ) -> TemplateDataType:
+        """Transform a template data type node.
+
+        Args:
+            template_data_type: Template data type node to transform.
+
+        """
         return template_data_type
+
+    def visit_identifier(self, identifier: Identifier) -> Identifier:
+        """Transform an identifier.
+
+        Args:
+            identifier: Identifier to transform.
+
+        """
+        return identifier
+
+    def visit_type_qualifier(self, type_qualifier: TypeQualifier) -> TypeQualifier:
+        """Transform a type qualifier.
+
+        Args:
+            type_qualifier: Type qualifier to transform.
+
+        """
+        return type_qualifier

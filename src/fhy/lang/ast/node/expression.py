@@ -1,57 +1,4 @@
-# Copyright (c) 2024 FhY Developers
-# Christopher Priebe <cpriebe@ucsd.edu>
-# Jason C Del Rio <j3delrio@ucsd.edu>
-# Hadi S Esmaeilzadeh <hadi@ucsd.edu>
-# All Rights Reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification, are
-# permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this list of
-# conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list
-# of conditions and the following disclaimer in the documentation and/or other materials
-# provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its contributors may be
-# used to endorse or promote products derived from this software without specific prior
-# written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS” AND ANY
-# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
-# SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-# TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-# BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
-# WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
-# DAMAGE.
-
-"""Expression nodes for the expressions in the FhY language.
-
-Supported Operators:
-    UnaryOperation (StrEnum): Operators acting on a single expression.
-    BinaryOperation (StrEnum): Operators acting on two expressions.
-
-AST Expressions:
-    UnaryExpressions: Expression acting on a single expression.
-    BinaryOperation: Expression acting on two expressions (left and right).
-    TernaryExpression: Conditional expression.
-
-Primitive Expressions:
-    TupleExpression: An expression defining a tuple.
-    TupleAccessExpression: An expression accessing a tuple element.
-    FunctionExpression: An expression defining a function call.
-    ArrayAccessExpression: An expression accessing an array element.
-    IdentifierExpression: An expression defining a variable.
-    Literal: Abstract expression node to define concrete values.
-    IntLiteral: Defines an integer value.
-    FloatLiteral: Defines a floating point value.
-    ComplexLiteral: Defines a complex value.
-
-"""
+"""Expression nodes for the expressions in the FhY language."""
 
 from abc import ABC
 from collections.abc import Sequence
@@ -119,8 +66,7 @@ class UnaryExpression(Expression, HasOperandsMixin[Expression]):
     operation: UnaryOperation
     expression: Expression
 
-    @property
-    def operands(self) -> tuple[Expression, ...]:
+    def get_operands(self) -> tuple[Expression, ...]:
         return (self.expression,)
 
     def get_visit_children(self) -> Sequence[Visitable]:
@@ -242,8 +188,7 @@ class BinaryExpression(Expression, HasOperandsMixin[Expression]):
     left: Expression
     right: Expression
 
-    @property
-    def operands(self) -> tuple[Expression, ...]:
+    def get_operands(self) -> tuple[Expression, Expression]:
         return (self.left, self.right)
 
     def get_visit_children(self) -> Sequence[Visitable]:
@@ -373,8 +318,7 @@ class TupleAccessExpression(Expression, HasOperandsMixin[Expression]):
     tuple_expression: Expression
     element_index: "IntLiteral"
 
-    @property
-    def operands(self) -> tuple[Expression, Expression]:
+    def get_operands(self) -> tuple[Expression, Expression]:
         return (
             self.tuple_expression,
             self.element_index,
@@ -453,8 +397,7 @@ class FunctionExpression(Expression, HasOperandsMixin[Expression]):
     indices: tuple[Expression, ...] = field(default_factory=tuple)
     args: tuple[Expression, ...] = field(default_factory=tuple)
 
-    @property
-    def operands(self) -> tuple[Expression, ...]:
+    def get_operands(self) -> tuple[Expression, ...]:
         return self.args
 
     def get_visit_children(self) -> Sequence[Visitable]:
@@ -542,8 +485,7 @@ class ArrayAccessExpression(Expression, HasOperandsMixin[Expression]):
     array_expression: Expression
     indices: tuple[Expression, ...] = field(default_factory=tuple)
 
-    @property
-    def operands(self) -> tuple[Expression, ...]:
+    def get_operands(self) -> tuple[Expression, ...]:
         return (self.array_expression, *self.indices)
 
     def get_visit_children(self) -> Sequence[Visitable]:
@@ -607,8 +549,7 @@ class TupleExpression(Expression, HasOperandsMixin[Expression]):
 
     expressions: tuple[Expression, ...] = field(default_factory=tuple)
 
-    @property
-    def operands(self) -> tuple[Expression, ...]:
+    def get_operands(self) -> tuple[Expression, ...]:
         return self.expressions
 
     def get_visit_children(self) -> Sequence[Visitable]:

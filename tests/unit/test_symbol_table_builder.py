@@ -1,164 +1,260 @@
-"""Unit Test Symbol Table Builder Module."""
+"""Tests the symbol table builder AST pass."""
 
-from fhy.lang.ast import Module, Procedure
+import pytest
+from fhy.lang.ast import (
+    Argument,
+    DeclarationStatement,
+    Module,
+    Procedure,
+    QualifiedType,
+)
 from fhy.lang.ast.passes import build_symbol_table
-from fhy_core import Identifier
+from fhy.lang.ast.passes.symbol_table_builder import FhYSymbolTableBuilderError
+from fhy_core import (
+    CoreDataType,
+    FunctionKeyword,
+    FunctionSymbolTableFrame,
+    Identifier,
+    NumericalType,
+    PassExecutionError,
+    PrimitiveDataType,
+    Provenance,
+    TypeQualifier,
+    VariableSymbolTableFrame,
+)
 
 
 def test_empty_program():
     """Tests an empty program."""
-    program_ast = Module()
-    module_name = program_ast.name
+    program_ast = Module(provenance=Provenance.unknown())
 
     symbol_table = build_symbol_table(program_ast)
 
-    error_message: str = "Expected 2 namespaces, got "
-    error_message += f"{symbol_table.get_number_of_namespaces()}."
-    assert symbol_table.get_number_of_namespaces() == 2, error_message
-    module_namespace = symbol_table.get_namespace(module_name)
-    error_message = "Expected 0 symbols in the module, "
-    error_message += f"got {len(module_namespace)}."
-    assert len(module_namespace) == 0, error_message
+    assert symbol_table.get_number_of_namespaces() == 2
+    module_namespace = symbol_table.get_namespace(program_ast.name)
+    assert len(module_namespace) == 0
 
 
 def test_empty_procedure():
     """Tests empty procedure body containing procedure name in symbol table."""
-    function_name = Identifier("main")
+    main = Identifier("main")
     program_ast = Module(
         statements=(
             Procedure(
-                name=function_name,
-                templates=[],
-                args=[],
-                body=[],
+                name=main,
+                templates=(),
+                args=(),
+                body=(),
+                provenance=Provenance.unknown(),
             ),
-        )
+        ),
+        provenance=Provenance.unknown(),
     )
-    module_name = program_ast.name
 
     symbol_table = build_symbol_table(program_ast)
 
-    error_message: str = "Expected 3 namespaces, "
-    error_message += f"got {symbol_table.get_number_of_namespaces()}."
-    assert symbol_table.get_number_of_namespaces() == 3, error_message
-    module_namespace_symbol_table = symbol_table.get_namespace(module_name)
-    error_message: str = f"Expected 1 symbol, got {len(module_namespace_symbol_table)}."
-    assert len(module_namespace_symbol_table) == 1, error_message
-    main_namespace_symbol_table = symbol_table.get_namespace(function_name)
+    assert symbol_table.get_number_of_namespaces() == 3
+    module_namespace_symbol_table = symbol_table.get_namespace(program_ast.name)
+    assert len(module_namespace_symbol_table) == 1
+    assert main in module_namespace_symbol_table
+    assert symbol_table.is_symbol_defined_in_namespace(program_ast.name, main)
+    frame = symbol_table.get_frame_from_namespace(program_ast.name, main)
+    assert isinstance(frame, FunctionSymbolTableFrame)
+    assert frame.name == main
+    assert frame.keyword == FunctionKeyword.PROCEDURE
+    assert frame.signature == ()
+    main_namespace_symbol_table = symbol_table.get_namespace(main)
     assert len(main_namespace_symbol_table) == 0
 
 
-# @pytest.mark.skip()
-# def test_procedure_with_arguments(construct_ast):
-#     """Test Empty Procedure with Arguments.
+def test_procedure_with_arguments():
+    """Test procedure with arguments."""
+    main = Identifier("main")
+    a, b = Identifier("a"), Identifier("b")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                templates=(),
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=NumericalType(
+                                PrimitiveDataType(CoreDataType.INT32)
+                            ),
+                            type_qualifier=TypeQualifier.INPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                    Argument(
+                        name=b,
+                        qualified_type=QualifiedType(
+                            base_type=NumericalType(
+                                PrimitiveDataType(CoreDataType.INT64)
+                            ),
+                            type_qualifier=TypeQualifier.INPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
 
-#     names are in the symbol table, but within procedure namespace.
+    symbol_table = build_symbol_table(program_ast)
 
-#     """
-#     source_file_content = "proc main(input int32[A, B] a, input int32[A, C] b) {}"
-#     _ast = construct_ast(source_file_content)
-
-#     symbol_table = build_symbol_table(_ast)
-
-#     assert len(symbol_table) == 2
-
-#     module_namespace_symbol_table = next(iter(symbol_table.values()))
-#     assert len(module_namespace_symbol_table) == 1
-#     assert "main" in _get_symbol_table_string_keys(module_namespace_symbol_table)
-
-#     main_namespace_symbol_table = list(symbol_table.values())[1]
-#     assert len(main_namespace_symbol_table) == 5
-#     for char in "abABC":
-#         assert char in _get_symbol_table_string_keys(
-#             main_namespace_symbol_table
-#         ), f'Expected Variable in Symbol table: "{char}"'
-
-
-# @pytest.mark.skip()
-# def test_procedure_with_declaration_statement(construct_ast):
-#     """Test procedure body variables are in symbol table procedure namespace."""
-#     source_file_content = "proc main(input int32[A, B] a) {temp int32[A] b;}"
-#     _ast = construct_ast(source_file_content)
-
-#     symbol_table = build_symbol_table(_ast)
-
-#     assert len(symbol_table) == 2
-
-#     module_namespace_symbol_table = next(iter(symbol_table.values()))
-#     assert len(module_namespace_symbol_table) == 1
-#     assert "main" in _get_symbol_table_string_keys(module_namespace_symbol_table)
-
-#     main_namespace_symbol_table = list(symbol_table.values())[1]
-#     assert len(main_namespace_symbol_table) == 4
-
-#     for char in "abAB":
-#         assert char in _get_symbol_table_string_keys(
-#             main_namespace_symbol_table
-#         ), f'Expected Variable in Symbol table: "{char}"'
-
-
-# @pytest.mark.skip()
-# def test_fails_with_undefined_shape_variable(construct_ast):
-#     """Tests an error is raised with an undeclared shape variable, 'C'."""
-#     source_file_content = "proc main(input int32[A, B] a) {temp int32[C] b;}"
-#     _ast = construct_ast(source_file_content)
-
-#     with pytest.raises(error.FhYSemanticsError):
-#         build_symbol_table(_ast)
-
-
-# @pytest.mark.skip()
-# def test_fails_with_already_defined_variable(construct_ast):
-#     """Tests redefinition of a variable raises an error."""
-#     source_file_content = "proc main(input int32[A, B] a) {temp int32[A] a;}"
-#     _ast = construct_ast(source_file_content)
-
-#     with pytest.raises(error.FhYSemanticsError):
-#         build_symbol_table(_ast)
-
-
-# @pytest.mark.skip()
-# def test_fails_with_already_defined_procedure(construct_ast):
-#     """Tests that redefining a procedure name raises an error."""
-#     source_file_content = "proc main() {} proc main() {}"
-#     _ast = construct_ast(source_file_content)
-
-#     with pytest.raises(error.FhYSemanticsError):
-#         build_symbol_table(_ast)
-
-
-# @pytest.mark.skip()
-# def test_import_variable(construct_ast):
-#     """Test import and usage of a variable.
-
-#     Variable should be present at both the module and procedure level (namespace).
-
-#     """
-#     source_file_content = (
-#         "import constants.pi; proc main() {temp int32 a = constants.pi;}"
-#     )
-#     _ast = construct_ast(source_file_content)
-
-#     symbol_table = build_symbol_table(_ast)
-
-#     assert len(symbol_table) == 2
-
-#     module_namespace_symbol_table = next(iter(symbol_table.values()))
-#     assert len(module_namespace_symbol_table) == 2
-#     assert "main" in _get_symbol_table_string_keys(module_namespace_symbol_table)
-#     assert "constants.pi" in _get_symbol_table_string_keys(
-#         module_namespace_symbol_table
-#     )
-
-#     main_namespace_symbol_table = list(symbol_table.values())[1]
-#     assert len(main_namespace_symbol_table) == 1
-#     assert "a" in _get_symbol_table_string_keys(main_namespace_symbol_table)
+    assert symbol_table.get_number_of_namespaces() == 3
+    module_namespace = symbol_table.get_namespace(program_ast.name)
+    assert len(module_namespace) == 1
+    assert main in module_namespace
+    assert symbol_table.is_symbol_defined_in_namespace(program_ast.name, main)
+    frame = symbol_table.get_frame_from_namespace(program_ast.name, main)
+    assert isinstance(frame, FunctionSymbolTableFrame)
+    assert frame.name == main
+    assert frame.keyword == FunctionKeyword.PROCEDURE
+    assert len(frame.signature) == 2
+    assert frame.signature[0][0] == TypeQualifier.INPUT
+    assert frame.signature[0][1].is_structurally_equivalent(
+        NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    )
+    assert frame.signature[1][0] == TypeQualifier.INPUT
+    assert frame.signature[1][1].is_structurally_equivalent(
+        NumericalType(PrimitiveDataType(CoreDataType.INT64))
+    )
+    main_namespace = symbol_table.get_namespace(main)
+    assert len(main_namespace) == 2
+    assert a in main_namespace and symbol_table.is_symbol_defined_in_namespace(main, a)
+    assert b in main_namespace and symbol_table.is_symbol_defined_in_namespace(main, b)
+    a_frame = symbol_table.get_frame_from_namespace(main, a)
+    assert isinstance(a_frame, VariableSymbolTableFrame)
+    assert a_frame.name == a
+    assert a_frame.type.is_structurally_equivalent(
+        NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    )
+    assert a_frame.type_qualifier == TypeQualifier.INPUT
+    b_frame = symbol_table.get_frame_from_namespace(main, b)
+    assert isinstance(b_frame, VariableSymbolTableFrame)
+    assert b_frame.name == b
+    assert b_frame.type.is_structurally_equivalent(
+        NumericalType(PrimitiveDataType(CoreDataType.INT64))
+    )
+    assert b_frame.type_qualifier == TypeQualifier.INPUT
 
 
-# def test_fails_with_already_defined_import(construct_ast):
-#     """Tests that reimporting the same variable raises an error."""
-#     source_file_content = "import constants.pi; import constants.pi;"
-#     _ast = construct_ast(source_file_content)
+def test_procedure_with_declaration_statement():
+    """Test procedure with declaration statement."""
+    main = Identifier("main")
+    a = Identifier("a")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                templates=(),
+                args=(),
+                body=(
+                    DeclarationStatement(
+                        variable_name=a,
+                        variable_type=QualifiedType(
+                            base_type=NumericalType(
+                                PrimitiveDataType(CoreDataType.INT32)
+                            ),
+                            type_qualifier=TypeQualifier.TEMP,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
 
-#     with pytest.raises(error.FhYSemanticsError):
-#         build_symbol_table(_ast)
+    symbol_table = build_symbol_table(program_ast)
+
+    main_namespace = symbol_table.get_namespace(main)
+    assert len(main_namespace) == 1
+    assert a in main_namespace and symbol_table.is_symbol_defined_in_namespace(main, a)
+    a_frame = symbol_table.get_frame_from_namespace(main, a)
+    assert isinstance(a_frame, VariableSymbolTableFrame)
+    assert a_frame.name == a
+    assert a_frame.type.is_structurally_equivalent(
+        NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    )
+    assert a_frame.type_qualifier == TypeQualifier.TEMP
+
+
+def test_fails_with_already_defined_variable():
+    """Test failure with already defined variable."""
+    main = Identifier("main")
+    a = Identifier("a")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                templates=(),
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=NumericalType(
+                                PrimitiveDataType(CoreDataType.INT32)
+                            ),
+                            type_qualifier=TypeQualifier.INPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=a,
+                        variable_type=QualifiedType(
+                            base_type=NumericalType(
+                                PrimitiveDataType(CoreDataType.INT32)
+                            ),
+                            type_qualifier=TypeQualifier.TEMP,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    with pytest.raises(PassExecutionError, match=FhYSymbolTableBuilderError.__name__):
+        build_symbol_table(program_ast)
+
+
+def test_fails_with_already_defined_procedure():
+    """Test failure with already defined procedure."""
+    main = Identifier("main")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                templates=(),
+                args=(),
+                body=(),
+                provenance=Provenance.unknown(),
+            ),
+            Procedure(
+                name=main,
+                templates=(),
+                args=(),
+                body=(),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    with pytest.raises(PassExecutionError, match=FhYSymbolTableBuilderError.__name__):
+        build_symbol_table(program_ast)

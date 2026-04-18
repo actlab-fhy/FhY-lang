@@ -1,1 +1,1 @@
-"""FhY Unit Testing Suite."""
+"""FhY language and frontend unit tests."""

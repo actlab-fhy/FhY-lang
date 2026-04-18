@@ -190,22 +190,3 @@ jobs:
       - name: Report Testing Coverage
         run: |
           tox -e coverage | tee $GITHUB_STEP_SUMMARY
-
-  license:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Golang
-        uses: actions/setup-go@v5
-        with:
-          go-version: '1.22.4'
-
-      - name: Install addlicense
-        run: |
-          go install github.com/google/addlicense@v1.1.1
-
-      - name: Check for License Headers
-        run: |
-          addlicense -check -f LICENSE -l bsd src

@@ -1,41 +1,9 @@
-# Copyright (c) 2024 FhY Developers
-# Christopher Priebe <cpriebe@ucsd.edu>
-# Jason C Del Rio <j3delrio@ucsd.edu>
-# Hadi S Esmaeilzadeh <hadi@ucsd.edu>
-# All Rights Reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification, are
-# permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this list of
-# conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list
-# of conditions and the following disclaimer in the documentation and/or other materials
-# provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its contributors may be
-# used to endorse or promote products derived from this software without specific prior
-# written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS” AND ANY
-# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
-# SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-# TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-# BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
-# WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
-# DAMAGE.
-
 """Pretty print serialization of AST nodes into FhY language."""
 
 __all__ = ["pformat_ast"]
 
 from collections.abc import Sequence
 from functools import singledispatchmethod
-from typing import cast
 
 from fhy_core import (
     DataType,
@@ -52,14 +20,14 @@ from fhy_core import (
 )
 
 from fhy.lang import ast
-from fhy.lang.ast.alias import ASTStructure
+from fhy.lang.ast.node import Node
 
 
 @register_pass(
     "fhy_ast_pretty_formatter",
     "Formats a FhY AST node back into pseudo-FhY language source.",
 )
-class ASTPrettyFormatter(VisitablePass[ASTStructure, str]):
+class ASTPrettyFormatter(VisitablePass[Node, str]):
     """Formats an AST node back into pseudo-FhY language source.
 
     The output is not guaranteed to be a valid FhY program.
@@ -81,7 +49,7 @@ class ASTPrettyFormatter(VisitablePass[ASTStructure, str]):
         """Current indentations."""
         return self._indent_char * self._current_indent
 
-    def get_noop_output(self, ir: ASTStructure) -> str:
+    def get_noop_output(self, ir: Node) -> str:
         raise RuntimeError("This pass does not support a noop output.")
 
     def _increment_indent(self) -> None:
@@ -99,7 +67,7 @@ class ASTPrettyFormatter(VisitablePass[ASTStructure, str]):
         return "\n".join(self.visit(statement) for statement in module.statements)
 
     def visit_import(self, node: ast.Import) -> str:
-        return "import " + cast(str, self._pformat_identifier(node.name)) + ";"
+        return "import " + self._pformat_identifier(node.name) + ";"
 
     def visit_operation(self, operation: ast.Operation) -> str:
         self._increment_indent()
@@ -138,7 +106,10 @@ class ASTPrettyFormatter(VisitablePass[ASTStructure, str]):
         )
 
     def visit_argument(self, argument: ast.Argument) -> str:
-        return f"{self.visit(argument.qualified_type)} {self.visit(argument.name)}"
+        return (
+            f"{self.visit(argument.qualified_type)} "
+            f"{self._pformat_identifier(argument.name)}"
+        )
 
     def visit_declaration_statement(
         self, declaration_statement: ast.DeclarationStatement
@@ -161,7 +132,7 @@ class ASTPrettyFormatter(VisitablePass[ASTStructure, str]):
         else:
             left = ""
 
-        return left + cast(str, self.visit(expression_statement.right)) + ";"
+        return left + self.visit(expression_statement.right) + ";"
 
     def visit_selection_statement(
         self, selection_statement: ast.SelectionStatement
@@ -236,7 +207,7 @@ class ASTPrettyFormatter(VisitablePass[ASTStructure, str]):
 
         return f"{func}<{template_types}>[{indices}]({args})"
 
-    def _build_base_tuple(self, nodes: Sequence[ASTStructure]) -> str:
+    def _build_base_tuple(self, nodes: Sequence[Node]) -> str:
         a: str = "( " + ", ".join([self.visit(i) for i in nodes])
         a += ", )" if len(nodes) == 1 else " )"
 
@@ -262,7 +233,7 @@ class ASTPrettyFormatter(VisitablePass[ASTStructure, str]):
     def visit_identifier_expression(
         self, identifier_expression: ast.IdentifierExpression
     ) -> str:
-        return cast(str, self._pformat_identifier(identifier_expression.identifier))
+        return self._pformat_identifier(identifier_expression.identifier)
 
     def visit_int_literal(self, int_literal: ast.IntLiteral) -> str:
         return str(int_literal.value)
@@ -316,7 +287,13 @@ class ASTPrettyFormatter(VisitablePass[ASTStructure, str]):
 
     @_pformat_type.register(TupleType)
     def _(self, tuple_type: TupleType) -> str:
-        return "tuple " + self._build_base_tuple(tuple_type._types)
+        return (
+            "tuple ( "
+            + ", ".join(
+                self._pformat_type(inner_type) for inner_type in tuple_type._types
+            )
+            + " )"
+        )
 
     @singledispatchmethod
     def _pformat_data_type(self, data_type: DataType) -> str:
@@ -352,4 +329,4 @@ def pformat_ast(ast: ast.Node, indent_char: str = "  ", show_id: bool = False) -
 
     """
     pformatter = ASTPrettyFormatter(indent_char, show_id)
-    return cast(str, pformatter(ast))
+    return pformatter(ast)

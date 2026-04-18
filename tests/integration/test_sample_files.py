@@ -1,101 +1,51 @@
-"""Integration Tests - Compiling Source Code from File using Fhy Entry Point."""
+"""Tests compiling source code from file using FhY entry point."""
 
 import os
 import re
 from glob import glob
 
 import pytest
-from fhy.cli import Status
 
 from .utils import access_cli, get_diff
 
-HERE = os.path.abspath(os.path.join(__file__, os.pardir))
-SAMPLES = os.path.join(HERE, "data")
-OUTPUT = os.path.join(SAMPLES, "output")
-INPUT = os.path.join(SAMPLES, "input", "*.fhy")
+_HERE = os.path.abspath(os.path.join(__file__, os.pardir))
+_SAMPLES = os.path.join(_HERE, "data")
+_OUTPUT = os.path.join(_SAMPLES, "output")
+_INPUT = os.path.join(_SAMPLES, "input", "*.fhy")
 
-examples = glob(INPUT)
+examples = glob(_INPUT)
 
 
-def grab_expected_output_file(filepath: str) -> str:
-    """Grab Expected Output File from an Input Text Filepath."""
+def _grab_expected_output_file(filepath: str) -> str:
     basename: str = os.path.basename(filepath).split(".")[0]
     name = f"{basename}_output.fhy"
-    path_out = os.path.join(OUTPUT, name)
+    path_out = os.path.join(_OUTPUT, name)
     if not os.path.exists(path_out):
-        raise FileNotFoundError(f"Expected Output File Does Not Exist: {basename}")
-
+        raise FileNotFoundError(f"Expected output file does not exist: {basename}")
     return path_out
 
 
-def iter_lines(text: str):
-    r"""Iterate through lines of text, without newline character(s) present at line end.
-
-    Note:
-        We are grouping together multiple new line characters here
-
-    Example:
-        .. code-block:: python
-
-            text = "test\n\r\n\n\n\nstring\n\n\n"
-            assert list(iter_lines(text)) == ["test", "string", ""]
-            assert "\n".join(iter_lines(text)) == "test\nstring\n
-
-    """
+def _iter_lines(text: str):
     yield from re.split("[\r\n]+", text)
 
 
-# NOTE: We might change how the FhY Entrypoint Outputs information
-def cleanup_pretty_print_output(output: str) -> str:
-    """Cleanup output of fhy --pretty option, to remove filename."""
-    generator = iter_lines(output)
-    for line in generator:
-        if line.startswith("=") and line.endswith("="):
-            break
-
-    # Return the remaining output, removing newline character at the end
+def _clean_pretty_print_output(output: str) -> str:
+    generator = _iter_lines(output)
     return "\n".join(generator).strip()
 
 
 @pytest.mark.parametrize("file", examples)
 def test_single_file_examples_through_cli_pretty(file: str):
-    """Tests FhY Entry Point using Pretty Print on a collection of Example Files."""
-    code, output, _ = access_cli("serialize", file, "-f", "pretty")
-    result = cleanup_pretty_print_output(output)
+    """Test the FhY CLI using pretty print on a collection of example files."""
+    code, output, _ = access_cli("main", file, "-f", "pretty")
+    assert code == 0
+    result = _clean_pretty_print_output(output)
 
-    out_path = grab_expected_output_file(file)
+    out_path = _grab_expected_output_file(file)
     with open(out_path) as st:
         expected = st.read()
 
     if result != expected:
         get_diff(result, expected)
 
-    assert result == expected, "Unexpected Output from FhY"
-    assert code == Status.OK, "Expected Successful Status Code."
-
-
-@pytest.mark.parametrize("file", examples)
-def test_serialization_to_json(file: str):
-    # First Compare Output by use of Flags are successful and invariant
-    code, output, _ = access_cli("serialize", file, "-f", "json")
-    code2, output2, _ = access_cli("serialize", file, "--format", "json")
-
-    assert output == output2, "Expected Output to be invariant of flag used."
-    assert code == code2 == Status.OK, "Expected Successful Status Code."
-
-
-# NOTE: Because serialization format uses an enumeration using typer, it fails fast
-#       when providing an invalid format. Meaning we never reach failure capture code
-def test_invalid_serialization():
-    file = os.path.join(OUTPUT, "matmul.fhy")
-    invalid_format = "invalidtestformat"
-    code, output, error = access_cli("serialize", file, "-f", invalid_format)
-    assert code != 0, "Expected User error status"
-    assert invalid_format in error, "Expected to report failed format."
-
-
-@pytest.mark.parametrize("file", examples)
-def test_compilation_without_serialization(file: str):
-    """Tests FhY Entry Point compilation of a collection of example files."""
-    code, output, _ = access_cli("serialize", file)
-    assert code == Status.OK, "Expected Successful Status Code."
+    assert result == expected

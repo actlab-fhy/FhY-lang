@@ -1,41 +1,16 @@
-# Copyright (c) 2024 FhY Developers
-# Christopher Priebe <cpriebe@ucsd.edu>
-# Jason C Del Rio <j3delrio@ucsd.edu>
-# Hadi S Esmaeilzadeh <hadi@ucsd.edu>
-# All Rights Reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification, are
-# permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this list of
-# conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list
-# of conditions and the following disclaimer in the documentation and/or other materials
-# provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its contributors may be
-# used to endorse or promote products derived from this software without specific prior
-# written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS” AND ANY
-# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
-# SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-# TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-# BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
-# WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
-# DAMAGE.
-
 """Identifier replacement transformer."""
 
-from typing import cast
+from fhy_core import (
+    Identifier,
+    IndexType,
+    NumericalType,
+    TemplateDataType,
+    TupleType,
+    register_pass,
+)
+from fhy_core import replace_identifiers as replace_core_identifiers
 
-from fhy_core import Identifier, register_pass
-
-from fhy.lang.ast.alias import ASTStructure
+from fhy.lang.ast.node import Node
 from fhy.lang.ast.transformer import Transformer
 
 
@@ -55,22 +30,59 @@ class IdentifierReplacer(Transformer):
         super().__init__()
         self._identifier_map = identifier_map
 
+    def visit_numerical_type(self, numerical_type: NumericalType) -> NumericalType:
+        return NumericalType(
+            self.visit_data_type(numerical_type.data_type),
+            shape=[
+                replace_core_identifiers(dim, self._identifier_map)
+                for dim in numerical_type.shape
+            ],
+        )
+
+    Transformer.visit_type.register(NumericalType)(visit_numerical_type)  # type: ignore[attr-defined]
+
+    def visit_index_type(self, index_type: IndexType) -> IndexType:
+        new_stride = (
+            replace_core_identifiers(index_type.stride, self._identifier_map)
+            if index_type.stride is not None
+            else None
+        )
+        return IndexType(
+            replace_core_identifiers(index_type.lower_bound, self._identifier_map),
+            replace_core_identifiers(index_type.upper_bound, self._identifier_map),
+            stride=new_stride,
+        )
+
+    Transformer.visit_type.register(IndexType)(visit_index_type)  # type: ignore[attr-defined]
+
+    def visit_tuple_type(self, tuple_type: TupleType) -> TupleType:
+        return TupleType([self.visit_type(type) for type in tuple_type.types])
+
+    Transformer.visit_type.register(TupleType)(visit_tuple_type)  # type: ignore[attr-defined]
+
+    def visit_template_data_type(
+        self, template_data_type: TemplateDataType
+    ) -> TemplateDataType:
+        return TemplateDataType(
+            self.visit_identifier(template_data_type.data_type),
+            template_data_type.widths,
+        )
+
     def visit_identifier(self, identifier: Identifier) -> Identifier:
         return self._identifier_map.get(identifier, identifier)
 
 
 def replace_identifiers(
-    node: ASTStructure, identifier_map: dict[Identifier, Identifier]
-) -> ASTStructure:
+    node: Node, identifier_map: dict[Identifier, Identifier]
+) -> Node:
     """Replace identifiers within AST.
 
     Args:
-        node: AST structure.
-        identifier_map (Dict[ir.Identifier, ir.Identifier]): mapping describing
-            identifiers to change from and to.
+        node: AST node.
+        identifier_map: mapping describing identifiers to change from and to.
 
     Returns:
         Node with identifiers replaced as prescribed by mapping.
 
     """
-    return cast(ASTStructure, IdentifierReplacer(identifier_map)(node))
+    return IdentifierReplacer(identifier_map)(node)

@@ -1,42 +1,4 @@
-# Copyright (c) 2024 FhY Developers
-# Christopher Priebe <cpriebe@ucsd.edu>
-# Jason C Del Rio <j3delrio@ucsd.edu>
-# Hadi S Esmaeilzadeh <hadi@ucsd.edu>
-# All Rights Reserved.
-#
-# Redistribution and use in source and binary forms, with or without modification, are
-# permitted provided that the following conditions are met:
-#
-# 1. Redistributions of source code must retain the above copyright notice, this list of
-# conditions and the following disclaimer.
-#
-# 2. Redistributions in binary form must reproduce the above copyright notice, this list
-# of conditions and the following disclaimer in the documentation and/or other materials
-# provided with the distribution.
-#
-# 3. Neither the name of the copyright holder nor the names of its contributors may be
-# used to endorse or promote products derived from this software without specific prior
-# written permission.
-#
-# THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS “AS IS” AND ANY
-# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
-# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT
-# SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT,
-# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-# TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
-# BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-# CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY
-# WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH
-# DAMAGE.
-
-"""Statement nodes for the statements in the FhY language.
-
-Statement ASTNodes:
-    DeclarationStatement: Declares a Variable, with or without assignment
-    ExpressionStatement:
-    ForAllStatement: An Iteration statement evaluating an expression over a body
-
-"""
+"""Statement nodes for the statements in the FhY language."""
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -246,16 +208,16 @@ class Procedure(Function):
             )
         return cls(
             name=Identifier.deserialize_from_dict(data["name"]),
-            templates=[
+            templates=tuple(
                 TemplateDataType.deserialize_from_dict(template)
                 for template in data["templates"]
-            ],
-            args=[
+            ),
+            args=tuple(
                 Argument.deserialize_from_dict(argument) for argument in data["args"]
-            ],
-            body=[
+            ),
+            body=tuple(
                 Statement.deserialize_from_dict(statement) for statement in data["body"]
-            ],
+            ),
             provenance=deserialize_node_provenance(data),
         )
 
@@ -337,16 +299,16 @@ class Operation(Function):
             )
         return cls(
             name=Identifier.deserialize_from_dict(data["name"]),
-            templates=[
+            templates=tuple(
                 TemplateDataType.deserialize_from_dict(template)
                 for template in data["templates"]
-            ],
-            args=[
+            ),
+            args=tuple(
                 Argument.deserialize_from_dict(argument) for argument in data["args"]
-            ],
-            body=[
+            ),
+            body=tuple(
                 Statement.deserialize_from_dict(statement) for statement in data["body"]
-            ],
+            ),
             return_type=QualifiedType.deserialize_from_dict(data["return_type"]),
             provenance=deserialize_node_provenance(data),
         )
@@ -399,9 +361,9 @@ class Native(Function):
             )
         return cls(
             name=Identifier.deserialize_from_dict(data["name"]),
-            args=[
+            args=tuple(
                 Argument.deserialize_from_dict(argument) for argument in data["args"]
-            ],
+            ),
             provenance=deserialize_node_provenance(data),
         )
 
@@ -612,9 +574,9 @@ class ForAllStatement(Statement):
             )
         return cls(
             index=Expression.deserialize_from_dict(data["index"]),
-            body=[
+            body=tuple(
                 Statement.deserialize_from_dict(statement) for statement in data["body"]
-            ],
+            ),
             provenance=deserialize_node_provenance(data),
         )
 
@@ -696,14 +658,14 @@ class SelectionStatement(Statement):
             )
         return cls(
             condition=Expression.deserialize_from_dict(data["condition"]),
-            true_body=[
+            true_body=tuple(
                 Statement.deserialize_from_dict(statement)
                 for statement in data["true_body"]
-            ],
-            false_body=[
+            ),
+            false_body=tuple(
                 Statement.deserialize_from_dict(statement)
                 for statement in data["false_body"]
-            ],
+            ),
             provenance=deserialize_node_provenance(data),
         )
 
