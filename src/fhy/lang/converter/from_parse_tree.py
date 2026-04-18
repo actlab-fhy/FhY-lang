@@ -41,8 +41,8 @@ def _get_source_info(
             return parse_tree_provenance.with_span(
                 Span(
                     file_path=parse_tree_provenance.span.file_path,
-                    start_position=Position(start.line + 1, start.column + 1),
-                    end_position=Position(stop.line + 1, stop.column + 1),
+                    start_position=Position(start.line, start.column + 1),
+                    end_position=Position(stop.line, stop.column + 1),
                 )
             )
         else:
