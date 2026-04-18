@@ -11,6 +11,7 @@ from .passes import (
     build_symbol_table,
     validate_expression_statement_lhs,
     validate_for_all_statements,
+    validate_reductions,
     validate_type_qualifiers,
 )
 
@@ -42,6 +43,9 @@ def validate_ast(ast: Module) -> tuple[Module, SymbolTable]:
             - Throws an error if the expressions for indices passed to a reduction
               are not identifier expressions and the identifiers are not indices via
               the symbol table.
+            - Throws an error if the reduction is passed more than one argument.
+            - Throws an error if the indices are not distinct.
+            - Throws an error if the indices are not used within the reduction.
         6. Index-domain validation
             - Throws an error if the an array access is out of bounds.
         7. Call-site validation
@@ -69,4 +73,5 @@ def validate_ast(ast: Module) -> tuple[Module, SymbolTable]:
     validate_expression_statement_lhs(ast)
     validate_type_qualifiers(ast, symbol_table)
     validate_for_all_statements(ast, symbol_table)
+    validate_reductions(ast, symbol_table)
     return ast, symbol_table
