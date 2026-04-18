@@ -19,7 +19,7 @@ from fhy_core import (
     VisitablePass,
 )
 
-from .node import (
+from fhy.lang.ast.node import (
     Argument,
     ArrayAccessExpression,
     BinaryExpression,

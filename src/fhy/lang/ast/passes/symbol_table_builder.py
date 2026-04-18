@@ -5,7 +5,6 @@ __all__ = [
     "FhYSymbolTableBuilderError",
 ]
 
-
 from fhy_core import (
     AnalysisVisitablePass,
     CoreDataType,

@@ -1,0 +1,527 @@
+"""Tests the type qualifier validator AST pass."""
+
+import pytest
+from fhy.lang.ast import (
+    Argument,
+    ArrayAccessExpression,
+    DeclarationStatement,
+    ExpressionStatement,
+    IdentifierExpression,
+    IntLiteral,
+    Module,
+    Operation,
+    Procedure,
+    QualifiedType,
+)
+from fhy.lang.ast.passes import build_symbol_table, validate_type_qualifiers
+from fhy.lang.ast.passes.type_qualifier_validator import (
+    FhYTypeQualifierValidatorError,
+)
+from fhy_core import (
+    Identifier,
+    NumericalType,
+    PassExecutionError,
+    Provenance,
+    TypeQualifier,
+)
+
+
+def test_empty_program():
+    """Tests validation of an empty program."""
+    program_ast = Module(provenance=Provenance.unknown())
+    symbol_table = build_symbol_table(program_ast)
+
+    validate_type_qualifiers(program_ast, symbol_table)
+
+
+def test_valid_procedure(int32: NumericalType):
+    """Tests a procedure with valid qualifiers on args and declarations."""
+    main = Identifier("main")
+    a, b, t = Identifier("a"), Identifier("b"), Identifier("t")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.INPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                    Argument(
+                        name=b,
+                        qualified_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.OUTPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=t,
+                        variable_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.TEMP,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                    ExpressionStatement(
+                        left=IdentifierExpression(
+                            identifier=t, provenance=Provenance.unknown()
+                        ),
+                        right=IdentifierExpression(
+                            identifier=a, provenance=Provenance.unknown()
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                    ExpressionStatement(
+                        left=IdentifierExpression(
+                            identifier=b, provenance=Provenance.unknown()
+                        ),
+                        right=IdentifierExpression(
+                            identifier=t, provenance=Provenance.unknown()
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    validate_type_qualifiers(program_ast, symbol_table)
+
+
+def test_valid_operation_with_output_return_type(int32: NumericalType):
+    """Tests an operation with an OUTPUT return type."""
+    op = Identifier("op")
+    a = Identifier("a")
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.INPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(),
+                return_type=QualifiedType(
+                    base_type=int32,
+                    type_qualifier=TypeQualifier.OUTPUT,
+                    provenance=Provenance.unknown(),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    validate_type_qualifiers(program_ast, symbol_table)
+
+
+def test_valid_param_argument(int32: NumericalType):
+    """Tests that PARAM is allowed on arguments."""
+    main = Identifier("main")
+    a = Identifier("a")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.PARAM,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    validate_type_qualifiers(program_ast, symbol_table)
+
+
+def test_fails_with_temp_argument(int32: NumericalType):
+    """Tests failure when an argument is qualified TEMP."""
+    main = Identifier("main")
+    a = Identifier("a")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.TEMP,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
+    ):
+        validate_type_qualifiers(program_ast, symbol_table)
+
+
+def test_fails_with_input_declaration(int32: NumericalType):
+    """Tests failure when a declaration is qualified INPUT."""
+    main = Identifier("main")
+    a = Identifier("a")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(),
+                body=(
+                    DeclarationStatement(
+                        variable_name=a,
+                        variable_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.INPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
+    ):
+        validate_type_qualifiers(program_ast, symbol_table)
+
+
+def test_fails_with_output_declaration(int32: NumericalType):
+    """Tests failure when a declaration is qualified OUTPUT."""
+    main = Identifier("main")
+    a = Identifier("a")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(),
+                body=(
+                    DeclarationStatement(
+                        variable_name=a,
+                        variable_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.OUTPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
+    ):
+        validate_type_qualifiers(program_ast, symbol_table)
+
+
+def test_fails_with_input_return_type(int32: NumericalType):
+    """Tests failure when an operation return type is INPUT."""
+    op = Identifier("op")
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(),
+                body=(),
+                return_type=QualifiedType(
+                    base_type=int32,
+                    type_qualifier=TypeQualifier.INPUT,
+                    provenance=Provenance.unknown(),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
+    ):
+        validate_type_qualifiers(program_ast, symbol_table)
+
+
+def test_fails_with_temp_return_type(int32: NumericalType):
+    """Tests failure when an operation return type is TEMP."""
+    op = Identifier("op")
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(),
+                body=(),
+                return_type=QualifiedType(
+                    base_type=int32,
+                    type_qualifier=TypeQualifier.TEMP,
+                    provenance=Provenance.unknown(),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
+    ):
+        validate_type_qualifiers(program_ast, symbol_table)
+
+
+def test_fails_with_assignment_to_input(int32: NumericalType):
+    """Tests failure when assigning to an INPUT variable."""
+    main = Identifier("main")
+    a = Identifier("a")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.INPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(
+                    ExpressionStatement(
+                        left=IdentifierExpression(
+                            identifier=a, provenance=Provenance.unknown()
+                        ),
+                        right=IdentifierExpression(
+                            identifier=a, provenance=Provenance.unknown()
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
+    ):
+        validate_type_qualifiers(program_ast, symbol_table)
+
+
+def test_fails_with_assignment_to_param(int32: NumericalType):
+    """Tests failure when assigning to a PARAM variable."""
+    main = Identifier("main")
+    a, t = Identifier("a"), Identifier("t")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.PARAM,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=t,
+                        variable_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.TEMP,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                    ExpressionStatement(
+                        left=IdentifierExpression(
+                            identifier=a, provenance=Provenance.unknown()
+                        ),
+                        right=IdentifierExpression(
+                            identifier=t, provenance=Provenance.unknown()
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
+    ):
+        validate_type_qualifiers(program_ast, symbol_table)
+
+
+def test_fails_with_array_access_assignment_to_input(int32: NumericalType):
+    """Tests failure when assigning to an element of an INPUT variable."""
+    main = Identifier("main")
+    a, t = Identifier("a"), Identifier("t")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.INPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=t,
+                        variable_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.TEMP,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                    ExpressionStatement(
+                        left=ArrayAccessExpression(
+                            array_expression=IdentifierExpression(
+                                identifier=a, provenance=Provenance.unknown()
+                            ),
+                            indices=(
+                                IntLiteral(value=0, provenance=Provenance.unknown()),
+                            ),
+                            provenance=Provenance.unknown(),
+                        ),
+                        right=IdentifierExpression(
+                            identifier=t, provenance=Provenance.unknown()
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
+    ):
+        validate_type_qualifiers(program_ast, symbol_table)
+
+
+def test_valid_array_access_assignment_to_output(int32: NumericalType):
+    """Tests that assigning to an element of an OUTPUT variable is allowed."""
+    main = Identifier("main")
+    a, t = Identifier("a"), Identifier("t")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.OUTPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=t,
+                        variable_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.TEMP,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                    ExpressionStatement(
+                        left=ArrayAccessExpression(
+                            array_expression=IdentifierExpression(
+                                identifier=a, provenance=Provenance.unknown()
+                            ),
+                            indices=(
+                                IntLiteral(value=0, provenance=Provenance.unknown()),
+                            ),
+                            provenance=Provenance.unknown(),
+                        ),
+                        right=IdentifierExpression(
+                            identifier=t, provenance=Provenance.unknown()
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    validate_type_qualifiers(program_ast, symbol_table)

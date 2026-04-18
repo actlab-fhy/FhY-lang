@@ -11,7 +11,8 @@ from fhy_core import (
 from fhy_core import replace_identifiers as replace_core_identifiers
 
 from fhy.lang.ast.node import Node
-from fhy.lang.ast.transformer import Transformer
+
+from .transformer import Transformer
 
 
 @register_pass("fhy_ast_identifier_replacer", "Replaces identifiers in the FhY AST.")
