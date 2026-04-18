@@ -17,6 +17,7 @@ from fhy_core import (
     NumericalType,
     PrimitiveDataType,
     SymbolTable,
+    SymbolTableError,
     Type,
     VariableSymbolTableFrame,
     promote_primitive_data_types,
@@ -45,7 +46,7 @@ from fhy.lang.ast.node import (
 from fhy.lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
 
 from .analysis_pass_with_symbol_table import AnalysisPassWithSymbolTable
-from .index_collector import collect_indices
+from .index_collector import collect_indices, collect_reduced_indices
 
 
 @dataclass(frozen=True)
@@ -76,6 +77,15 @@ def _is_assignable(target: Type, source: Type) -> bool:
     except FhYCoreTypeError:
         return False
     return promoted.core_data_type == target.data_type.core_data_type
+
+
+def _is_element_types_assignable(target: Type, source: Type) -> bool:
+    if not isinstance(target, NumericalType) or not isinstance(source, NumericalType):
+        return False
+    else:
+        return _is_assignable(
+            NumericalType(target.data_type), NumericalType(source.data_type)
+        )
 
 
 @register_pass(
@@ -163,13 +173,33 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
         context: str,
         provenance,
     ) -> None:
-        if not _is_assignable(expected.type, actual.type):
+        element_types_assignable = _is_element_types_assignable(
+            expected.type, actual.type
+        )
+        if not _is_assignable(expected.type, actual.type) and not (
+            element_types_assignable
+            and isinstance(expected.type, NumericalType)
+            and isinstance(actual.type, NumericalType)
+            and not actual.type.shape
+            and expected.type.shape
+        ):
             raise FhYTypeError(
                 f"Type mismatch in {context}: expected {expected.type}, got "
                 f"{actual.type}.",
                 provenance,
             )
-        if expected.free_indices != actual.free_indices:
+
+        # The statement runs inside an implicit loop over the indices used in
+        # its expressions. Free indices on the right that are not already bound
+        # on the left are absorbed by the left-hand side's shape dimensions.
+        extra_free = actual.free_indices - expected.free_indices
+        missing_free = expected.free_indices - actual.free_indices
+        lhs_shape = (
+            expected.type.shape if isinstance(expected.type, NumericalType) else ()
+        )
+        rhs_shape = actual.type.shape if isinstance(actual.type, NumericalType) else ()
+        absorbed = len(lhs_shape) - len(rhs_shape)
+        if missing_free or len(extra_free) != max(absorbed, 0):
             expected_names = sorted(
                 identifier.name_hint for identifier in expected.free_indices
             )
@@ -366,13 +396,9 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
                     expression.provenance,
                 )
             arg = self._infer_type(expression.args[0])
-            reduced = {
-                index_expr.identifier
-                for index_expr in expression.indices
-                if isinstance(index_expr, IdentifierExpression)
-            }
+            reduced = collect_reduced_indices(expression, self._is_identifier_index)
             return _InferredType(type=arg.type, free_indices=arg.free_indices - reduced)
-        if isinstance(frame, FunctionSymbolTableFrame):
+        elif isinstance(frame, FunctionSymbolTableFrame):
             if frame.keyword == FunctionKeyword.PROCEDURE:
                 raise FhYTypeError(
                     f"Procedure {identifier.name_hint!r} cannot be used as an "
@@ -386,8 +412,11 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
                     f"{identifier.name_hint!r}.",
                     expression.provenance,
                 )
-            return _InferredType(type=return_type, free_indices=frozenset())
-        if isinstance(frame, ImportSymbolTableFrame):
+            arg_free_indices: frozenset[Identifier] = frozenset()
+            for arg in expression.args:
+                arg_free_indices |= self._infer_type(arg).free_indices
+            return _InferredType(type=return_type, free_indices=arg_free_indices)
+        elif isinstance(frame, ImportSymbolTableFrame):
             if not expression.args:
                 raise FhYTypeError(
                     f"Builtin {identifier.name_hint!r} requires at least one "
@@ -395,13 +424,17 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
                     expression.provenance,
                 )
             return self._infer_type(expression.args[0])
-        raise FhYTypeError(
-            f"Function {identifier.name_hint!r} is not callable in a type context.",
-            expression.provenance,
-        )
+        else:
+            raise FhYTypeError(
+                f"Function {identifier.name_hint!r} is not callable in a type context.",
+                expression.provenance,
+            )
 
     def _is_identifier_index(self, identifier: Identifier) -> bool:
-        frame = self.get_frame_from_namespace(self.current_namespace, identifier)
+        try:
+            frame = self.get_frame_from_namespace(self.current_namespace, identifier)
+        except SymbolTableError:
+            return True
         return isinstance(frame, VariableSymbolTableFrame) and isinstance(
             frame.type, IndexType
         )

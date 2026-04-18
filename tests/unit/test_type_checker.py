@@ -38,20 +38,19 @@ from fhy_core import (
 )
 
 
-def _make_int32(shape=()) -> NumericalType:
+def _make_int32_type(shape=()) -> NumericalType:
     return NumericalType(PrimitiveDataType(CoreDataType.INT32), shape=shape)
 
 
-def _make_float32(shape=()) -> NumericalType:
+def _make_float32_type(shape=()) -> NumericalType:
     return NumericalType(PrimitiveDataType(CoreDataType.FLOAT32), shape=shape)
 
 
-def test_empty_program():
+def test_empty_module(empty_module_ast):
     """Test validation of an empty program."""
-    program_ast = Module(provenance=Provenance.unknown())
-    symbol_table = build_symbol_table(program_ast)
+    symbol_table = build_symbol_table(empty_module_ast)
 
-    validate_types(program_ast, symbol_table)
+    validate_types(empty_module_ast, symbol_table)
 
 
 def test_valid_matmul_like_reduction():
@@ -75,7 +74,7 @@ def test_valid_matmul_like_reduction():
                     Argument(
                         name=a_,
                         qualified_type=qt(
-                            _make_int32(
+                            _make_int32_type(
                                 shape=(
                                     CoreIdentifierExpression(m),
                                     CoreIdentifierExpression(n),
@@ -88,7 +87,7 @@ def test_valid_matmul_like_reduction():
                     Argument(
                         name=b_,
                         qualified_type=qt(
-                            _make_int32(
+                            _make_int32_type(
                                 shape=(
                                     CoreIdentifierExpression(n),
                                     CoreIdentifierExpression(p),
@@ -101,7 +100,7 @@ def test_valid_matmul_like_reduction():
                     Argument(
                         name=c_,
                         qualified_type=qt(
-                            _make_int32(
+                            _make_int32_type(
                                 shape=(
                                     CoreIdentifierExpression(m),
                                     CoreIdentifierExpression(p),
@@ -252,7 +251,7 @@ def test_valid_forall_binds_index():
                     Argument(
                         name=big_x,
                         qualified_type=qt(
-                            _make_float32(
+                            _make_float32_type(
                                 shape=(
                                     CoreIdentifierExpression(examples),
                                     CoreIdentifierExpression(n_),
@@ -265,7 +264,7 @@ def test_valid_forall_binds_index():
                     Argument(
                         name=x_,
                         qualified_type=qt(
-                            _make_float32(shape=(CoreIdentifierExpression(n_),)),
+                            _make_float32_type(shape=(CoreIdentifierExpression(n_),)),
                             TypeQualifier.OUTPUT,
                         ),
                         provenance=Provenance.unknown(),
@@ -360,7 +359,7 @@ def test_valid_operation_return_type():
                     Argument(
                         name=a,
                         qualified_type=QualifiedType(
-                            base_type=_make_int32(),
+                            base_type=_make_int32_type(),
                             type_qualifier=TypeQualifier.INPUT,
                             provenance=Provenance.unknown(),
                         ),
@@ -376,7 +375,7 @@ def test_valid_operation_return_type():
                     ),
                 ),
                 return_type=QualifiedType(
-                    base_type=_make_int32(),
+                    base_type=_make_int32_type(),
                     type_qualifier=TypeQualifier.OUTPUT,
                     provenance=Provenance.unknown(),
                 ),
@@ -404,7 +403,7 @@ def test_valid_operation_call_assignment():
                     Argument(
                         name=x_,
                         qualified_type=QualifiedType(
-                            base_type=_make_float32(
+                            base_type=_make_float32_type(
                                 shape=(CoreIdentifierExpression(m_),)
                             ),
                             type_qualifier=TypeQualifier.INPUT,
@@ -415,7 +414,7 @@ def test_valid_operation_call_assignment():
                 ),
                 body=(),
                 return_type=QualifiedType(
-                    base_type=_make_float32(shape=(CoreIdentifierExpression(m_),)),
+                    base_type=_make_float32_type(shape=(CoreIdentifierExpression(m_),)),
                     type_qualifier=TypeQualifier.OUTPUT,
                     provenance=Provenance.unknown(),
                 ),
@@ -427,7 +426,7 @@ def test_valid_operation_call_assignment():
                     Argument(
                         name=x_,
                         qualified_type=QualifiedType(
-                            base_type=_make_float32(
+                            base_type=_make_float32_type(
                                 shape=(CoreIdentifierExpression(m_),)
                             ),
                             type_qualifier=TypeQualifier.INPUT,
@@ -438,7 +437,7 @@ def test_valid_operation_call_assignment():
                     Argument(
                         name=y_,
                         qualified_type=QualifiedType(
-                            base_type=_make_float32(
+                            base_type=_make_float32_type(
                                 shape=(CoreIdentifierExpression(m_),)
                             ),
                             type_qualifier=TypeQualifier.OUTPUT,
@@ -478,6 +477,109 @@ def test_valid_operation_call_assignment():
     validate_types(program_ast, symbol_table)
 
 
+def test_valid_operation_call_with_indexed_argument():
+    """Test that an operation can be called with an indexed argument."""
+    main = Identifier("main")
+    op = Identifier("op")
+    a, b, i, N = Identifier("A"), Identifier("B"), Identifier("i"), Identifier("N")
+    operation_ast = Operation(
+        name=op,
+        args=(
+            Argument(
+                name=a,
+                qualified_type=QualifiedType(
+                    base_type=_make_int32_type(),
+                    type_qualifier=TypeQualifier.INPUT,
+                    provenance=Provenance.unknown(),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        body=(
+            ReturnStatement(
+                expression=IdentifierExpression(
+                    identifier=a,
+                    provenance=Provenance.unknown(),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        return_type=QualifiedType(
+            base_type=_make_int32_type(),
+            type_qualifier=TypeQualifier.OUTPUT,
+            provenance=Provenance.unknown(),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    program_ast = Module(
+        statements=(
+            operation_ast,
+            Procedure(
+                name=main,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=_make_int32_type(
+                                shape=(CoreIdentifierExpression(N),)
+                            ),
+                            type_qualifier=TypeQualifier.INPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                    Argument(
+                        name=b,
+                        qualified_type=QualifiedType(
+                            base_type=_make_int32_type(
+                                shape=(CoreIdentifierExpression(N),)
+                            ),
+                            type_qualifier=TypeQualifier.OUTPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(
+                    ExpressionStatement(
+                        left=IdentifierExpression(
+                            identifier=b, provenance=Provenance.unknown()
+                        ),
+                        right=FunctionExpression(
+                            function=IdentifierExpression(
+                                identifier=op,
+                                provenance=Provenance.unknown(),
+                            ),
+                            args=(
+                                ArrayAccessExpression(
+                                    array_expression=IdentifierExpression(
+                                        identifier=a,
+                                        provenance=Provenance.unknown(),
+                                    ),
+                                    indices=(
+                                        IdentifierExpression(
+                                            identifier=i,
+                                            provenance=Provenance.unknown(),
+                                        ),
+                                    ),
+                                    provenance=Provenance.unknown(),
+                                ),
+                            ),
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    validate_types(program_ast, symbol_table)
+
+
 def test_fails_on_element_type_mismatch():
     """Test failure when the LHS and RHS element types differ."""
     main = Identifier("main")
@@ -490,7 +592,7 @@ def test_fails_on_element_type_mismatch():
                     Argument(
                         name=a,
                         qualified_type=QualifiedType(
-                            base_type=_make_int32(),
+                            base_type=_make_int32_type(),
                             type_qualifier=TypeQualifier.INPUT,
                             provenance=Provenance.unknown(),
                         ),
@@ -499,7 +601,7 @@ def test_fails_on_element_type_mismatch():
                     Argument(
                         name=b,
                         qualified_type=QualifiedType(
-                            base_type=_make_float32(),
+                            base_type=_make_float32_type(),
                             type_qualifier=TypeQualifier.OUTPUT,
                             provenance=Provenance.unknown(),
                         ),
@@ -542,7 +644,7 @@ def test_fails_on_free_index_mismatch():
                     Argument(
                         name=x_,
                         qualified_type=QualifiedType(
-                            base_type=_make_int32(
+                            base_type=_make_int32_type(
                                 shape=(
                                     CoreIdentifierExpression(m_),
                                     CoreIdentifierExpression(n_),
@@ -556,7 +658,7 @@ def test_fails_on_free_index_mismatch():
                     Argument(
                         name=y_,
                         qualified_type=QualifiedType(
-                            base_type=_make_int32(
+                            base_type=_make_int32_type(
                                 shape=(CoreIdentifierExpression(m_),)
                             ),
                             type_qualifier=TypeQualifier.OUTPUT,
@@ -647,7 +749,7 @@ def test_fails_on_return_type_mismatch():
                     Argument(
                         name=a,
                         qualified_type=QualifiedType(
-                            base_type=_make_int32(),
+                            base_type=_make_int32_type(),
                             type_qualifier=TypeQualifier.INPUT,
                             provenance=Provenance.unknown(),
                         ),
@@ -663,7 +765,7 @@ def test_fails_on_return_type_mismatch():
                     ),
                 ),
                 return_type=QualifiedType(
-                    base_type=_make_float32(),
+                    base_type=_make_float32_type(),
                     type_qualifier=TypeQualifier.OUTPUT,
                     provenance=Provenance.unknown(),
                 ),
@@ -691,7 +793,7 @@ def test_fails_on_declaration_initializer_mismatch():
                     DeclarationStatement(
                         variable_name=t,
                         variable_type=QualifiedType(
-                            base_type=_make_float32(),
+                            base_type=_make_float32_type(),
                             type_qualifier=TypeQualifier.TEMP,
                             provenance=Provenance.unknown(),
                         ),
@@ -725,7 +827,7 @@ def test_fails_on_unreduced_index():
                     Argument(
                         name=a,
                         qualified_type=QualifiedType(
-                            base_type=_make_int32(
+                            base_type=_make_int32_type(
                                 shape=(CoreIdentifierExpression(m_),)
                             ),
                             type_qualifier=TypeQualifier.INPUT,
@@ -736,7 +838,7 @@ def test_fails_on_unreduced_index():
                     Argument(
                         name=b,
                         qualified_type=QualifiedType(
-                            base_type=_make_int32(),
+                            base_type=_make_int32_type(),
                             type_qualifier=TypeQualifier.OUTPUT,
                             provenance=Provenance.unknown(),
                         ),

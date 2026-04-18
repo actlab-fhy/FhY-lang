@@ -1,16 +1,14 @@
-
-op sigmoid(input float32[m] x) -> output float32[m] {
-   temp index[1:m] i;
-   return 1 / (1 + exp(-x[i]));
+op sigmoid(input float32 x) -> output float32 {
+   return 1.0 / (1.0 + exp(-x));
 }
 
-op forward(input float32[n] x, param float32[m, n] W, param float32[m] b) -> output float32[m] {
+proc forward(input float32[n] x, param float32[m, n] W, param float32[m] b, output float32[m] y) {
    temp index[1:m] i;
    temp index[1:n] j;
    temp float32[m] FC_out;
 
    FC_out[i] = sum[j](W[i, j] * x[j]) + b[i];
-   return sigmoid(FC_out);
+   y[i] = sigmoid(FC_out[i]);
 }
 
 proc main(input float32[examples, n] X, param float32[m, n] W, param float32[m] b, output float32[examples, m] Y) {
@@ -23,7 +21,7 @@ proc main(input float32[examples, n] X, param float32[m, n] W, param float32[m] 
 
     forall (e) {
         x[i] = X[e, i];
-        y = forward(x, W, b);
+        forward(x, W, b, y);
         Y[e, j] = y[j];
     }
 }
