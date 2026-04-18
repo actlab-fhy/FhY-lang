@@ -12,11 +12,13 @@ __all__ = [
     "validate_for_all_statements",
     "validate_reductions",
     "validate_index_domains",
+    "validate_call_sites",
     "FhYSymbolTableBuilderError",
     "FhYTypeQualifierValidatorError",
 ]
 
 from .ast_to_core_expression_converter import convert_ast_expression_to_core_expression
+from .call_site_validator import validate_call_sites
 from .expression_statement_lhs_validator import (
     validate_expression_statement_lhs,
 )

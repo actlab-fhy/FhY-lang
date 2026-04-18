@@ -9,6 +9,7 @@ from fhy_core import SymbolTable
 from .node import Module
 from .passes import (
     build_symbol_table,
+    validate_call_sites,
     validate_expression_statement_lhs,
     validate_for_all_statements,
     validate_index_domains,
@@ -57,6 +58,7 @@ def validate_ast(ast: Module) -> tuple[Module, SymbolTable]:
                 - The expression passed as the function name is not an identifier
                   expression.
                 - The function name is not defined as a function via the symbol table.
+                - The function must have the correct number of arguments.
                 - A non-reduction function does not have any indices passed to it.
                 - A procedure is not used with a left-hand side expression.
         8. Type checking
@@ -79,4 +81,5 @@ def validate_ast(ast: Module) -> tuple[Module, SymbolTable]:
     validate_for_all_statements(ast, symbol_table)
     validate_reductions(ast, symbol_table)
     validate_index_domains(ast, symbol_table)
+    validate_call_sites(ast, symbol_table)
     return ast, symbol_table
