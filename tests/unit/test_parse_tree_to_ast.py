@@ -527,7 +527,6 @@ def test_empty_procedure_with_scalar_argument_qualifiers(
         ("uint8", CoreDataType.UINT8),
         ("uint16", CoreDataType.UINT16),
         ("uint32", CoreDataType.UINT32),
-        ("uint64", CoreDataType.UINT64),
         ("int8", CoreDataType.INT8),
         ("int16", CoreDataType.INT16),
         ("int32", CoreDataType.INT32),

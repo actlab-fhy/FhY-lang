@@ -13,6 +13,7 @@ __all__ = [
     "validate_reductions",
     "validate_index_domains",
     "validate_call_sites",
+    "validate_types",
     "FhYSymbolTableBuilderError",
     "FhYTypeQualifierValidatorError",
 ]
@@ -29,6 +30,7 @@ from .index_collector import collect_indices, collect_reduced_indices
 from .index_domain_validator import validate_index_domains
 from .reduction_validator import validate_reductions
 from .symbol_table_builder import FhYSymbolTableBuilderError, build_symbol_table
+from .type_checker import validate_types
 from .type_qualifier_validator import (
     FhYTypeQualifierValidatorError,
     validate_type_qualifiers,

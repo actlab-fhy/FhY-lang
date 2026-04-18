@@ -182,7 +182,7 @@ class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
                 if not self._is_symbol_defined(dimension):
                     var_frame = VariableSymbolTableFrame(
                         name=dimension,
-                        type=NumericalType(PrimitiveDataType(CoreDataType.UINT64)),
+                        type=NumericalType(PrimitiveDataType(CoreDataType.UINT32)),
                         type_qualifier=TypeQualifier.PARAM,
                     )
                     self._add_symbol(dimension, var_frame)
