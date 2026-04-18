@@ -7,7 +7,7 @@ from typing import Annotated, Optional
 
 import typer
 from fhy_core import SerializationFormat as CoreSerializationFormat
-from fhy_core import StrEnum, add_file_handler, get_logger
+from fhy_core import StrEnum, SymbolTable, add_file_handler, get_logger
 
 from fhy import __version__
 from fhy.driver import CompilationOptions, Workspace, compile_fhy
@@ -50,7 +50,7 @@ def compile_fhy_source(
     main_file: Path | None = None,
     verbose: bool = False,
     log_file: Path | None = None,
-) -> ASTModule:
+) -> tuple[ASTModule, SymbolTable]:
     """Parse a FhY project, compile it, and return the final AST module."""
     if log_file is not None:
         add_file_handler(
@@ -69,7 +69,7 @@ def compile_fhy_source(
     options = CompilationOptions(verbose=verbose)
 
     try:
-        program: ASTModule = compile_fhy(workspace, options)
+        program, symbol_table = compile_fhy(workspace, options)
 
     except KeyboardInterrupt as e:
         _logger.error(
@@ -83,7 +83,7 @@ def compile_fhy_source(
     else:
         _logger.info("Compilation completed successfully.")
 
-    return program
+    return program, symbol_table
 
 
 @app.callback(
@@ -105,7 +105,7 @@ def version(
 @app.command(
     context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
 )
-def main(
+def serialize(
     main_file: Annotated[
         Optional[Path],
         typer.Argument(help="Valid filepath to main FhY module source code."),
@@ -133,7 +133,7 @@ def main(
     ] = None,
 ) -> None:
     """Compile a FhY source program and print the result."""
-    module = compile_fhy_source(main_file, verbose, log_file)
+    module, _ = compile_fhy_source(main_file, verbose, log_file)
 
     if format is None:
         return

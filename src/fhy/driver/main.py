@@ -2,9 +2,9 @@
 
 import logging
 
-from fhy_core import get_logger
+from fhy_core import SymbolTable, get_logger
 
-from fhy.lang import ASTModule
+from fhy.lang import ASTModule, validate_ast
 
 from .ast_program_builder import build_ast_program
 from .compilation_options import CompilationOptions
@@ -13,7 +13,9 @@ from .workspace import Workspace
 _logger: logging.Logger = get_logger(__name__)
 
 
-def compile_fhy(workspace: Workspace, options: CompilationOptions) -> ASTModule:
+def compile_fhy(
+    workspace: Workspace, options: CompilationOptions
+) -> tuple[ASTModule, SymbolTable]:
     """Compile a FhY program.
 
     Args:
@@ -26,5 +28,6 @@ def compile_fhy(workspace: Workspace, options: CompilationOptions) -> ASTModule:
     """
     _logger.info("Compiling the FhY program...")
     ast_program = build_ast_program(workspace, options)
+    ast_program, symbol_table = validate_ast(ast_program)
     _logger.info("FhY program compilation finished successfully.")
-    return ast_program
+    return ast_program, symbol_table
