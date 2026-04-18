@@ -247,7 +247,13 @@ def _is_core_expressions_exactly_equal(
 
 def _create_identifier_map(node: ast_node.Node) -> dict[str, Identifier]:
     identifiers = collect_identifiers(node)
-    return {identifier.name_hint: identifier for identifier in identifiers}
+    ret = {}
+    for identifier in identifiers:
+        if identifier.name_hint not in ret:
+            ret[identifier.name_hint] = identifier
+        else:
+            raise ValueError(f"Duplicate identifier: {identifier.name_hint}")
+    return ret
 
 
 def _assert_is_expected_module(
@@ -701,8 +707,8 @@ def test_operation_template_type_body(construct_ast):
 def test_operation_template_type_call(construct_ast):
     """Test that a template type can be instantiated and used in a call."""
     source: str = """
-    op foo<T>(input T[N, M] a) -> output T[N, M] {
-        temp T[N, M] b;
+    op foo<T>(input T[N1, M1] a) -> output T[N1, M1] {
+        temp T[N1, M1] b;
         return a;
     }
 
