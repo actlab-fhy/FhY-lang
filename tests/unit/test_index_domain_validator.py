@@ -44,12 +44,11 @@ def _make_int32_vector(size_identifier: Identifier) -> NumericalType:
     )
 
 
-def test_empty_program():
-    """Test validation of an empty program."""
-    program_ast = Module(provenance=Provenance.unknown())
-    symbol_table = build_symbol_table(program_ast)
+def test_empty_module(empty_module_ast):
+    """Test validation of an empty module."""
+    symbol_table = build_symbol_table(empty_module_ast)
 
-    validate_index_domains(program_ast, symbol_table)
+    validate_index_domains(empty_module_ast, symbol_table)
 
 
 def test_valid_in_bounds_symbolic_access():

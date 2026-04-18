@@ -42,12 +42,11 @@ def dummy_index_type() -> IndexType:
     )
 
 
-def test_empty_program():
-    """Test validation of an empty program."""
-    program_ast = Module(provenance=Provenance.unknown())
-    symbol_table = build_symbol_table(program_ast)
+def test_empty_module(empty_module_ast):
+    """Test validation of an empty module."""
+    symbol_table = build_symbol_table(empty_module_ast)
 
-    validate_reductions(program_ast, symbol_table)
+    validate_reductions(empty_module_ast, symbol_table)
 
 
 def test_valid_reduction_with_index_variable(

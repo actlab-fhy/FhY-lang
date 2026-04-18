@@ -27,11 +27,9 @@ from fhy_core import (
 )
 
 
-def test_empty_program():
-    """Test validation of an empty program."""
-    program_ast = Module(provenance=Provenance.unknown())
-
-    validate_expression_statement_lhs(program_ast)
+def test_empty_module(empty_module_ast):
+    """Test validation of an empty module."""
+    validate_expression_statement_lhs(empty_module_ast)
 
 
 def test_valid_identifier_lhs(int32: NumericalType):

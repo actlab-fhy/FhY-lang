@@ -24,14 +24,12 @@ from fhy_core import (
 )
 
 
-def test_empty_program():
-    """Test an empty program."""
-    program_ast = Module(provenance=Provenance.unknown())
-
-    symbol_table = build_symbol_table(program_ast)
+def test_empty_module(empty_module_ast):
+    """Test an empty module."""
+    symbol_table = build_symbol_table(empty_module_ast)
 
     assert symbol_table.get_number_of_namespaces() == 2
-    module_namespace = symbol_table.get_namespace(program_ast.name)
+    module_namespace = symbol_table.get_namespace(empty_module_ast.name)
     assert len(module_namespace) == 0
 
 
