@@ -36,11 +36,11 @@ __all__ = [
     "pformat_ast",
     "ASTExpression",
     "ASTStatement",
-    "validate_type_qualifiers",
     "FhYSemanticsError",
     "FhYSymbolTableBuilderError",
-    "FhYTypeQualifierValidatorError",
     "FhYTypeError",
+    "FhYStructuralError",
+    "validate_ast",
 ]
 
 from .ast import Argument as ASTArgument
@@ -53,16 +53,16 @@ from .ast import Expression as ASTExpression
 from .ast import ExpressionStatement as ASTExpressionStatement
 from .ast import (
     FhYSemanticsError,
+    FhYStructuralError,
     FhYSymbolTableBuilderError,
     FhYTypeError,
-    FhYTypeQualifierValidatorError,
     build_symbol_table,
     collect_indices,
     collect_reduced_indices,
     convert_ast_expression_to_core_expression,
     pformat_ast,
     replace_identifiers,
-    validate_type_qualifiers,
+    validate_ast,
 )
 from .ast import FloatLiteral as ASTFloatLiteral
 from .ast import ForAllStatement as ASTForAllStatement

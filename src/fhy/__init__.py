@@ -41,11 +41,11 @@ __all__ = [
     "build_symbol_table",
     "ASTExpression",
     "ASTStatement",
-    "validate_type_qualifiers",
     "FhYSemanticsError",
     "FhYTypeError",
     "FhYSymbolTableBuilderError",
-    "FhYTypeQualifierValidatorError",
+    "FhYStructuralError",
+    "validate_ast",
 ]
 
 from .driver import CompilationOptions, Workspace, compile_fhy
@@ -78,14 +78,14 @@ from .lang import (
     ASTUnaryExpression,
     ASTUnaryOperation,
     FhYSemanticsError,
+    FhYStructuralError,
     FhYSymbolTableBuilderError,
     FhYSyntaxError,
     FhYTypeError,
-    FhYTypeQualifierValidatorError,
     build_symbol_table,
     collect_indices,
     collect_reduced_indices,
     convert_ast_expression_to_core_expression,
     from_fhy_source,
-    validate_type_qualifiers,
+    validate_ast,
 )

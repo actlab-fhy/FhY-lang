@@ -43,13 +43,13 @@ __all__ = [
     "FhYSemanticsError",
     "FhYTypeError",
     "pformat_ast",
-    "validate_type_qualifiers",
     "FhYSymbolTableBuilderError",
-    "FhYTypeQualifierValidatorError",
+    "FhYStructuralError",
+    "validate_ast",
 ]
 
 
-from .error import FhYSemanticsError, FhYTypeError
+from .error import FhYSemanticsError, FhYStructuralError, FhYTypeError
 from .node import (
     Argument,
     ArrayAccessExpression,
@@ -84,13 +84,12 @@ from .node import (
 )
 from .passes import (
     FhYSymbolTableBuilderError,
-    FhYTypeQualifierValidatorError,
     build_symbol_table,
     collect_identifiers,
     collect_indices,
     collect_reduced_indices,
     convert_ast_expression_to_core_expression,
     replace_identifiers,
-    validate_type_qualifiers,
 )
 from .pprint import pformat_ast
+from .validate import validate_ast

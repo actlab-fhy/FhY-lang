@@ -8,11 +8,15 @@ __all__ = [
     "collect_reduced_indices",
     "build_symbol_table",
     "validate_type_qualifiers",
+    "validate_expression_statement_lhs",
     "FhYSymbolTableBuilderError",
     "FhYTypeQualifierValidatorError",
 ]
 
 from .ast_to_core_expression_converter import convert_ast_expression_to_core_expression
+from .expression_statement_lhs_validator import (
+    validate_expression_statement_lhs,
+)
 from .identifier_collector import collect_identifiers
 from .identifier_replacer import replace_identifiers
 from .index_collector import collect_indices, collect_reduced_indices
