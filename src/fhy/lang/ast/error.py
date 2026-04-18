@@ -8,11 +8,12 @@ from fhy_core import Provenance, register_error
 def _format_location(provenance: Provenance | None) -> str | None:
     if provenance is None:
         return None
-    if provenance.span is not None:
+    elif provenance.span is not None:
         return str(provenance.span)
-    if provenance.origins:
+    elif provenance.origins:
         return str(provenance.origins[0])
-    return None
+    else:
+        return None
 
 
 def _format_message(message: str, provenance: Provenance | None) -> str:
@@ -22,34 +23,24 @@ def _format_message(message: str, provenance: Provenance | None) -> str:
     return f"{location}: {message}"
 
 
+class FhYValidationError(Exception):
+    """Raised when a validation error in a FhY program is detected."""
+
+    def __init__(self, message: str, provenance: Provenance | None = None) -> None:
+        self.provenance = provenance
+        super().__init__(_format_message(message, provenance))
+
+
 @register_error
-class FhYStructuralError(Exception):
+class FhYStructuralError(FhYValidationError):
     """Raised when a structural error in a FhY program is detected."""
 
-    provenance: Provenance | None
-
-    def __init__(self, message: str, provenance: Provenance | None = None) -> None:
-        self.provenance = provenance
-        super().__init__(_format_message(message, provenance))
-
 
 @register_error
-class FhYSemanticsError(Exception):
+class FhYSemanticsError(FhYValidationError):
     """Raised when a semantic error in a FhY program is detected."""
 
-    provenance: Provenance | None
-
-    def __init__(self, message: str, provenance: Provenance | None = None) -> None:
-        self.provenance = provenance
-        super().__init__(_format_message(message, provenance))
-
 
 @register_error
-class FhYTypeError(TypeError):
+class FhYTypeError(FhYValidationError):
     """Raised when a type error in a FhY program is detected."""
-
-    provenance: Provenance | None
-
-    def __init__(self, message: str, provenance: Provenance | None = None) -> None:
-        self.provenance = provenance
-        super().__init__(_format_message(message, provenance))
