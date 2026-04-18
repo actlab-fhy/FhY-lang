@@ -1,6 +1,14 @@
 """Identifier replacement transformer."""
 
-from fhy_core import Identifier, register_pass
+from fhy_core import (
+    Identifier,
+    IndexType,
+    NumericalType,
+    TemplateDataType,
+    TupleType,
+    register_pass,
+)
+from fhy_core import replace_identifiers as replace_core_identifiers
 
 from fhy.lang.ast.node import Node
 from fhy.lang.ast.transformer import Transformer
@@ -21,6 +29,39 @@ class IdentifierReplacer(Transformer):
     def __init__(self, identifier_map: dict[Identifier, Identifier]):
         super().__init__()
         self._identifier_map = identifier_map
+
+    def visit_numerical_type(self, numerical_type: NumericalType) -> NumericalType:
+        return NumericalType(
+            self.visit_data_type(numerical_type.data_type),
+            shape=[
+                replace_core_identifiers(dim, self._identifier_map)
+                for dim in numerical_type.shape
+            ],
+        )
+
+    Transformer.visit_type.register(NumericalType)(visit_numerical_type)
+
+    def visit_index_type(self, index_type: IndexType) -> IndexType:
+        return IndexType(
+            replace_core_identifiers(index_type.lower_bound, self._identifier_map),
+            replace_core_identifiers(index_type.upper_bound, self._identifier_map),
+            stride=replace_core_identifiers(index_type.stride, self._identifier_map),
+        )
+
+    Transformer.visit_type.register(IndexType)(visit_index_type)
+
+    def visit_tuple_type(self, tuple_type: TupleType) -> TupleType:
+        return TupleType([self.visit_type(type) for type in tuple_type.types])
+
+    Transformer.visit_type.register(TupleType)(visit_tuple_type)
+
+    def visit_template_data_type(
+        self, template_data_type: TemplateDataType
+    ) -> TemplateDataType:
+        return TemplateDataType(
+            self.visit_identifier(template_data_type.data_type),
+            template_data_type.widths,
+        )
 
     def visit_identifier(self, identifier: Identifier) -> Identifier:
         return self._identifier_map.get(identifier, identifier)

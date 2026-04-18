@@ -51,6 +51,10 @@ Statements = Statement | list[Statement]
 _T = TypeVar("_T", bound=Node)
 
 
+# TODO: do not create new objects when not necessary;
+#       test this behavior too!
+
+
 class Transformer(VisitablePass[Node, Node]):
     """AST node transformer."""
 
@@ -96,6 +100,7 @@ class Transformer(VisitablePass[Node, Node]):
             node: Module node to transform.
 
         """
+        new_name = self.visit_identifier(node.name)
         new_statements = self.visit_sequence(
             cast(Sequence[Statement], node.statements),
             self.visit_statement,
@@ -103,7 +108,7 @@ class Transformer(VisitablePass[Node, Node]):
         )
 
         return Module(
-            name=node.name, statements=new_statements, provenance=node.provenance
+            name=new_name, statements=new_statements, provenance=node.provenance
         )
 
     def visit_statement(self, node: Statement) -> Statements:
@@ -148,6 +153,7 @@ class Transformer(VisitablePass[Node, Node]):
             node: Operation node to transform.
 
         """
+        new_name = self.visit_identifier(node.name)
         new_templates = tuple(
             self.visit_template_data_type(template) for template in node.templates
         )
@@ -160,7 +166,7 @@ class Transformer(VisitablePass[Node, Node]):
         )
 
         return Operation(
-            name=node.name,
+            name=new_name,
             templates=new_templates,
             args=new_args,
             return_type=new_return_type,
@@ -175,6 +181,7 @@ class Transformer(VisitablePass[Node, Node]):
             node: Procedure node to transform.
 
         """
+        new_name = self.visit_identifier(node.name)
         new_templates = tuple(
             self.visit_template_data_type(template) for template in node.templates
         )
@@ -184,7 +191,7 @@ class Transformer(VisitablePass[Node, Node]):
         )
 
         return Procedure(
-            name=node.name,
+            name=new_name,
             templates=new_templates,
             args=new_args,
             body=new_body,
@@ -199,8 +206,8 @@ class Transformer(VisitablePass[Node, Node]):
 
         """
         return Argument(
+            name=self.visit_identifier(node.name),
             qualified_type=self.visit_qualified_type(node.qualified_type),
-            name=node.name,
             provenance=node.provenance,
         )
 
