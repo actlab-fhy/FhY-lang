@@ -32,27 +32,22 @@ def _make_id_expr(identifier: Identifier) -> IdentifierExpression:
     return IdentifierExpression(identifier=identifier, provenance=Provenance.unknown())
 
 
-def test_empty_module():
+def test_empty_module(empty_module_ast):
     """Test replacing on an empty module returns a new module with the new name."""
-    module = Module(provenance=Provenance.unknown())
     new_module_name = Identifier("new_module_name")
-    result = replace_identifiers(module, {module.name: new_module_name})
+    result = replace_identifiers(
+        empty_module_ast, {empty_module_ast.name: new_module_name}
+    )
     assert isinstance(result, Module)
     assert result.name == new_module_name
     assert len(result.statements) == 0
 
 
-def test_empty_map_is_identity():
+def test_empty_map_is_identity(x_plus_y_expression_ast):
     """Test that an empty map leaves identifiers unchanged."""
-    x = Identifier("x")
-    y = Identifier("y")
+    right, x, y = x_plus_y_expression_ast
     statement = ExpressionStatement(
-        right=BinaryExpression(
-            left=_make_id_expr(x),
-            right=_make_id_expr(y),
-            operation=BinaryOperation.ADDITION,
-            provenance=Provenance.unknown(),
-        ),
+        right=right,
         provenance=Provenance.unknown(),
     )
     result = replace_identifiers(statement, {})
@@ -62,18 +57,12 @@ def test_empty_map_is_identity():
     assert result.right.right.identifier == y
 
 
-def test_unmapped_identifier_is_preserved():
+def test_unmapped_identifier_is_preserved(x_plus_y_expression_ast):
     """Test identifiers absent from the map are left alone."""
-    x = Identifier("x")
-    y = Identifier("y")
+    right, x, y = x_plus_y_expression_ast
     x_new = Identifier("x_new")
     statement = ExpressionStatement(
-        right=BinaryExpression(
-            left=_make_id_expr(x),
-            right=_make_id_expr(y),
-            operation=BinaryOperation.ADDITION,
-            provenance=Provenance.unknown(),
-        ),
+        right=right,
         provenance=Provenance.unknown(),
     )
     result = replace_identifiers(statement, {x: x_new})
@@ -188,21 +177,12 @@ def test_declaration_statement_expression():
     assert result.expression.identifier == y_new
 
 
-def test_binary_expression_statement():
+def test_binary_expression_statement(x_plus_y_expression_ast):
     """Test replacing both operands of a binary expression."""
-    x = Identifier("x")
-    y = Identifier("y")
+    right, x, y = x_plus_y_expression_ast
     x_new = Identifier("x_new")
     y_new = Identifier("y_new")
-    statement = ExpressionStatement(
-        right=BinaryExpression(
-            left=_make_id_expr(x),
-            right=_make_id_expr(y),
-            operation=BinaryOperation.ADDITION,
-            provenance=Provenance.unknown(),
-        ),
-        provenance=Provenance.unknown(),
-    )
+    statement = ExpressionStatement(right=right, provenance=Provenance.unknown())
     result = replace_identifiers(statement, {x: x_new, y: y_new})
     assert isinstance(result, ExpressionStatement)
     assert isinstance(result.right, BinaryExpression)

@@ -1,5 +1,7 @@
 """Tests the call-site validator AST pass."""
 
+from collections.abc import Sequence
+
 import pytest
 from fhy.lang.ast import (
     Argument,
@@ -17,6 +19,7 @@ from fhy.lang.ast import (
     Operation,
     Procedure,
     QualifiedType,
+    Statement,
 )
 from fhy.lang.ast.passes import (
     build_symbol_table,
@@ -30,6 +33,7 @@ from fhy_core import (
     NumericalType,
     PassExecutionError,
     Provenance,
+    Type,
     TypeQualifier,
 )
 from fhy_core import (
@@ -37,12 +41,50 @@ from fhy_core import (
 )
 
 
-def test_empty_program():
-    """Test validation of an empty program."""
-    program_ast = Module(provenance=Provenance.unknown())
-    symbol_table = build_symbol_table(program_ast)
+def _make_module_ast(statements: Sequence[Statement]) -> Module:
+    return Module(
+        statements=statements,
+        provenance=Provenance.unknown(),
+    )
 
-    validate_call_sites(program_ast, symbol_table)
+
+def _make_procedure_ast(
+    name: Identifier, args: Sequence[Argument], body: Sequence[Statement]
+) -> Module:
+    return Procedure(
+        name=name,
+        templates=(),
+        args=args,
+        body=body,
+        provenance=Provenance.unknown(),
+    )
+
+
+def _make_operation_ast(
+    name: Identifier,
+    args: Sequence[Argument],
+    body: Sequence[Statement],
+    return_type: Type,
+) -> Module:
+    return Operation(
+        name=name,
+        templates=(),
+        args=args,
+        body=body,
+        return_type=QualifiedType(
+            base_type=return_type,
+            type_qualifier=TypeQualifier.OUTPUT,
+            provenance=Provenance.unknown(),
+        ),
+        provenance=Provenance.unknown(),
+    )
+
+
+def test_empty_module(empty_module_ast):
+    """Test validation of an empty module."""
+    symbol_table = build_symbol_table(empty_module_ast)
+
+    validate_call_sites(empty_module_ast, symbol_table)
 
 
 def test_valid_operation_call_with_lhs(int32: NumericalType):
@@ -50,77 +92,69 @@ def test_valid_operation_call_with_lhs(int32: NumericalType):
     main = Identifier("main")
     op = Identifier("op")
     a, t = Identifier("a"), Identifier("t")
-    program_ast = Module(
-        statements=(
-            Operation(
-                name=op,
-                args=(
-                    Argument(
-                        name=a,
-                        qualified_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
-                        ),
+    module_statements = (
+        _make_operation_ast(
+            op,
+            (
+                Argument(
+                    name=a,
+                    qualified_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.INPUT,
                         provenance=Provenance.unknown(),
                     ),
-                ),
-                body=(),
-                return_type=QualifiedType(
-                    base_type=int32,
-                    type_qualifier=TypeQualifier.OUTPUT,
                     provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
-            Procedure(
-                name=main,
-                args=(
-                    Argument(
-                        name=a,
-                        qualified_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
-                        ),
+            (),
+            int32,
+        ),
+        _make_procedure_ast(
+            main,
+            (
+                Argument(
+                    name=a,
+                    qualified_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.INPUT,
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                body=(
-                    DeclarationStatement(
-                        variable_name=t,
-                        variable_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
-                        ),
+            ),
+            (
+                DeclarationStatement(
+                    variable_name=t,
+                    variable_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.TEMP,
                         provenance=Provenance.unknown(),
                     ),
-                    ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
+                    provenance=Provenance.unknown(),
+                ),
+                ExpressionStatement(
+                    left=IdentifierExpression(
+                        identifier=t, provenance=Provenance.unknown()
+                    ),
+                    right=FunctionExpression(
+                        function=IdentifierExpression(
+                            identifier=op,
+                            provenance=Provenance.unknown(),
                         ),
-                        right=FunctionExpression(
-                            function=IdentifierExpression(
-                                identifier=op,
+                        args=(
+                            IdentifierExpression(
+                                identifier=a,
                                 provenance=Provenance.unknown(),
                             ),
-                            args=(
-                                IdentifierExpression(
-                                    identifier=a,
-                                    provenance=Provenance.unknown(),
-                                ),
-                            ),
-                            provenance=Provenance.unknown(),
                         ),
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
+    program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
     validate_call_sites(program_ast, symbol_table)
@@ -131,61 +165,58 @@ def test_valid_procedure_call_without_lhs(int32: NumericalType):
     main = Identifier("main")
     other = Identifier("other")
     a = Identifier("a")
-    program_ast = Module(
-        statements=(
-            Procedure(
-                name=other,
-                args=(
-                    Argument(
-                        name=a,
-                        qualified_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
-                        ),
+
+    module_statements = (
+        _make_procedure_ast(
+            other,
+            (
+                Argument(
+                    name=a,
+                    qualified_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.INPUT,
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                body=(),
-                provenance=Provenance.unknown(),
             ),
-            Procedure(
-                name=main,
-                args=(
-                    Argument(
-                        name=a,
-                        qualified_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
-                        ),
+            (),
+        ),
+        _make_procedure_ast(
+            main,
+            (
+                Argument(
+                    name=a,
+                    qualified_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.INPUT,
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                body=(
-                    ExpressionStatement(
-                        left=None,
-                        right=FunctionExpression(
-                            function=IdentifierExpression(
-                                identifier=other,
+            ),
+            (
+                ExpressionStatement(
+                    left=None,
+                    right=FunctionExpression(
+                        function=IdentifierExpression(
+                            identifier=other,
+                            provenance=Provenance.unknown(),
+                        ),
+                        args=(
+                            IdentifierExpression(
+                                identifier=a,
                                 provenance=Provenance.unknown(),
                             ),
-                            args=(
-                                IdentifierExpression(
-                                    identifier=a,
-                                    provenance=Provenance.unknown(),
-                                ),
-                            ),
-                            provenance=Provenance.unknown(),
                         ),
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
+    program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
     validate_call_sites(program_ast, symbol_table)
@@ -197,87 +228,81 @@ def test_valid_reduction_call_with_indices(int32: NumericalType):
     sum_ = BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS["sum"]
     a, t, k = Identifier("a"), Identifier("t"), Identifier("k")
     m = Identifier("m")
-    program_ast = Module(
-        statements=(
-            Procedure(
-                name=main,
-                args=(
-                    Argument(
-                        name=a,
-                        qualified_type=QualifiedType(
-                            base_type=NumericalType(
-                                int32.data_type,
-                                shape=(CoreIdentifierExpression(m),),
-                            ),
-                            type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
-                        ),
+    module_statements = (
+        _make_procedure_ast(
+            main,
+            (
+                Argument(
+                    name=a,
+                    qualified_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.INPUT,
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                body=(
-                    DeclarationStatement(
-                        variable_name=k,
-                        variable_type=QualifiedType(
-                            base_type=IndexType(
-                                lower_bound=LiteralExpression(1),
-                                upper_bound=CoreIdentifierExpression(m),
-                                stride=None,
-                            ),
-                            type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
+            ),
+            (
+                DeclarationStatement(
+                    variable_name=k,
+                    variable_type=QualifiedType(
+                        base_type=IndexType(
+                            lower_bound=LiteralExpression(1),
+                            upper_bound=CoreIdentifierExpression(m),
+                            stride=None,
                         ),
+                        type_qualifier=TypeQualifier.TEMP,
                         provenance=Provenance.unknown(),
                     ),
-                    DeclarationStatement(
-                        variable_name=t,
-                        variable_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
-                        ),
+                    provenance=Provenance.unknown(),
+                ),
+                DeclarationStatement(
+                    variable_name=t,
+                    variable_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.TEMP,
                         provenance=Provenance.unknown(),
                     ),
-                    ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
+                    provenance=Provenance.unknown(),
+                ),
+                ExpressionStatement(
+                    left=IdentifierExpression(
+                        identifier=t, provenance=Provenance.unknown()
+                    ),
+                    right=FunctionExpression(
+                        function=IdentifierExpression(
+                            identifier=sum_,
+                            provenance=Provenance.unknown(),
                         ),
-                        right=FunctionExpression(
-                            function=IdentifierExpression(
-                                identifier=sum_,
+                        indices=(
+                            IdentifierExpression(
+                                identifier=k,
                                 provenance=Provenance.unknown(),
                             ),
-                            indices=(
-                                IdentifierExpression(
-                                    identifier=k,
+                        ),
+                        args=(
+                            ArrayAccessExpression(
+                                array_expression=IdentifierExpression(
+                                    identifier=a,
                                     provenance=Provenance.unknown(),
                                 ),
-                            ),
-                            args=(
-                                ArrayAccessExpression(
-                                    array_expression=IdentifierExpression(
-                                        identifier=a,
+                                indices=(
+                                    IdentifierExpression(
+                                        identifier=k,
                                         provenance=Provenance.unknown(),
                                     ),
-                                    indices=(
-                                        IdentifierExpression(
-                                            identifier=k,
-                                            provenance=Provenance.unknown(),
-                                        ),
-                                    ),
-                                    provenance=Provenance.unknown(),
                                 ),
+                                provenance=Provenance.unknown(),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
+    program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
     validate_call_sites(program_ast, symbol_table)
@@ -287,48 +312,45 @@ def test_fails_with_non_identifier_function_expression(int32: NumericalType):
     """Test failure when the function name is not an identifier expression."""
     main = Identifier("main")
     a = Identifier("a")
-    program_ast = Module(
-        statements=(
-            Procedure(
-                name=main,
-                args=(
-                    Argument(
-                        name=a,
-                        qualified_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
-                        ),
+    module_statements = (
+        _make_procedure_ast(
+            main,
+            (
+                Argument(
+                    name=a,
+                    qualified_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.INPUT,
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                body=(
-                    ExpressionStatement(
-                        left=None,
-                        right=FunctionExpression(
-                            function=BinaryExpression(
-                                operation=BinaryOperation.ADDITION,
-                                left=IdentifierExpression(
-                                    identifier=a,
-                                    provenance=Provenance.unknown(),
-                                ),
-                                right=IntLiteral(
-                                    value=1,
-                                    provenance=Provenance.unknown(),
-                                ),
+            ),
+            (
+                ExpressionStatement(
+                    left=None,
+                    right=FunctionExpression(
+                        function=BinaryExpression(
+                            operation=BinaryOperation.ADDITION,
+                            left=IdentifierExpression(
+                                identifier=a,
                                 provenance=Provenance.unknown(),
                             ),
-                            args=(),
+                            right=IntLiteral(
+                                value=1,
+                                provenance=Provenance.unknown(),
+                            ),
                             provenance=Provenance.unknown(),
                         ),
+                        args=(),
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
+    program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
     with pytest.raises(PassExecutionError, match=FhYStructuralError.__name__):
@@ -339,40 +361,38 @@ def test_fails_with_non_function_identifier(int32: NumericalType):
     """Test failure when the function name identifier is not a function."""
     main = Identifier("main")
     a = Identifier("a")
-    program_ast = Module(
-        statements=(
-            Procedure(
-                name=main,
-                args=(
-                    Argument(
-                        name=a,
-                        qualified_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
-                        ),
+    module_statements = (
+        Procedure(
+            name=main,
+            args=(
+                Argument(
+                    name=a,
+                    qualified_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.INPUT,
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                body=(
-                    ExpressionStatement(
-                        left=None,
-                        right=FunctionExpression(
-                            function=IdentifierExpression(
-                                identifier=a,
-                                provenance=Provenance.unknown(),
-                            ),
-                            args=(),
-                            provenance=Provenance.unknown(),
-                        ),
-                        provenance=Provenance.unknown(),
-                    ),
-                ),
-                provenance=Provenance.unknown(),
             ),
+            body=(
+                ExpressionStatement(
+                    left=None,
+                    right=FunctionExpression(
+                        function=IdentifierExpression(
+                            identifier=a,
+                            provenance=Provenance.unknown(),
+                        ),
+                        args=(),
+                        provenance=Provenance.unknown(),
+                    ),
+                    provenance=Provenance.unknown(),
+                ),
+            ),
+            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
+    program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
     with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
@@ -384,80 +404,76 @@ def test_fails_with_non_reduction_call_having_indices(int32: NumericalType):
     main = Identifier("main")
     other = Identifier("other")
     a, k = Identifier("a"), Identifier("k")
-    program_ast = Module(
-        statements=(
-            Procedure(
-                name=other,
-                args=(
-                    Argument(
-                        name=a,
-                        qualified_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
-                        ),
+    module_statements = (
+        _make_procedure_ast(
+            other,
+            (
+                Argument(
+                    name=a,
+                    qualified_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.INPUT,
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                body=(),
-                provenance=Provenance.unknown(),
             ),
-            Procedure(
-                name=main,
-                args=(
-                    Argument(
-                        name=a,
-                        qualified_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
-                        ),
+            body=(),
+        ),
+        _make_procedure_ast(
+            main,
+            (
+                Argument(
+                    name=a,
+                    qualified_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.INPUT,
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                body=(
-                    DeclarationStatement(
-                        variable_name=k,
-                        variable_type=QualifiedType(
-                            base_type=IndexType(
-                                lower_bound=LiteralExpression(1),
-                                upper_bound=LiteralExpression(10),
-                                stride=None,
-                            ),
-                            type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
+            ),
+            (
+                DeclarationStatement(
+                    variable_name=k,
+                    variable_type=QualifiedType(
+                        base_type=IndexType(
+                            lower_bound=LiteralExpression(1),
+                            upper_bound=LiteralExpression(10),
+                            stride=None,
                         ),
+                        type_qualifier=TypeQualifier.TEMP,
                         provenance=Provenance.unknown(),
                     ),
-                    ExpressionStatement(
-                        left=None,
-                        right=FunctionExpression(
-                            function=IdentifierExpression(
-                                identifier=other,
+                    provenance=Provenance.unknown(),
+                ),
+                ExpressionStatement(
+                    left=None,
+                    right=FunctionExpression(
+                        function=IdentifierExpression(
+                            identifier=other,
+                            provenance=Provenance.unknown(),
+                        ),
+                        indices=(
+                            IdentifierExpression(
+                                identifier=k,
                                 provenance=Provenance.unknown(),
                             ),
-                            indices=(
-                                IdentifierExpression(
-                                    identifier=k,
-                                    provenance=Provenance.unknown(),
-                                ),
+                        ),
+                        args=(
+                            IdentifierExpression(
+                                identifier=a,
+                                provenance=Provenance.unknown(),
                             ),
-                            args=(
-                                IdentifierExpression(
-                                    identifier=a,
-                                    provenance=Provenance.unknown(),
-                                ),
-                            ),
-                            provenance=Provenance.unknown(),
                         ),
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
+    program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
     with pytest.raises(PassExecutionError, match=FhYStructuralError.__name__):
@@ -469,72 +485,68 @@ def test_fails_with_procedure_call_having_lhs(int32: NumericalType):
     main = Identifier("main")
     other = Identifier("other")
     a, t = Identifier("a"), Identifier("t")
-    program_ast = Module(
-        statements=(
-            Procedure(
-                name=other,
-                args=(
-                    Argument(
-                        name=a,
-                        qualified_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
-                        ),
+    module_statements = (
+        _make_procedure_ast(
+            other,
+            (
+                Argument(
+                    name=a,
+                    qualified_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.INPUT,
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                body=(),
-                provenance=Provenance.unknown(),
             ),
-            Procedure(
-                name=main,
-                args=(
-                    Argument(
-                        name=a,
-                        qualified_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
-                        ),
+            body=(),
+        ),
+        _make_procedure_ast(
+            main,
+            (
+                Argument(
+                    name=a,
+                    qualified_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.INPUT,
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                body=(
-                    DeclarationStatement(
-                        variable_name=t,
-                        variable_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
-                        ),
+            ),
+            (
+                DeclarationStatement(
+                    variable_name=t,
+                    variable_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.TEMP,
                         provenance=Provenance.unknown(),
                     ),
-                    ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
+                    provenance=Provenance.unknown(),
+                ),
+                ExpressionStatement(
+                    left=IdentifierExpression(
+                        identifier=t, provenance=Provenance.unknown()
+                    ),
+                    right=FunctionExpression(
+                        function=IdentifierExpression(
+                            identifier=other,
+                            provenance=Provenance.unknown(),
                         ),
-                        right=FunctionExpression(
-                            function=IdentifierExpression(
-                                identifier=other,
+                        args=(
+                            IdentifierExpression(
+                                identifier=a,
                                 provenance=Provenance.unknown(),
                             ),
-                            args=(
-                                IdentifierExpression(
-                                    identifier=a,
-                                    provenance=Provenance.unknown(),
-                                ),
-                            ),
-                            provenance=Provenance.unknown(),
                         ),
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
+    program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
     with pytest.raises(PassExecutionError, match=FhYStructuralError.__name__):
@@ -546,70 +558,66 @@ def test_fails_with_wrong_number_of_arguments(int32: NumericalType):
     main = Identifier("main")
     other = Identifier("other")
     a, b = Identifier("a"), Identifier("b")
-    program_ast = Module(
-        statements=(
-            Procedure(
-                name=other,
-                args=(
-                    Argument(
-                        name=a,
-                        qualified_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
-                        ),
+    module_statements = (
+        _make_procedure_ast(
+            other,
+            (
+                Argument(
+                    name=a,
+                    qualified_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.INPUT,
                         provenance=Provenance.unknown(),
                     ),
-                    Argument(
-                        name=b,
-                        qualified_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
-                        ),
-                        provenance=Provenance.unknown(),
-                    ),
+                    provenance=Provenance.unknown(),
                 ),
-                body=(),
-                provenance=Provenance.unknown(),
+                Argument(
+                    name=b,
+                    qualified_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.INPUT,
+                        provenance=Provenance.unknown(),
+                    ),
+                    provenance=Provenance.unknown(),
+                ),
             ),
-            Procedure(
-                name=main,
-                args=(
-                    Argument(
-                        name=a,
-                        qualified_type=QualifiedType(
-                            base_type=int32,
-                            type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
-                        ),
+            (),
+        ),
+        _make_procedure_ast(
+            main,
+            (
+                Argument(
+                    name=a,
+                    qualified_type=QualifiedType(
+                        base_type=int32,
+                        type_qualifier=TypeQualifier.INPUT,
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                body=(
-                    ExpressionStatement(
-                        left=None,
-                        right=FunctionExpression(
-                            function=IdentifierExpression(
-                                identifier=other,
+            ),
+            (
+                ExpressionStatement(
+                    left=None,
+                    right=FunctionExpression(
+                        function=IdentifierExpression(
+                            identifier=other,
+                            provenance=Provenance.unknown(),
+                        ),
+                        args=(
+                            IdentifierExpression(
+                                identifier=a,
                                 provenance=Provenance.unknown(),
                             ),
-                            args=(
-                                IdentifierExpression(
-                                    identifier=a,
-                                    provenance=Provenance.unknown(),
-                                ),
-                            ),
-                            provenance=Provenance.unknown(),
                         ),
                         provenance=Provenance.unknown(),
                     ),
+                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
+    program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
     with pytest.raises(PassExecutionError, match=FhYStructuralError.__name__):

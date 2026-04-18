@@ -3,14 +3,11 @@
 from fhy.lang.ast import (
     Argument,
     ArrayAccessExpression,
-    BinaryExpression,
-    BinaryOperation,
     DeclarationStatement,
     ExpressionStatement,
     FunctionExpression,
     IdentifierExpression,
     IntLiteral,
-    Module,
     Operation,
     Procedure,
     QualifiedType,
@@ -29,13 +26,12 @@ from fhy_core import (
 from fhy_core import IdentifierExpression as CoreIdentifierExpression
 
 
-def test_empty_module():
+def test_empty_module(empty_module_ast):
     """Test an empty module returns empty set."""
-    module = Module(provenance=Provenance.unknown())
-    identifiers = collect_identifiers(module)
+    identifiers = collect_identifiers(empty_module_ast)
     assert len(identifiers) == 1
     identifier = next(iter(identifiers))
-    assert identifier == module.name
+    assert identifier == empty_module_ast.name
 
 
 def test_declaration_statement():
@@ -59,17 +55,11 @@ def test_declaration_statement():
     assert result == {x, N}
 
 
-def test_expression_statement():
+def test_expression_statement(x_plus_y_expression_ast):
     """Test retrieval of identifiers from an expression statement."""
-    x = Identifier("x")
-    y = Identifier("y")
+    right, x, y = x_plus_y_expression_ast
     statement = ExpressionStatement(
-        right=BinaryExpression(
-            left=IdentifierExpression(identifier=x, provenance=Provenance.unknown()),
-            right=IdentifierExpression(identifier=y, provenance=Provenance.unknown()),
-            operation=BinaryOperation.ADDITION,
-            provenance=Provenance.unknown(),
-        ),
+        right=right,
         provenance=Provenance.unknown(),
     )
     result = collect_identifiers(statement)
