@@ -6,6 +6,7 @@ from typing import TypeGuard
 
 from fhy_core import (
     DeserializationDictStructureError,
+    HasIdentifierMixin,
     Identifier,
     SerializedDict,
     TemplateDataType,
@@ -539,11 +540,15 @@ def _is_valid_forall_statement_data(
 
 @register_serializable(type_id="fhy_ast_forall_statement")
 @dataclass(frozen=True, kw_only=True)
-class ForAllStatement(Statement):
+class ForAllStatement(Statement, HasIdentifierMixin):
     """FhY for-all statement AST node."""
 
+    name: Identifier = field(default=Identifier("forall"))
     index: Expression
     body: tuple[Statement, ...] = field(default_factory=tuple)
+
+    def get_identifier(self) -> Identifier:
+        return self.name
 
     def get_visit_children(self) -> Sequence[Visitable]:
         return (self.index, *self.body)

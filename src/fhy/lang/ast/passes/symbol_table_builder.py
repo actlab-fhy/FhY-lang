@@ -30,6 +30,7 @@ from fhy_core import (
 from fhy.lang.ast.node import (
     Argument,
     DeclarationStatement,
+    ForAllStatement,
     Import,
     Module,
     Node,
@@ -54,24 +55,7 @@ class FhYSymbolTableBuilderError(RuntimeError):
     "Builds a symbol table for the given AST module node.",
 )
 class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
-    """Builds a symbol table for the given AST module node.
-
-    The class will throw an exception if a variable is used before being declared or if
-    a variable is declared more than once within the same namespace.
-
-    Note:
-        This builder pass for the symbol table only supports namespaces created by
-        a new module or new operation/procedure. Nested scopes created by ForAll
-        loop bodies and If/Else bodies are not supported and will be treated as
-        the same namespace as the parent operation/procedure.
-
-    Raises:
-        FhYSemanticsError: A variable is used before being declared (undefined), or
-            the variable is defined again (redefined), within the current namespace.
-        RuntimeError: Unexpected behavior, indicating improper use.
-        TypeError: Received wrong argument (node) type.
-
-    """
+    """Builds a symbol table for the given AST module node."""
 
     _symbol_table: SymbolTable
 
@@ -215,6 +199,12 @@ class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
             type_qualifier=node.variable_type.type_qualifier,
         )
         self._add_symbol(node.variable_name, var_frame)
+
+    def before_visit_for_all_statement(self, node: ForAllStatement) -> None:
+        self._push_namespace(node.name)
+
+    def after_visit_for_all_statement(self, node: ForAllStatement) -> None:
+        self._pop_namespace()
 
 
 def build_symbol_table(node: Module) -> SymbolTable:

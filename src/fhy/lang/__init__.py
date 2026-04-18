@@ -36,6 +36,11 @@ __all__ = [
     "pformat_ast",
     "ASTExpression",
     "ASTStatement",
+    "validate_type_qualifiers",
+    "FhYSemanticsError",
+    "FhYSymbolTableBuilderError",
+    "FhYTypeQualifierValidatorError",
+    "FhYTypeError",
 ]
 
 from .ast import Argument as ASTArgument
@@ -46,6 +51,19 @@ from .ast import ComplexLiteral as ASTComplexLiteral
 from .ast import DeclarationStatement as ASTDeclarationStatement
 from .ast import Expression as ASTExpression
 from .ast import ExpressionStatement as ASTExpressionStatement
+from .ast import (
+    FhYSemanticsError,
+    FhYSymbolTableBuilderError,
+    FhYTypeError,
+    FhYTypeQualifierValidatorError,
+    build_symbol_table,
+    collect_indices,
+    collect_reduced_indices,
+    convert_ast_expression_to_core_expression,
+    pformat_ast,
+    replace_identifiers,
+    validate_type_qualifiers,
+)
 from .ast import FloatLiteral as ASTFloatLiteral
 from .ast import ForAllStatement as ASTForAllStatement
 from .ast import IdentifierExpression as ASTIdentifierExpression
@@ -65,12 +83,4 @@ from .ast import TupleAccessExpression as ASTTupleAccessExpression
 from .ast import TupleExpression as ASTTupleExpression
 from .ast import UnaryExpression as ASTUnaryExpression
 from .ast import UnaryOperation as ASTUnaryOperation
-from .ast import (
-    build_symbol_table,
-    collect_indices,
-    collect_reduced_indices,
-    convert_ast_expression_to_core_expression,
-    pformat_ast,
-    replace_identifiers,
-)
 from .converter import FhYSyntaxError, from_fhy_source
