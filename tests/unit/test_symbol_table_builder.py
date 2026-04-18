@@ -4,14 +4,12 @@ import pytest
 from fhy.lang.ast import (
     Argument,
     DeclarationStatement,
-    ExpressionStatement,
-    FhYSemanticsError,
-    IdentifierExpression,
     Module,
     Procedure,
     QualifiedType,
 )
 from fhy.lang.ast.passes import build_symbol_table
+from fhy.lang.ast.passes.symbol_table_builder import FhYSymbolTableBuilderError
 from fhy_core import (
     CoreDataType,
     FunctionKeyword,
@@ -23,9 +21,6 @@ from fhy_core import (
     Provenance,
     TypeQualifier,
     VariableSymbolTableFrame,
-)
-from fhy_core import (
-    IdentifierExpression as CoreIdentifierExpression,
 )
 
 
@@ -195,69 +190,6 @@ def test_procedure_with_declaration_statement():
     assert a_frame.type_qualifier == TypeQualifier.TEMP
 
 
-def test_fails_with_undefined_variable():
-    """Test failure with an undefined variable."""
-    main = Identifier("main")
-    a = Identifier("a")
-    program_ast = Module(
-        statements=(
-            Procedure(
-                name=main,
-                templates=(),
-                args=(),
-                body=(
-                    ExpressionStatement(
-                        right=IdentifierExpression(
-                            identifier=a, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
-                    ),
-                ),
-                provenance=Provenance.unknown(),
-            ),
-        ),
-        provenance=Provenance.unknown(),
-    )
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
-        build_symbol_table(program_ast)
-
-
-def test_fails_with_undefined_shape_variable():
-    """Test failure with an undeclared shape variable."""
-    main = Identifier("main")
-    a = Identifier("a")
-    program_ast = Module(
-        statements=(
-            Procedure(
-                name=main,
-                templates=(),
-                args=(),
-                body=(
-                    DeclarationStatement(
-                        variable_name=a,
-                        variable_type=QualifiedType(
-                            base_type=NumericalType(
-                                PrimitiveDataType(CoreDataType.INT32),
-                                shape=[
-                                    CoreIdentifierExpression(identifier=Identifier("A"))
-                                ],
-                            ),
-                            type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
-                        ),
-                        provenance=Provenance.unknown(),
-                    ),
-                ),
-                provenance=Provenance.unknown(),
-            ),
-        ),
-        provenance=Provenance.unknown(),
-    )
-
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
-        build_symbol_table(program_ast)
-
-
 def test_fails_with_already_defined_variable():
     """Test failure with already defined variable."""
     main = Identifier("main")
@@ -298,7 +230,7 @@ def test_fails_with_already_defined_variable():
         ),
         provenance=Provenance.unknown(),
     )
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
+    with pytest.raises(PassExecutionError, match=FhYSymbolTableBuilderError.__name__):
         build_symbol_table(program_ast)
 
 
@@ -324,5 +256,5 @@ def test_fails_with_already_defined_procedure():
         ),
         provenance=Provenance.unknown(),
     )
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
+    with pytest.raises(PassExecutionError, match=FhYSymbolTableBuilderError.__name__):
         build_symbol_table(program_ast)
