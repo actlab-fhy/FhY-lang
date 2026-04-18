@@ -4,10 +4,11 @@ __all__ = [
     "validate_ast",
 ]
 
-from fhy_core import SymbolTable
+from fhy_core import FixpointPassGroup, Identifier, PassManager, SymbolTable
 
 from .node import Module
 from .passes import (
+    DeadCodeEliminationPass,
     build_symbol_table,
     validate_call_sites,
     validate_expression_statement_lhs,
@@ -15,10 +16,13 @@ from .passes import (
     validate_index_domains,
     validate_reductions,
     validate_type_qualifiers,
+    validate_types,
 )
 
 
-def validate_ast(ast: Module) -> tuple[Module, SymbolTable]:
+def validate_ast(
+    ast: Module, perform_optimizations: bool = True
+) -> tuple[Module, SymbolTable]:
     """Validate the FhY AST.
 
     Steps:
@@ -65,8 +69,12 @@ def validate_ast(ast: Module) -> tuple[Module, SymbolTable]:
             - Throws an error if the type of an expression is not
               compatible with the type of the variable it is assigned to.
 
+    Optimizations:
+        1. Dead code elimination
+
     Args:
         ast: The FhY AST to validate.
+        perform_optimizations: Whether to perform optimizations on the AST.
 
     Returns:
         A tuple containing the validated AST and the symbol table.
@@ -82,4 +90,17 @@ def validate_ast(ast: Module) -> tuple[Module, SymbolTable]:
     validate_reductions(ast, symbol_table)
     validate_index_domains(ast, symbol_table)
     validate_call_sites(ast, symbol_table)
+    validate_types(ast, symbol_table)
+
+    if perform_optimizations:
+        pass_manager = PassManager[Module](Identifier("fhy_ast_pass_manager"))
+        dce_fixpoint_group = FixpointPassGroup[Module](
+            name=Identifier("fhy_ast_dead_code_elimination_fixpoint"),
+        )
+        dce_fixpoint_group.add_pass(
+            DeadCodeEliminationPass(pass_manager.analysis_manager, symbol_table)
+        )
+        pass_manager.add_fixpoint_group(dce_fixpoint_group)
+        ast = pass_manager.run(ast).output
+
     return ast, symbol_table

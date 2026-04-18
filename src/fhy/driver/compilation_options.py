@@ -8,3 +8,4 @@ class CompilationOptions:
     """Supported FhY compilation options."""
 
     verbose: bool = field(default=False)
+    perform_optimizations: bool = field(default=False)

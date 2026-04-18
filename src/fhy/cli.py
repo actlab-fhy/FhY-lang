@@ -48,7 +48,9 @@ class SerializationOptions(StrEnum):
 
 def compile_fhy_source(
     main_file: Path | None = None,
+    *,
     verbose: bool = False,
+    optimize: bool = False,
     log_file: Path | None = None,
 ) -> tuple[ASTModule, SymbolTable]:
     """Parse a FhY project, compile it, and return the final AST module."""
@@ -66,7 +68,7 @@ def compile_fhy_source(
         sys.exit(1)
 
     workspace = Workspace(main_file)
-    options = CompilationOptions(verbose=verbose)
+    options = CompilationOptions(verbose=verbose, perform_optimizations=optimize)
 
     try:
         program, symbol_table = compile_fhy(workspace, options)
@@ -113,6 +115,9 @@ def serialize(
     verbose: Annotated[
         bool, typer.Option("--verbose", help="Enable debugging.")
     ] = False,
+    optimize: Annotated[
+        bool, typer.Option("--optimize", help="Enable optimization.")
+    ] = False,
     log_file: Annotated[
         Optional[Path], typer.Option(help="Provide a filepath to write logs to.")
     ] = None,
@@ -133,7 +138,9 @@ def serialize(
     ] = None,
 ) -> None:
     """Compile a FhY source program and print the result."""
-    module, _ = compile_fhy_source(main_file, verbose, log_file)
+    module, _ = compile_fhy_source(
+        main_file, verbose=verbose, optimize=optimize, log_file=log_file
+    )
 
     if format is None:
         return

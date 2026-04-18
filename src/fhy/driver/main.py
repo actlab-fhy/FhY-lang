@@ -28,6 +28,8 @@ def compile_fhy(
     """
     _logger.info("Compiling the FhY program...")
     ast_program = build_ast_program(workspace, options)
-    ast_program, symbol_table = validate_ast(ast_program)
+    ast_program, symbol_table = validate_ast(
+        ast_program, perform_optimizations=options.perform_optimizations
+    )
     _logger.info("FhY program compilation finished successfully.")
     return ast_program, symbol_table
