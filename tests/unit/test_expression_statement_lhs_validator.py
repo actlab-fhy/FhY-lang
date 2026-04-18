@@ -28,14 +28,14 @@ from fhy_core import (
 
 
 def test_empty_program():
-    """Tests validation of an empty program."""
+    """Test validation of an empty program."""
     program_ast = Module(provenance=Provenance.unknown())
 
     validate_expression_statement_lhs(program_ast)
 
 
 def test_valid_identifier_lhs(int32: NumericalType):
-    """Tests a valid identifier expression on the LHS."""
+    """Test a valid identifier expression on the LHS."""
     main = Identifier("main")
     a, t = Identifier("a"), Identifier("t")
     program_ast = Module(
@@ -83,7 +83,7 @@ def test_valid_identifier_lhs(int32: NumericalType):
 
 
 def test_valid_array_access_lhs(int32: NumericalType):
-    """Tests a valid array access expression on the LHS."""
+    """Test a valid array access expression on the LHS."""
     main = Identifier("main")
     a, t = Identifier("a"), Identifier("t")
     program_ast = Module(
@@ -137,7 +137,7 @@ def test_valid_array_access_lhs(int32: NumericalType):
 
 
 def test_valid_no_lhs(int32: NumericalType):
-    """Tests an expression statement without a LHS (e.g. a procedure call)."""
+    """Test an expression statement without a LHS (e.g. a procedure call)."""
     main = Identifier("main")
     a = Identifier("a")
     program_ast = Module(
@@ -174,7 +174,7 @@ def test_valid_no_lhs(int32: NumericalType):
 
 
 def test_fails_with_binary_expression_lhs(int32: NumericalType):
-    """Tests failure when the LHS is a binary expression."""
+    """Test failure when the LHS is a binary expression."""
     main = Identifier("main")
     t = Identifier("t")
     program_ast = Module(
@@ -221,7 +221,7 @@ def test_fails_with_binary_expression_lhs(int32: NumericalType):
 
 
 def test_fails_with_literal_lhs(int32: NumericalType):
-    """Tests failure when the LHS is a literal."""
+    """Test failure when the LHS is a literal."""
     main = Identifier("main")
     t = Identifier("t")
     program_ast = Module(
@@ -261,7 +261,7 @@ def test_fails_with_literal_lhs(int32: NumericalType):
 
 
 def test_fails_with_array_access_on_non_identifier(int32: NumericalType):
-    """Tests failure when the array expression of an LHS array access is not
+    """Test failure when the array expression of an LHS array access is not
     an identifier expression.
     """
     main = Identifier("main")
@@ -319,7 +319,7 @@ def test_fails_with_array_access_on_non_identifier(int32: NumericalType):
 
 
 def test_fails_with_nested_array_access_lhs(int32: NumericalType):
-    """Tests failure when the LHS is a nested array access expression."""
+    """Test failure when the LHS is a nested array access expression."""
     main = Identifier("main")
     t = Identifier("t")
     program_ast = Module(

@@ -27,7 +27,7 @@ from fhy_core import (
 
 
 def test_empty_program():
-    """Tests validation of an empty program."""
+    """Test validation of an empty program."""
     program_ast = Module(provenance=Provenance.unknown())
     symbol_table = build_symbol_table(program_ast)
 
@@ -35,7 +35,7 @@ def test_empty_program():
 
 
 def test_valid_procedure(int32: NumericalType):
-    """Tests a procedure with valid qualifiers on args and declarations."""
+    """Test a procedure with valid qualifiers on args and declarations."""
     main = Identifier("main")
     a, b, t = Identifier("a"), Identifier("b"), Identifier("t")
     program_ast = Module(
@@ -102,7 +102,7 @@ def test_valid_procedure(int32: NumericalType):
 
 
 def test_valid_operation_with_output_return_type(int32: NumericalType):
-    """Tests an operation with an OUTPUT return type."""
+    """Test an operation with an OUTPUT return type."""
     op = Identifier("op")
     a = Identifier("a")
     program_ast = Module(
@@ -137,7 +137,7 @@ def test_valid_operation_with_output_return_type(int32: NumericalType):
 
 
 def test_valid_param_argument(int32: NumericalType):
-    """Tests that PARAM is allowed on arguments."""
+    """Test that PARAM is allowed on arguments."""
     main = Identifier("main")
     a = Identifier("a")
     program_ast = Module(
@@ -167,7 +167,7 @@ def test_valid_param_argument(int32: NumericalType):
 
 
 def test_fails_with_temp_argument(int32: NumericalType):
-    """Tests failure when an argument is qualified TEMP."""
+    """Test failure when an argument is qualified TEMP."""
     main = Identifier("main")
     a = Identifier("a")
     program_ast = Module(
@@ -200,7 +200,7 @@ def test_fails_with_temp_argument(int32: NumericalType):
 
 
 def test_fails_with_input_declaration(int32: NumericalType):
-    """Tests failure when a declaration is qualified INPUT."""
+    """Test failure when a declaration is qualified INPUT."""
     main = Identifier("main")
     a = Identifier("a")
     program_ast = Module(
@@ -233,7 +233,7 @@ def test_fails_with_input_declaration(int32: NumericalType):
 
 
 def test_fails_with_output_declaration(int32: NumericalType):
-    """Tests failure when a declaration is qualified OUTPUT."""
+    """Test failure when a declaration is qualified OUTPUT."""
     main = Identifier("main")
     a = Identifier("a")
     program_ast = Module(
@@ -266,7 +266,7 @@ def test_fails_with_output_declaration(int32: NumericalType):
 
 
 def test_fails_with_input_return_type(int32: NumericalType):
-    """Tests failure when an operation return type is INPUT."""
+    """Test failure when an operation return type is INPUT."""
     op = Identifier("op")
     program_ast = Module(
         statements=(
@@ -293,7 +293,7 @@ def test_fails_with_input_return_type(int32: NumericalType):
 
 
 def test_fails_with_temp_return_type(int32: NumericalType):
-    """Tests failure when an operation return type is TEMP."""
+    """Test failure when an operation return type is TEMP."""
     op = Identifier("op")
     program_ast = Module(
         statements=(
@@ -320,7 +320,7 @@ def test_fails_with_temp_return_type(int32: NumericalType):
 
 
 def test_fails_with_assignment_to_input(int32: NumericalType):
-    """Tests failure when assigning to an INPUT variable."""
+    """Test failure when assigning to an INPUT variable."""
     main = Identifier("main")
     a = Identifier("a")
     program_ast = Module(
@@ -363,7 +363,7 @@ def test_fails_with_assignment_to_input(int32: NumericalType):
 
 
 def test_fails_with_assignment_to_param(int32: NumericalType):
-    """Tests failure when assigning to a PARAM variable."""
+    """Test failure when assigning to a PARAM variable."""
     main = Identifier("main")
     a, t = Identifier("a"), Identifier("t")
     program_ast = Module(
@@ -415,7 +415,7 @@ def test_fails_with_assignment_to_param(int32: NumericalType):
 
 
 def test_fails_with_array_access_assignment_to_input(int32: NumericalType):
-    """Tests failure when assigning to an element of an INPUT variable."""
+    """Test failure when assigning to an element of an INPUT variable."""
     main = Identifier("main")
     a, t = Identifier("a"), Identifier("t")
     program_ast = Module(
@@ -473,7 +473,7 @@ def test_fails_with_array_access_assignment_to_input(int32: NumericalType):
 
 
 def test_valid_array_access_assignment_to_output(int32: NumericalType):
-    """Tests that assigning to an element of an OUTPUT variable is allowed."""
+    """Test that assigning to an element of an OUTPUT variable is allowed."""
     main = Identifier("main")
     a, t = Identifier("a"), Identifier("t")
     program_ast = Module(

@@ -37,7 +37,7 @@ def dummy_index_type() -> IndexType:
 
 
 def test_empty_program():
-    """Tests validation of an empty program."""
+    """Test validation of an empty program."""
     program_ast = Module(provenance=Provenance.unknown())
     symbol_table = build_symbol_table(program_ast)
 
@@ -45,7 +45,7 @@ def test_empty_program():
 
 
 def test_valid_for_all_with_index_variable(dummy_index_type: IndexType):
-    """Tests a for-all statement with an index variable as its index."""
+    """Test a for-all statement with an index variable as its index."""
     main = Identifier("main")
     i = Identifier("i")
     program_ast = Module(
@@ -82,7 +82,7 @@ def test_valid_for_all_with_index_variable(dummy_index_type: IndexType):
 
 
 def test_fails_with_non_identifier_index(int32: NumericalType):
-    """Tests failure when the for-all index expression is not an identifier."""
+    """Test failure when the for-all index expression is not an identifier."""
     main = Identifier("main")
     program_ast = Module(
         statements=(
@@ -108,7 +108,7 @@ def test_fails_with_non_identifier_index(int32: NumericalType):
 
 
 def test_fails_with_non_index_variable(int32: NumericalType):
-    """Tests failure when the for-all index identifier is not an index variable."""
+    """Test failure when the for-all index identifier is not an index variable."""
     main = Identifier("main")
     t = Identifier("t")
     program_ast = Module(
@@ -146,7 +146,7 @@ def test_fails_with_non_index_variable(int32: NumericalType):
 
 
 def test_valid_nested_for_all_statements(dummy_index_type: IndexType):
-    """Tests nested for-all statements with distinct index variables."""
+    """Test nested for-all statements with distinct index variables."""
     main = Identifier("main")
     i, j = Identifier("i"), Identifier("j")
     program_ast = Module(

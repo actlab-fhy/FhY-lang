@@ -11,6 +11,7 @@ from .passes import (
     build_symbol_table,
     validate_expression_statement_lhs,
     validate_for_all_statements,
+    validate_index_domains,
     validate_reductions,
     validate_type_qualifiers,
 )
@@ -47,6 +48,9 @@ def validate_ast(ast: Module) -> tuple[Module, SymbolTable]:
             - Throws an error if the indices are not distinct.
             - Throws an error if the indices are not used within the reduction.
         6. Index-domain validation
+            - Throws an error if the number of indices does not match
+              the number of dimensions of the array.
+            - Throws an error if the index expression is not a supported type.
             - Throws an error if the an array access is out of bounds.
         7. Call-site validation
             - Throws an error if a function call is performed in an invalid manner.
@@ -74,4 +78,5 @@ def validate_ast(ast: Module) -> tuple[Module, SymbolTable]:
     validate_type_qualifiers(ast, symbol_table)
     validate_for_all_statements(ast, symbol_table)
     validate_reductions(ast, symbol_table)
+    validate_index_domains(ast, symbol_table)
     return ast, symbol_table

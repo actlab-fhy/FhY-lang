@@ -25,7 +25,7 @@ from fhy_core import (
 
 
 def test_empty_program():
-    """Tests an empty program."""
+    """Test an empty program."""
     program_ast = Module(provenance=Provenance.unknown())
 
     symbol_table = build_symbol_table(program_ast)
@@ -36,7 +36,7 @@ def test_empty_program():
 
 
 def test_empty_procedure():
-    """Tests empty procedure body containing procedure name in symbol table."""
+    """Test empty procedure body containing procedure name in symbol table."""
     main = Identifier("main")
     program_ast = Module(
         statements=(

@@ -43,7 +43,7 @@ def dummy_index_type() -> IndexType:
 
 
 def test_empty_program():
-    """Tests validation of an empty program."""
+    """Test validation of an empty program."""
     program_ast = Module(provenance=Provenance.unknown())
     symbol_table = build_symbol_table(program_ast)
 
@@ -53,7 +53,7 @@ def test_empty_program():
 def test_valid_reduction_with_index_variable(
     int32: NumericalType, dummy_index_type: IndexType
 ):
-    """Tests a reduction call with an index variable."""
+    """Test a reduction call with an index variable."""
     main = Identifier("main")
     sum_ = Identifier("sum")
     a, t, k = Identifier("a"), Identifier("t"), Identifier("k")
@@ -137,7 +137,7 @@ def test_valid_reduction_with_index_variable(
 
 
 def test_valid_function_expression_without_indices(int32: NumericalType):
-    """Tests a non-reduction function call is not rejected."""
+    """Test a non-reduction function call is not rejected."""
     main = Identifier("main")
     foo = Identifier("foo")
     a, t = Identifier("a"), Identifier("t")
@@ -200,7 +200,7 @@ def test_valid_function_expression_without_indices(int32: NumericalType):
 def test_fails_with_non_identifier_reduction_index(
     int32: NumericalType, dummy_index_type: IndexType
 ):
-    """Tests failure when a reduction index is not an identifier expression."""
+    """Test failure when a reduction index is not an identifier expression."""
     main = Identifier("main")
     sum_ = Identifier("sum")
     a, t = Identifier("a"), Identifier("t")
@@ -275,7 +275,7 @@ def test_fails_with_non_identifier_reduction_index(
 
 
 def test_fails_with_non_index_variable_reduction_index(int32: NumericalType):
-    """Tests failure when a reduction index identifier is not an index variable."""
+    """Test failure when a reduction index identifier is not an index variable."""
     main = Identifier("main")
     sum_ = Identifier("sum")
     a, t = Identifier("a"), Identifier("t")
@@ -344,7 +344,7 @@ def test_fails_with_non_index_variable_reduction_index(int32: NumericalType):
 def test_fails_with_non_distinct_reduction_indices(
     int32: NumericalType, dummy_index_type: IndexType
 ):
-    """Tests failure when reduction indices repeat."""
+    """Test failure when reduction indices repeat."""
     main = Identifier("main")
     sum_ = Identifier("sum")
     a, t, k = Identifier("a"), Identifier("t"), Identifier("k")
@@ -426,7 +426,7 @@ def test_fails_with_non_distinct_reduction_indices(
 def test_fails_with_unused_reduction_index(
     int32: NumericalType, dummy_index_type: IndexType
 ):
-    """Tests failure when a reduction index is not used in the reduction args."""
+    """Test failure when a reduction index is not used in the reduction args."""
     main = Identifier("main")
     sum_ = Identifier("sum")
     a, t, k = Identifier("a"), Identifier("t"), Identifier("k")
@@ -504,7 +504,7 @@ def test_fails_with_unused_reduction_index(
 def test_fails_with_reduction_zero_args(
     int32: NumericalType, dummy_index_type: IndexType
 ):
-    """Tests failure when a reduction has no arguments."""
+    """Test failure when a reduction has no arguments."""
     main = Identifier("main")
     sum_ = Identifier("sum")
     t, k = Identifier("t"), Identifier("k")
@@ -567,7 +567,7 @@ def test_fails_with_reduction_zero_args(
 def test_fails_with_reduction_multiple_args(
     int32: NumericalType, dummy_index_type: IndexType
 ):
-    """Tests failure when a reduction has more than one argument."""
+    """Test failure when a reduction has more than one argument."""
     main = Identifier("main")
     sum_ = Identifier("sum")
     a, b, t, k = (

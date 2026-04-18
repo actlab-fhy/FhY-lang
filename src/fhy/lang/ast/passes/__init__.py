@@ -11,6 +11,7 @@ __all__ = [
     "validate_expression_statement_lhs",
     "validate_for_all_statements",
     "validate_reductions",
+    "validate_index_domains",
     "FhYSymbolTableBuilderError",
     "FhYTypeQualifierValidatorError",
 ]
@@ -23,6 +24,7 @@ from .for_all_statement_validator import validate_for_all_statements
 from .identifier_collector import collect_identifiers
 from .identifier_replacer import replace_identifiers
 from .index_collector import collect_indices, collect_reduced_indices
+from .index_domain_validator import validate_index_domains
 from .reduction_validator import validate_reductions
 from .symbol_table_builder import FhYSymbolTableBuilderError, build_symbol_table
 from .type_qualifier_validator import (
