@@ -39,21 +39,26 @@ class IdentifierReplacer(Transformer):
             ],
         )
 
-    Transformer.visit_type.register(NumericalType)(visit_numerical_type)
+    Transformer.visit_type.register(NumericalType)(visit_numerical_type)  # type: ignore[attr-defined]
 
     def visit_index_type(self, index_type: IndexType) -> IndexType:
+        new_stride = (
+            replace_core_identifiers(index_type.stride, self._identifier_map)
+            if index_type.stride is not None
+            else None
+        )
         return IndexType(
             replace_core_identifiers(index_type.lower_bound, self._identifier_map),
             replace_core_identifiers(index_type.upper_bound, self._identifier_map),
-            stride=replace_core_identifiers(index_type.stride, self._identifier_map),
+            stride=new_stride,
         )
 
-    Transformer.visit_type.register(IndexType)(visit_index_type)
+    Transformer.visit_type.register(IndexType)(visit_index_type)  # type: ignore[attr-defined]
 
     def visit_tuple_type(self, tuple_type: TupleType) -> TupleType:
         return TupleType([self.visit_type(type) for type in tuple_type.types])
 
-    Transformer.visit_type.register(TupleType)(visit_tuple_type)
+    Transformer.visit_type.register(TupleType)(visit_tuple_type)  # type: ignore[attr-defined]
 
     def visit_template_data_type(
         self, template_data_type: TemplateDataType
