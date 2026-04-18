@@ -78,38 +78,45 @@ def _get_simple_assignment_target(expression: Expression) -> Identifier | None:
 
 
 def _get_statement_live_input_identifiers(
-    stmt: Statement,
+    statement: Statement,
     live_out: frozenset[Identifier],
     live_in_map: dict[int, frozenset[Identifier]],
     live_out_map: dict[int, frozenset[Identifier]],
 ) -> frozenset[Identifier]:
-    if isinstance(stmt, DeclarationStatement):
-        uses = _collect_uses(stmt.expression)
-        defs = frozenset({stmt.variable_name})
+    uses: frozenset[Identifier]
+    if isinstance(statement, DeclarationStatement):
+        uses = _collect_uses(statement.expression)
+        defs = frozenset({statement.variable_name})
         return (live_out - defs) | uses
-    elif isinstance(stmt, ExpressionStatement):
-        uses: frozenset[Identifier] = _collect_uses(stmt.right)
+    elif isinstance(statement, ExpressionStatement):
+        uses = _collect_uses(statement.right)
         defs = frozenset()
-        if stmt.left is not None:
-            target = _get_simple_assignment_target(stmt.left)
+        if statement.left is not None:
+            target = _get_simple_assignment_target(statement.left)
             if target is not None:
                 defs = frozenset({target})
             else:
-                uses = uses | _collect_uses(stmt.left)
+                uses = uses | _collect_uses(statement.left)
         return (live_out - defs) | uses
-    elif isinstance(stmt, ReturnStatement):
-        return _collect_uses(stmt.expression)
-    elif isinstance(stmt, SelectionStatement):
-        cond_uses = _collect_uses(stmt.condition)
-        true_in = _analyze_block(stmt.true_body, live_out, live_in_map, live_out_map)
-        false_in = _analyze_block(stmt.false_body, live_out, live_in_map, live_out_map)
+    elif isinstance(statement, ReturnStatement):
+        return _collect_uses(statement.expression)
+    elif isinstance(statement, SelectionStatement):
+        cond_uses = _collect_uses(statement.condition)
+        true_in = _analyze_block(
+            statement.true_body, live_out, live_in_map, live_out_map
+        )
+        false_in = _analyze_block(
+            statement.false_body, live_out, live_in_map, live_out_map
+        )
         return cond_uses | true_in | false_in
-    elif isinstance(stmt, ForAllStatement):
-        index_uses = _collect_uses(stmt.index)
+    elif isinstance(statement, ForAllStatement):
+        index_uses = _collect_uses(statement.index)
         body_in: frozenset[Identifier] = frozenset()
         while True:
             body_out = live_out | body_in
-            new_body_in = _analyze_block(stmt.body, body_out, live_in_map, live_out_map)
+            new_body_in = _analyze_block(
+                statement.body, body_out, live_in_map, live_out_map
+            )
             if new_body_in == body_in:
                 break
             body_in = new_body_in
