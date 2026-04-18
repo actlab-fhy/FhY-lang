@@ -74,7 +74,7 @@ class _IndexDomainValidator(AnalysisPassWithSymbolTable):
         ):
             raise RuntimeError(
                 f"Array access on {array_name.name_hint!r} is not a vector; got "
-                f"type {frame.type}."
+                f"{frame}."
             )
         shape = frame.type.shape
         if len(node.indices) != len(shape):
