@@ -31,14 +31,18 @@ class _ASTProgramBuilder:
     def build(self) -> ASTModule:
         with open(self._workspace.source_file) as f:
             source_text = f.read()
-        span = Span(
-            file_path=self._workspace.source_file,
-            start_position=Position(line=1, column=1),
-            end_position=Position(
-                line=len(source_text.splitlines()),
-                column=len(source_text.splitlines()[-1]),
-            ),
-        )
+        lines = source_text.splitlines()
+        if len(lines) == 0:
+            span = Span(file_path=self._workspace.source_file)
+        else:
+            span = Span(
+                file_path=self._workspace.source_file,
+                start_position=Position(line=1, column=1),
+                end_position=Position(
+                    line=len(lines),
+                    column=len(lines[-1]),
+                ),
+            )
         return from_fhy_source(source_text, Provenance(span=span))
 
 

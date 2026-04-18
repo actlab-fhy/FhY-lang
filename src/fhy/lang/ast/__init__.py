@@ -32,7 +32,6 @@ __all__ = [
     "ReturnStatement",
     "Native",
     "collect_identifiers",
-    "collect_imported_identifiers",
     "replace_identifiers",
     "convert_ast_expression_to_core_expression",
     "collect_indices",

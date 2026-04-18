@@ -137,7 +137,7 @@ def main(
 
     if format is None:
         return
-    elif format.value == SerializationOptions.JSON:
+    elif format == SerializationOptions.JSON:
         serialized = module.serialize(CoreSerializationFormat.JSON)
         if isinstance(serialized, str):
             sys.stdout.write(serialized)
@@ -146,7 +146,7 @@ def main(
         else:
             _logger.error("Unexpected serialization payload type for JSON output.")
             sys.exit(1)
-    elif format.value in (SerializationOptions.PRETTY, SerializationOptions.PRETTYID):
+    elif format in (SerializationOptions.PRETTY, SerializationOptions.PRETTYID):
         space: str = (indent or 2) * " "
         show_id: bool = format == SerializationOptions.PRETTYID
         sys.stdout.write(pformat_ast(module, indent_char=space, show_id=show_id))
