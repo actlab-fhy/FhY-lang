@@ -32,14 +32,16 @@ class _ReductionValidator(AnalysisPassWithSymbolTable):
         if len(node.indices) > 0 and len(node.args) != 1:
             raise FhYStructuralError(
                 "A reduction must be passed exactly one argument; got "
-                f"{len(node.args)}."
+                f"{len(node.args)}.",
+                node.provenance,
             )
         seen_indices = set()
         for index in node.indices:
             if not isinstance(index, IdentifierExpression):
                 raise FhYStructuralError(
                     "Each index passed to a reduction must be an identifier "
-                    f"expression; got {type(index).__name__}."
+                    f"expression; got {type(index).__name__}.",
+                    index.provenance,
                 )
             identifier = index.identifier
             frame = self.get_frame_from_namespace(self.current_namespace, identifier)
@@ -48,13 +50,15 @@ class _ReductionValidator(AnalysisPassWithSymbolTable):
             ):
                 raise FhYTypeError(
                     f'The identifier "{identifier.name_hint!r}" passed as an '
-                    "index to a reduction must refer to an index variable."
+                    "index to a reduction must refer to an index variable.",
+                    index.provenance,
                 )
             if identifier in seen_indices:
                 raise FhYSemanticsError(
                     f'The identifier "{identifier.name_hint!r}" is passed more '
                     "than once as an index to a reduction; reduction indices "
-                    "must be distinct."
+                    "must be distinct.",
+                    index.provenance,
                 )
             seen_indices.add(identifier)
 
@@ -68,7 +72,8 @@ class _ReductionValidator(AnalysisPassWithSymbolTable):
                 raise FhYSemanticsError(
                     f'The identifier "{identifier.name_hint!r}" is passed as '
                     "an index to a reduction but is not used within the "
-                    "reduction."
+                    "reduction.",
+                    node.provenance,
                 )
 
 

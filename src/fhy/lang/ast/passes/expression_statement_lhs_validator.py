@@ -35,14 +35,16 @@ class _ExpressionStatementLHSValidator(AnalysisVisitablePass[Node]):
                     "The array expression of an array access expression on the "
                     "left-hand side of an expression statement must be an "
                     "identifier expression; got "
-                    f"{type(node.left.array_expression).__name__}."
+                    f"{type(node.left.array_expression).__name__}.",
+                    node.left.provenance,
                 )
             return
         else:
             raise FhYStructuralError(
                 "The left-hand side of an expression statement must be an "
                 "identifier expression or an array access expression; got "
-                f"{type(node.left).__name__}."
+                f"{type(node.left).__name__}.",
+                node.left.provenance,
             )
 
 

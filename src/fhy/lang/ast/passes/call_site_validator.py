@@ -33,13 +33,15 @@ class _CallSiteValidator(AnalysisPassWithSymbolTable):
         if not isinstance(node.function, IdentifierExpression):
             raise FhYStructuralError(
                 "The expression passed as the function name of a call must be "
-                f"an identifier expression; got {type(node.function).__name__}."
+                f"an identifier expression; got {type(node.function).__name__}.",
+                node.function.provenance,
             )
         identifier = node.function.identifier
         frame = self.get_frame_from_namespace(self.current_namespace, identifier)
         if not isinstance(frame, FunctionSymbolTableFrame | ImportSymbolTableFrame):
             raise FhYSemanticsError(
-                f"{identifier.name_hint!r} is not defined as a function."
+                f"{identifier.name_hint!r} is not defined as a function.",
+                node.function.provenance,
             )
         is_reduction = (
             isinstance(frame, ImportSymbolTableFrame)
@@ -48,14 +50,16 @@ class _CallSiteValidator(AnalysisPassWithSymbolTable):
         if not is_reduction and len(node.indices) > 0:
             raise FhYStructuralError(
                 f"Non-reduction function {identifier.name_hint!r} cannot be "
-                "called with indices."
+                "called with indices.",
+                node.provenance,
             )
         if isinstance(frame, FunctionSymbolTableFrame) and len(node.args) != len(
             frame.signature
         ):
             raise FhYStructuralError(
                 f"Function {identifier.name_hint!r} expects "
-                f"{len(frame.signature)} argument(s); got {len(node.args)}."
+                f"{len(frame.signature)} argument(s); got {len(node.args)}.",
+                node.provenance,
             )
 
     def visit_expression_statement(self, node: ExpressionStatement) -> None:
@@ -72,7 +76,8 @@ class _CallSiteValidator(AnalysisPassWithSymbolTable):
         ):
             raise FhYStructuralError(
                 f"Procedure {identifier.name_hint!r} cannot be called with a "
-                "left-hand side expression."
+                "left-hand side expression.",
+                node.provenance,
             )
 
 

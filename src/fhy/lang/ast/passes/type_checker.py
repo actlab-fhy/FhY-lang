@@ -124,7 +124,12 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
             return
         lhs = self._infer_type(node.left)
         rhs = self._infer_type(node.right)
-        self._check_compatible(lhs, rhs, context="expression statement")
+        self._check_compatible(
+            lhs,
+            rhs,
+            context="expression statement",
+            provenance=node.provenance,
+        )
 
     def visit_declaration_statement(self, node: DeclarationStatement) -> None:
         if node.expression is None:
@@ -135,6 +140,7 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
             lhs,
             rhs,
             context=f"declaration of {node.variable_name.name_hint!r}",
+            provenance=node.provenance,
         )
 
     def visit_return_statement(self, node: ReturnStatement) -> None:
@@ -142,7 +148,12 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
             return
         lhs = _InferredType(type=self._current_return_type, free_indices=frozenset())
         rhs = self._infer_type(node.expression)
-        self._check_compatible(lhs, rhs, context="return statement")
+        self._check_compatible(
+            lhs,
+            rhs,
+            context="return statement",
+            provenance=node.provenance,
+        )
 
     def _check_compatible(
         self,
@@ -150,11 +161,13 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
         actual: _InferredType,
         *,
         context: str,
+        provenance,
     ) -> None:
         if not _is_assignable(expected.type, actual.type):
             raise FhYTypeError(
                 f"Type mismatch in {context}: expected {expected.type}, got "
-                f"{actual.type}."
+                f"{actual.type}.",
+                provenance,
             )
         if expected.free_indices != actual.free_indices:
             expected_names = sorted(
@@ -166,7 +179,8 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
             raise FhYTypeError(
                 f"Free-index mismatch in {context}: expected indices "
                 f"{{{', '.join(expected_names)}}}, got "
-                f"{{{', '.join(actual_names)}}}."
+                f"{{{', '.join(actual_names)}}}.",
+                provenance,
             )
 
     def _infer_type(self, expression: Expression) -> _InferredType:
@@ -184,10 +198,11 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
             )
         elif isinstance(expression, ComplexLiteral):
             raise FhYTypeError(
-                "Complex literals are not yet supported by the type checker."
+                "Complex literals are not yet supported by the type checker.",
+                expression.provenance,
             )
         elif isinstance(expression, IdentifierExpression):
-            return self._infer_identifier(expression.identifier)
+            return self._infer_identifier(expression.identifier, expression.provenance)
         elif isinstance(expression, UnaryExpression):
             return self._infer_type(expression.expression)
         elif isinstance(expression, BinaryExpression):
@@ -201,18 +216,20 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
         else:
             raise FhYTypeError(
                 f"Unsupported expression in type inference: "
-                f"{type(expression).__name__}."
+                f"{type(expression).__name__}.",
+                expression.provenance,
             )
 
     @staticmethod
     def _get_int_literal_core_type(value: int) -> CoreDataType:
         return CoreDataType.UINT if value >= 0 else CoreDataType.INT
 
-    def _infer_identifier(self, identifier: Identifier) -> _InferredType:
+    def _infer_identifier(self, identifier: Identifier, provenance) -> _InferredType:
         frame = self.get_frame_from_namespace(self.current_namespace, identifier)
         if not isinstance(frame, VariableSymbolTableFrame):
             raise FhYTypeError(
-                f"Identifier {identifier.name_hint!r} does not refer to a " "variable."
+                f"Identifier {identifier.name_hint!r} does not refer to a variable.",
+                provenance,
             )
         return _InferredType(type=frame.type, free_indices=frozenset())
 
@@ -224,19 +241,22 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
         ):
             raise FhYTypeError(
                 f"Binary expression operands must be numerical; got "
-                f"{left.type} and {right.type}."
+                f"{left.type} and {right.type}.",
+                expression.provenance,
             )
         if not _shapes_equivalent(left.type.shape, right.type.shape):
             raise FhYTypeError(
                 "Binary expression operand shapes are not structurally "
-                f"equivalent: {left.type.shape} vs {right.type.shape}."
+                f"equivalent: {left.type.shape} vs {right.type.shape}.",
+                expression.provenance,
             )
         if not isinstance(left.type.data_type, PrimitiveDataType) or not isinstance(
             right.type.data_type, PrimitiveDataType
         ):
             raise FhYTypeError(
                 "Binary expression operands must have primitive data types; "
-                f"got {left.type.data_type} and {right.type.data_type}."
+                f"got {left.type.data_type} and {right.type.data_type}.",
+                expression.provenance,
             )
         try:
             promoted = promote_primitive_data_types(
@@ -245,7 +265,8 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
         except FhYCoreTypeError as exc:
             raise FhYTypeError(
                 f"Cannot promote binary operand data types "
-                f"{left.type.data_type} and {right.type.data_type}: {exc}"
+                f"{left.type.data_type} and {right.type.data_type}: {exc}",
+                expression.provenance,
             ) from exc
         return _InferredType(
             type=NumericalType(promoted, shape=left.type.shape),
@@ -261,13 +282,15 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
         ):
             raise FhYTypeError(
                 f"Ternary expression branches must be numerical; got "
-                f"{true_branch.type} and {false_branch.type}."
+                f"{true_branch.type} and {false_branch.type}.",
+                expression.provenance,
             )
         if not _shapes_equivalent(true_branch.type.shape, false_branch.type.shape):
             raise FhYTypeError(
                 "Ternary expression branch shapes are not structurally "
                 f"equivalent: {true_branch.type.shape} vs "
-                f"{false_branch.type.shape}."
+                f"{false_branch.type.shape}.",
+                expression.provenance,
             )
         if not isinstance(
             true_branch.type.data_type, PrimitiveDataType
@@ -275,7 +298,8 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
             raise FhYTypeError(
                 "Ternary expression branches must have primitive data types; "
                 f"got {true_branch.type.data_type} and "
-                f"{false_branch.type.data_type}."
+                f"{false_branch.type.data_type}.",
+                expression.provenance,
             )
         try:
             promoted = promote_primitive_data_types(
@@ -285,7 +309,8 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
             raise FhYTypeError(
                 f"Cannot promote ternary branch data types "
                 f"{true_branch.type.data_type} and "
-                f"{false_branch.type.data_type}: {exc}"
+                f"{false_branch.type.data_type}: {exc}",
+                expression.provenance,
             ) from exc
         return _InferredType(
             type=NumericalType(promoted, shape=true_branch.type.shape),
@@ -300,13 +325,15 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
         base = self._infer_type(expression.array_expression)
         if not isinstance(base.type, NumericalType):
             raise FhYTypeError(
-                f"Array access requires a numerical type; got {base.type}."
+                f"Array access requires a numerical type; got {base.type}.",
+                expression.provenance,
             )
         shape = base.type.shape
         if len(expression.indices) != len(shape):
             raise FhYTypeError(
                 f"Array access has {len(expression.indices)} indices but the "
-                f"array has {len(shape)} dimensions."
+                f"array has {len(shape)} dimensions.",
+                expression.provenance,
             )
         new_free = set(base.free_indices)
         for index_expr in expression.indices:
@@ -322,7 +349,8 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
         if not isinstance(expression.function, IdentifierExpression):
             raise FhYTypeError(
                 "Function expression must be called on an identifier; got "
-                f"{type(expression.function).__name__}."
+                f"{type(expression.function).__name__}.",
+                expression.function.provenance,
             )
         identifier = expression.function.identifier
         frame = self.get_frame_from_namespace(self.current_namespace, identifier)
@@ -334,7 +362,8 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
             if len(expression.args) != 1:
                 raise FhYTypeError(
                     f"Reduction {identifier.name_hint!r} must be passed "
-                    f"exactly one argument; got {len(expression.args)}."
+                    f"exactly one argument; got {len(expression.args)}.",
+                    expression.provenance,
                 )
             arg = self._infer_type(expression.args[0])
             reduced = {
@@ -347,24 +376,28 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
             if frame.keyword == FunctionKeyword.PROCEDURE:
                 raise FhYTypeError(
                     f"Procedure {identifier.name_hint!r} cannot be used as an "
-                    "expression because it does not return a value."
+                    "expression because it does not return a value.",
+                    expression.provenance,
                 )
             return_type = self._operation_return_types.get(frame.name)
             if return_type is None:
                 raise FhYTypeError(
                     f"Cannot determine return type of operation "
-                    f"{identifier.name_hint!r}."
+                    f"{identifier.name_hint!r}.",
+                    expression.provenance,
                 )
             return _InferredType(type=return_type, free_indices=frozenset())
         if isinstance(frame, ImportSymbolTableFrame):
             if not expression.args:
                 raise FhYTypeError(
                     f"Builtin {identifier.name_hint!r} requires at least one "
-                    "argument."
+                    "argument.",
+                    expression.provenance,
                 )
             return self._infer_type(expression.args[0])
         raise FhYTypeError(
-            f"Function {identifier.name_hint!r} is not callable in a type " "context."
+            f"Function {identifier.name_hint!r} is not callable in a type context.",
+            expression.provenance,
         )
 
     def _is_identifier_index(self, identifier: Identifier) -> bool:

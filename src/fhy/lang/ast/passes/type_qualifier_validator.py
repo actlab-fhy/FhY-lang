@@ -45,7 +45,8 @@ class _TypeQualifierValidator(AnalysisPassWithSymbolTable):
             raise FhYTypeQualifierValidatorError(
                 f"Argument {node.name.name_hint!r} cannot have type qualifier "
                 f"{TypeQualifier.TEMP.value!r}; TEMP variables may only be "
-                "defined in declaration statements."
+                "defined in declaration statements.",
+                node.provenance,
             )
 
     def visit_declaration_statement(self, node: DeclarationStatement) -> None:
@@ -54,14 +55,16 @@ class _TypeQualifierValidator(AnalysisPassWithSymbolTable):
             raise FhYTypeQualifierValidatorError(
                 f"Declaration of {node.variable_name.name_hint!r} cannot have "
                 f"type qualifier {TypeQualifier.INPUT.value!r}; INPUT variables "
-                "may only be defined in argument lists."
+                "may only be defined in argument lists.",
+                node.provenance,
             )
         if qualifier == TypeQualifier.OUTPUT:
             raise FhYTypeQualifierValidatorError(
                 f"Declaration of {node.variable_name.name_hint!r} cannot have "
                 f"type qualifier {TypeQualifier.OUTPUT.value!r}; OUTPUT "
                 "variables may only be defined in argument lists or return "
-                "types."
+                "types.",
+                node.provenance,
             )
 
     def visit_operation(self, node: Operation) -> None:
@@ -70,7 +73,8 @@ class _TypeQualifierValidator(AnalysisPassWithSymbolTable):
             raise FhYTypeQualifierValidatorError(
                 f"Return type of operation {node.name.name_hint!r} must have "
                 f"type qualifier {TypeQualifier.OUTPUT.value!r}; got "
-                f"{qualifier.value!r}."
+                f"{qualifier.value!r}.",
+                node.return_type.provenance,
             )
 
     def visit_expression_statement(self, node: ExpressionStatement) -> None:
@@ -86,12 +90,14 @@ class _TypeQualifierValidator(AnalysisPassWithSymbolTable):
         if qualifier == TypeQualifier.INPUT:
             raise FhYTypeQualifierValidatorError(
                 f"Cannot assign to {target.name_hint!r}; INPUT variables are "
-                "read-only."
+                "read-only.",
+                node.provenance,
             )
         if qualifier == TypeQualifier.PARAM:
             raise FhYTypeQualifierValidatorError(
                 f"Cannot assign to {target.name_hint!r}; PARAM variables are "
-                "compile-time constants."
+                "compile-time constants.",
+                node.provenance,
             )
 
     def _get_assignment_target(self, expression: Expression) -> Identifier | None:

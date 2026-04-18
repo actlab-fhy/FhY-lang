@@ -14,6 +14,7 @@ from fhy_core import (
     ImportSymbolTableFrame,
     NumericalType,
     PrimitiveDataType,
+    Provenance,
     Stack,
     SymbolTable,
     SymbolTableFrame,
@@ -43,10 +44,24 @@ from fhy.lang.builtins import BUILTIN_LANG_IDENTIFIERS, BUILTINS_NAMESPACE_NAME
 class FhYSymbolTableBuilderError(RuntimeError):
     """Raised when a symbol table builder error is detected."""
 
-    def __init__(self, error_message: str) -> None:
-        super().__init__(
+    provenance: "Provenance | None"
+
+    def __init__(
+        self, error_message: str, provenance: "Provenance | None" = None
+    ) -> None:
+        self.provenance = provenance
+        location = None
+        if provenance is not None:
+            if provenance.span is not None:
+                location = str(provenance.span)
+            elif provenance.origins:
+                location = str(provenance.origins[0])
+        full_message = (
             f"An error occurred while building the symbol table: {error_message}"
         )
+        if location is not None:
+            full_message = f"{location}: {full_message}"
+        super().__init__(full_message)
 
 
 @register_pass(
@@ -122,7 +137,8 @@ class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
     def visit_import(self, node: Import) -> None:
         if self._is_symbol_defined(node.name):
             raise FhYSymbolTableBuilderError(
-                f"Symbol {node.name.name_hint} is already defined."
+                f"Symbol {node.name.name_hint} is already defined.",
+                node.provenance,
             )
         import_frame = ImportSymbolTableFrame(name=node.name)
         self._add_symbol(node.name, import_frame)
@@ -130,7 +146,8 @@ class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
     def before_visit_procedure(self, node: Procedure) -> None:
         if self._is_symbol_defined(node.name):
             raise FhYSymbolTableBuilderError(
-                f"Symbol {node.name.name_hint} is already defined."
+                f"Symbol {node.name.name_hint} is already defined.",
+                node.provenance,
             )
         proc_frame = FunctionSymbolTableFrame(
             name=node.name,
@@ -149,7 +166,8 @@ class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
     def before_visit_operation(self, node: Operation) -> None:
         if self._is_symbol_defined(node.name):
             raise FhYSymbolTableBuilderError(
-                f"Symbol {node.name.name_hint} is already defined."
+                f"Symbol {node.name.name_hint} is already defined.",
+                node.provenance,
             )
         op_frame = FunctionSymbolTableFrame(
             name=node.name,
@@ -190,7 +208,8 @@ class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
     def visit_declaration_statement(self, node: DeclarationStatement) -> None:
         if self._is_symbol_defined(node.variable_name):
             raise FhYSymbolTableBuilderError(
-                f"Symbol {node.variable_name.name_hint} is already defined."
+                f"Symbol {node.variable_name.name_hint} is already defined.",
+                node.provenance,
             )
         var_frame = VariableSymbolTableFrame(
             name=node.variable_name,

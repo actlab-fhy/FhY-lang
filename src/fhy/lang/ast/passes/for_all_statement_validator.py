@@ -30,7 +30,8 @@ class _ForAllStatementValidator(AnalysisPassWithSymbolTable):
         if not isinstance(node.index, IdentifierExpression):
             raise FhYStructuralError(
                 "The index expression of a for-all statement must be an "
-                f"identifier expression; got {type(node.index).__name__}."
+                f"identifier expression; got {type(node.index).__name__}.",
+                node.index.provenance,
             )
         identifier = node.index.identifier
         frame = self.get_frame_from_namespace(self.current_namespace, identifier)
@@ -39,7 +40,8 @@ class _ForAllStatementValidator(AnalysisPassWithSymbolTable):
         ):
             raise FhYTypeError(
                 f'The identifier "{identifier.name_hint!r}" used as the index of '
-                "a for-all statement must refer to an index variable."
+                "a for-all statement must refer to an index variable.",
+                node.index.provenance,
             )
 
 

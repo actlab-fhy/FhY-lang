@@ -37,6 +37,7 @@ from fhy_core import (
 from fhy.lang.ast.error import FhYSemanticsError, FhYStructuralError, FhYTypeError
 from fhy.lang.ast.node import (
     ArrayAccessExpression,
+    Expression,
     IdentifierExpression,
     Module,
 )
@@ -79,7 +80,8 @@ class _IndexDomainValidator(AnalysisPassWithSymbolTable):
         if len(node.indices) != len(shape):
             raise FhYStructuralError(
                 f"Array access on {array_name.name_hint!r} has {len(node.indices)} "
-                f"indices but {len(shape)} dimensions; got shape {shape}."
+                f"indices but {len(shape)} dimensions; got shape {shape}.",
+                node.provenance,
             )
 
         for ast_index, dim_size in zip(node.indices, shape):
@@ -88,7 +90,8 @@ class _IndexDomainValidator(AnalysisPassWithSymbolTable):
             except NotImplementedError as exc:
                 raise FhYTypeError(
                     f"Array-access index {ast_index} is not a supported type; got "
-                    f"type {type(ast_index).__name__}."
+                    f"type {type(ast_index).__name__}.",
+                    ast_index.provenance,
                 ) from exc
             try:
                 index_type, index_qualifier = synthesize_expression_type(
@@ -97,16 +100,19 @@ class _IndexDomainValidator(AnalysisPassWithSymbolTable):
             except FhYCoreTypeError as exc:
                 raise FhYTypeError(
                     f"Failed to synthesize a type for array-access index "
-                    f"{ast_index}: {exc}"
+                    f"{ast_index}: {exc}",
+                    ast_index.provenance,
                 ) from exc
             lower_bound, upper_bound = self._get_index_bounds(
                 ast_index, core_index, index_type, index_qualifier
             )
-            self._check_index_in_domain(array_name, lower_bound, upper_bound, dim_size)
+            self._check_index_in_domain(
+                array_name, ast_index, lower_bound, upper_bound, dim_size
+            )
 
     def _get_index_bounds(
         self,
-        ast_index: object,
+        ast_index: Expression,
         core_index: CoreExpression,
         index_type: Type,
         index_qualifier: TypeQualifier,
@@ -124,7 +130,8 @@ class _IndexDomainValidator(AnalysisPassWithSymbolTable):
         raise FhYTypeError(
             f"Array-access index {ast_index} must resolve to either an index "
             "type or a scalar unsigned-integer PARAM expression; got type "
-            f"{index_type} with qualifier {index_qualifier.value!r}."
+            f"{index_type} with qualifier {index_qualifier.value!r}.",
+            ast_index.provenance,
         )
 
     def _get_identifier_type(
@@ -140,6 +147,7 @@ class _IndexDomainValidator(AnalysisPassWithSymbolTable):
     def _check_index_in_domain(
         self,
         array_name: Identifier,
+        ast_index: Expression,
         lower_bound: CoreExpression,
         upper_bound: CoreExpression,
         dim_size: CoreExpression,
@@ -158,7 +166,8 @@ class _IndexDomainValidator(AnalysisPassWithSymbolTable):
             raise FhYSemanticsError(
                 f"Array access on {array_name.name_hint!r} is out of bounds: "
                 f"index range [{lower_bound}, {upper_bound}] is not contained "
-                f"in [1, {dim_size}]."
+                f"in [1, {dim_size}].",
+                ast_index.provenance,
             )
 
 
