@@ -15,7 +15,10 @@ __all__ = [
     "validate_call_sites",
     "validate_operations",
     "validate_types",
+    "validate_definite_assignment",
     "DeadCodeEliminationPass",
+    "DefiniteAssignmentAnalysis",
+    "DefiniteAssignmentResult",
     "LivenessAnalysis",
     "LivenessResult",
     "FhYSymbolTableBuilderError",
@@ -25,6 +28,11 @@ __all__ = [
 from .ast_to_core_expression_converter import convert_ast_expression_to_core_expression
 from .call_site_validator import validate_call_sites
 from .dead_code_elimination import DeadCodeEliminationPass
+from .definite_assignment import (
+    DefiniteAssignmentAnalysis,
+    DefiniteAssignmentResult,
+    validate_definite_assignment,
+)
 from .expression_statement_lhs_validator import (
     validate_expression_statement_lhs,
 )
