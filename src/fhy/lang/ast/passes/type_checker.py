@@ -1,4 +1,16 @@
-"""Type-check expression statements, declarations, and returns in the AST."""
+"""Type-check expression statements, declarations, and returns in the AST.
+
+Checks:
+    - The right-hand side of expression statements are compatible (with promotion)
+        with the left-hand side.
+    - The right-hand side of declarations are compatible (with promotion) with the
+        declared symbol.
+    - The right-hand side of returns are compatible (with promotion) with the return
+        type of the current operation.
+    - Arguments passed to functions are compatible (with promotion) with the arguments
+        of the function.
+
+"""
 
 __all__ = [
     "validate_types",

@@ -20,44 +20,56 @@ from .passes import (
 )
 
 
+def _perform_structural_validation(ast: Module, symbol_table: SymbolTable) -> None:
+    validate_expression_statement_lhs(ast)
+    validate_for_all_statements(ast, symbol_table)
+    validate_reductions(ast, symbol_table)
+    validate_call_sites(ast, symbol_table)
+
+
+def _perform_type_checking(ast: Module, symbol_table: SymbolTable) -> None:
+    validate_type_qualifiers(ast, symbol_table)
+    validate_types(ast, symbol_table)
+
+
+def _perform_semantic_validation(ast: Module, symbol_table: SymbolTable) -> None:
+    validate_index_domains(ast, symbol_table)
+
+
 def validate_ast(
     ast: Module, perform_optimizations: bool = True
 ) -> tuple[Module, SymbolTable]:
     """Validate the FhY AST.
 
-    Steps:
+    High-level steps (not completely disparate):
         1. Symbol table construction
-            - Throws an error if a symbol is already defined.
-        2. Expression statement LHS validation
+        2. Structural validation
+        3. Type checking
+        4. Semantic validation
+        5. Optimization (optional)
+
+    Symbol table construction:
+        - Throws an error if a symbol is already defined.
+
+    Structural validation:
+        1. Expression statement LHS validation
             - Throws an error if the left-hand side of an expression statement is
               invalid.
                 - Any expression other than an array access expression or an identifier
                   expression is invalid.
                 - In the case of an array access expression, the array expression must
                   be an identifier expression.
-        3. Qualifier validation
-            - Throws an error if type qualifier rules are violated.
-                - INPUTs are read-only and only defined in argument lists.
-                - TEMPs are read-write and only defined in declaration statements.
-                - OUTPUTs are write-only and only defined in argument lists or return
-                  types.
-                - PARAMs are compile-time constants.
-        4. For-all statement validation
+        2. For-all statement validation
             - Throws an error if the index expression is not an identifier expression.
             - Throws an error if the identifier is not an index via the symbol table.
-        5. Reduction validation
+        3. Reduction validation
             - Throws an error if the expressions for indices passed to a reduction
               are not identifier expressions and the identifiers are not indices via
               the symbol table.
             - Throws an error if the reduction is passed more than one argument.
             - Throws an error if the indices are not distinct.
             - Throws an error if the indices are not used within the reduction.
-        6. Index-domain validation
-            - Throws an error if the number of indices does not match
-              the number of dimensions of the array.
-            - Throws an error if the index expression is not a supported type.
-            - Throws an error if the an array access is out of bounds.
-        7. Call-site validation
+        4. Call-site validation
             - Throws an error if a function call is performed in an invalid manner.
                 - The expression passed as the function name is not an identifier
                   expression.
@@ -65,9 +77,25 @@ def validate_ast(
                 - The function must have the correct number of arguments.
                 - A non-reduction function does not have any indices passed to it.
                 - A procedure is not used with a left-hand side expression.
-        8. Type checking
+
+    Type checking:
+        1. Qualifier validation
+            - Throws an error if type qualifier rules are violated.
+                - INPUTs are read-only and only defined in argument lists.
+                - TEMPs are read-write and only defined in declaration statements.
+                - OUTPUTs are write-only and only defined in argument lists or return
+                  types.
+                - PARAMs are compile-time constants.
+        2. Type checking
             - Throws an error if the type of an expression is not
               compatible with the type of the variable it is assigned to.
+
+    Semantic validation:
+        1. Index-domain validation
+            - Throws an error if the number of indices does not match
+              the number of dimensions of the array.
+            - Throws an error if the index expression is not a supported type.
+            - Throws an error if the an array access is out of bounds.
 
     Optimizations:
         1. Dead code elimination
@@ -84,13 +112,9 @@ def validate_ast(
 
     """
     symbol_table = build_symbol_table(ast)
-    validate_expression_statement_lhs(ast)
-    validate_type_qualifiers(ast, symbol_table)
-    validate_for_all_statements(ast, symbol_table)
-    validate_reductions(ast, symbol_table)
-    validate_index_domains(ast, symbol_table)
-    validate_call_sites(ast, symbol_table)
-    validate_types(ast, symbol_table)
+    _perform_structural_validation(ast, symbol_table)
+    _perform_type_checking(ast, symbol_table)
+    _perform_semantic_validation(ast, symbol_table)
 
     if perform_optimizations:
         pass_manager = PassManager[Module](Identifier("fhy_ast_pass_manager"))
