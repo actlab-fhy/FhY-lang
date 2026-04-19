@@ -39,6 +39,7 @@ __all__ = [
     "FhYSemanticsError",
     "FhYSymbolTableBuilderError",
     "FhYTypeError",
+    "FhYWarning",
     "FhYStructuralError",
     "validate_ast",
 ]
@@ -56,6 +57,7 @@ from .ast import (
     FhYStructuralError,
     FhYSymbolTableBuilderError,
     FhYTypeError,
+    FhYWarning,
     build_symbol_table,
     collect_indices,
     collect_reduced_indices,

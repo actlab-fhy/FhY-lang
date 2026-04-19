@@ -1,6 +1,6 @@
 """FhY AST errors."""
 
-__all__ = ["FhYSemanticsError", "FhYTypeError", "FhYStructuralError"]
+__all__ = ["FhYSemanticsError", "FhYTypeError", "FhYStructuralError", "FhYWarning"]
 
 from fhy_core import Provenance, register_error
 
@@ -21,6 +21,14 @@ def _format_message(message: str, provenance: Provenance | None) -> str:
     if location is None:
         return message
     return f"{location}: {message}"
+
+
+class FhYWarning(Warning):
+    """Raised when a warning in a FhY program is detected."""
+
+    def __init__(self, message: str, provenance: Provenance | None = None) -> None:
+        self.provenance = provenance
+        super().__init__(_format_message(message, provenance))
 
 
 class FhYValidationError(Exception):

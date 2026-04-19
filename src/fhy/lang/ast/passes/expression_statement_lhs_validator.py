@@ -6,6 +6,7 @@ __all__ = [
 
 from fhy_core import (
     AnalysisVisitablePass,
+    DiagnosticLevel,
     register_pass,
 )
 
@@ -13,6 +14,7 @@ from fhy.lang.ast.error import FhYStructuralError
 from fhy.lang.ast.node import (
     ArrayAccessExpression,
     ExpressionStatement,
+    FunctionExpression,
     IdentifierExpression,
     Module,
     Node,
@@ -26,6 +28,16 @@ from fhy.lang.ast.node import (
 class _ExpressionStatementLHSValidator(AnalysisVisitablePass[Node]):
     def visit_expression_statement(self, node: ExpressionStatement) -> None:
         if node.left is None:
+            if not isinstance(node.right, FunctionExpression):
+                location = ""
+                if node.provenance is not None and node.provenance.span is not None:
+                    location = f"{node.provenance.span}: "
+                self.report(
+                    DiagnosticLevel.WARNING,
+                    f"{location}Expression statement without a left-hand side "
+                    "has no effect unless its right-hand side is a function "
+                    f"call; got {type(node.right).__name__}.",
+                )
             return
         elif isinstance(node.left, IdentifierExpression):
             return

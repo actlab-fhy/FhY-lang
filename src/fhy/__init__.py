@@ -46,6 +46,7 @@ __all__ = [
     "FhYSymbolTableBuilderError",
     "FhYStructuralError",
     "validate_ast",
+    "FhYWarning",
 ]
 
 from .driver import CompilationOptions, Workspace, compile_fhy
@@ -82,6 +83,7 @@ from .lang import (
     FhYSymbolTableBuilderError,
     FhYSyntaxError,
     FhYTypeError,
+    FhYWarning,
     build_symbol_table,
     collect_indices,
     collect_reduced_indices,

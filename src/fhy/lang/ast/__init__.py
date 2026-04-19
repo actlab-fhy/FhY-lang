@@ -45,11 +45,12 @@ __all__ = [
     "pformat_ast",
     "FhYSymbolTableBuilderError",
     "FhYStructuralError",
+    "FhYWarning",
     "validate_ast",
 ]
 
 
-from .error import FhYSemanticsError, FhYStructuralError, FhYTypeError
+from .error import FhYSemanticsError, FhYStructuralError, FhYTypeError, FhYWarning
 from .node import (
     Argument,
     ArrayAccessExpression,
