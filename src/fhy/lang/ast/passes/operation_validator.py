@@ -7,6 +7,7 @@ __all__ = [
 from fhy_core import (
     AnalysisVisitablePass,
     NumericalType,
+    Type,
     TypeQualifier,
     register_pass,
 )
@@ -40,7 +41,7 @@ def _contains_return_statement(statements: tuple[Statement, ...]) -> bool:
     return False
 
 
-def _is_scalar_numerical(type_) -> bool:
+def _is_scalar_numerical(type_: Type) -> bool:
     return isinstance(type_, NumericalType) and type_.is_scalar()
 
 
