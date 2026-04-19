@@ -14,6 +14,7 @@ from .passes import (
     validate_expression_statement_lhs,
     validate_for_all_statements,
     validate_index_domains,
+    validate_operations,
     validate_reductions,
     validate_type_qualifiers,
     validate_types,
@@ -25,6 +26,7 @@ def _perform_structural_validation(ast: Module, symbol_table: SymbolTable) -> No
     validate_for_all_statements(ast, symbol_table)
     validate_reductions(ast, symbol_table)
     validate_call_sites(ast, symbol_table)
+    validate_operations(ast)
 
 
 def _perform_type_checking(ast: Module, symbol_table: SymbolTable) -> None:
@@ -92,7 +94,11 @@ def validate_ast(
               `TernaryExpression` branch).
             - [IMPLEMENTED] Calling an operation as a bare statement
               (no LHS) discards its return value. Generates a warning.
-        5. Control-flow validation [NOT IMPLEMENTED]
+        5. Operation validation [IMPLEMENTED] (validate_operations)
+            - [IMPLEMENTED] The operation's arguments must all be scalars.
+            - [IMPLEMENTED] The operation's return type must be a scalar OUTPUT.
+            - [IMPLEMENTED] The operation's body must contain a return statement.
+        6. Control-flow validation [NOT IMPLEMENTED]
             - [NOT IMPLEMENTED] Every execution path through an `Operation`
               body must reach a `ReturnStatement`. Fires on `Operation.body`
               (including `SelectionStatement` and `ForAllStatement` bodies).

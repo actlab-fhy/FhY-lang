@@ -13,6 +13,7 @@ __all__ = [
     "validate_reductions",
     "validate_index_domains",
     "validate_call_sites",
+    "validate_operations",
     "validate_types",
     "DeadCodeEliminationPass",
     "LivenessAnalysis",
@@ -33,6 +34,7 @@ from .identifier_replacer import replace_identifiers
 from .index_collector import collect_indices, collect_reduced_indices
 from .index_domain_validator import validate_index_domains
 from .liveness_analysis import LivenessAnalysis, LivenessResult
+from .operation_validator import validate_operations
 from .reduction_validator import validate_reductions
 from .symbol_table_builder import FhYSymbolTableBuilderError, build_symbol_table
 from .type_checker import validate_types
