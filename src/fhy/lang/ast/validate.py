@@ -11,6 +11,7 @@ from .passes import (
     DeadCodeEliminationPass,
     build_symbol_table,
     validate_call_sites,
+    validate_constant_safety,
     validate_definite_assignment,
     validate_expression_statement_lhs,
     validate_for_all_statements,
@@ -38,6 +39,7 @@ def _perform_type_checking(ast: Module, symbol_table: SymbolTable) -> None:
 def _perform_semantic_validation(ast: Module, symbol_table: SymbolTable) -> None:
     validate_index_domains(ast, symbol_table)
     validate_definite_assignment(ast, symbol_table)
+    validate_constant_safety(ast)
 
 
 def validate_ast(
@@ -182,12 +184,18 @@ def validate_ast(
               `ForAllStatement`. A precise per-index analysis would need
               symbolic-index reasoning (integrating with the z3 checker
               used for index-domain validation).
-        3. Constant safety [NOT IMPLEMENTED]
-            - [NOT IMPLEMENTED] Division / modulo by a compile-time literal
-              zero. Trivial structural check over
-              `BinaryExpression(DIVISION | FLOORDIV | MODULO, _, IntLiteral(0))`
-              (and the equivalent `FloatLiteral(0.0)` and negative-zero
-              forms).
+        3. Constant safety [IMPLEMENTED] (validate_constant_safety)
+            - [IMPLEMENTED] Division / floor-division / modulo by a
+              compile-time literal zero. Structural check over
+              `BinaryExpression(DIVISION | FLOORDIV | MODULO, _, <zero>)`
+              where `<zero>` is `IntLiteral(0)`, `FloatLiteral(0.0)`,
+              `ComplexLiteral(0+0j)`, or any chain of `UnaryOperation.NEGATION`
+              over those.
+            - [NOT IMPLEMENTED] Constant folding-driven zero detection
+              (e.g. `x / (1 - 1)`). Belongs to a follow-up constant
+              folding pass that rewrites literal-operand
+              `BinaryExpression` / `UnaryExpression` nodes — once folded,
+              this pass catches the resulting literal zero naturally.
 
     Fixpoint group:
         1. Constant folding [NOT IMPLEMENTED]

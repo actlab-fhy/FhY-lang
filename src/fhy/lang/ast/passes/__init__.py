@@ -16,6 +16,7 @@ __all__ = [
     "validate_operations",
     "validate_types",
     "validate_definite_assignment",
+    "validate_constant_safety",
     "DeadCodeEliminationPass",
     "DefiniteAssignmentAnalysis",
     "DefiniteAssignmentResult",
@@ -27,6 +28,7 @@ __all__ = [
 
 from .ast_to_core_expression_converter import convert_ast_expression_to_core_expression
 from .call_site_validator import validate_call_sites
+from .constant_safety_validator import validate_constant_safety
 from .dead_code_elimination import DeadCodeEliminationPass
 from .definite_assignment import (
     DefiniteAssignmentAnalysis,
