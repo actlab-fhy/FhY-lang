@@ -622,3 +622,161 @@ def test_fails_with_wrong_number_of_arguments(int32: NumericalType):
 
     with pytest.raises(PassExecutionError, match=FhYStructuralError.__name__):
         validate_call_sites(program_ast, symbol_table)
+
+
+def test_fails_with_procedure_called_in_value_position(int32: NumericalType):
+    """Test failure when a procedure is called inside a value expression."""
+    main = Identifier("main")
+    other = Identifier("other")
+    a, t = Identifier("a"), Identifier("t")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=other,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.INPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(),
+                provenance=Provenance.unknown(),
+            ),
+            Procedure(
+                name=main,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.INPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=t,
+                        variable_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.TEMP,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                    ExpressionStatement(
+                        left=IdentifierExpression(
+                            identifier=t, provenance=Provenance.unknown()
+                        ),
+                        right=BinaryExpression(
+                            operation=BinaryOperation.ADDITION,
+                            left=FunctionExpression(
+                                function=IdentifierExpression(
+                                    identifier=other,
+                                    provenance=Provenance.unknown(),
+                                ),
+                                args=(
+                                    IdentifierExpression(
+                                        identifier=a,
+                                        provenance=Provenance.unknown(),
+                                    ),
+                                ),
+                                provenance=Provenance.unknown(),
+                            ),
+                            right=IntLiteral(value=1, provenance=Provenance.unknown()),
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(PassExecutionError, match=FhYStructuralError.__name__):
+        validate_call_sites(program_ast, symbol_table)
+
+
+def test_warns_on_operation_called_as_bare_statement(int32: NumericalType):
+    """Test that calling an operation as a bare statement emits a warning."""
+    from fhy.lang.ast.passes.call_site_validator import _CallSiteValidator
+    from fhy_core import DiagnosticLevel
+
+    main = Identifier("main")
+    op = Identifier("op")
+    a = Identifier("a")
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.INPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(),
+                return_type=QualifiedType(
+                    base_type=int32,
+                    type_qualifier=TypeQualifier.OUTPUT,
+                    provenance=Provenance.unknown(),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+            Procedure(
+                name=main,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=int32,
+                            type_qualifier=TypeQualifier.INPUT,
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(
+                    ExpressionStatement(
+                        left=None,
+                        right=FunctionExpression(
+                            function=IdentifierExpression(
+                                identifier=op,
+                                provenance=Provenance.unknown(),
+                            ),
+                            args=(
+                                IdentifierExpression(
+                                    identifier=a,
+                                    provenance=Provenance.unknown(),
+                                ),
+                            ),
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+    validator = _CallSiteValidator(symbol_table)
+    result = validator.execute(program_ast)
+    warnings = [d for d in result.diagnostics if d.level == DiagnosticLevel.WARNING]
+    assert len(warnings) == 1
+    assert "op" in warnings[0].message_text

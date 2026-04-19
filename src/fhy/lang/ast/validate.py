@@ -87,11 +87,10 @@ def validate_ast(
             - [IMPLEMENTED] Non-reduction functions do not receive indices.
             - [IMPLEMENTED] A procedure is not called with a left-hand side
               expression.
-            - [NOT IMPLEMENTED] A procedure is not called in a value /
+            - [IMPLEMENTED] A procedure is not called in a value /
               expression position (e.g., inside a `BinaryExpression` or a
-              `TernaryExpression` branch). Add a "value context" flag to the
-              call-site walker.
-            - [NOT IMPLEMENTED] Calling an operation as a bare statement
+              `TernaryExpression` branch).
+            - [IMPLEMENTED] Calling an operation as a bare statement
               (no LHS) discards its return value. Generates a warning.
         5. Control-flow validation [NOT IMPLEMENTED]
             - [NOT IMPLEMENTED] Every execution path through an `Operation`
