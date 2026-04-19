@@ -372,3 +372,75 @@ def test_fails_with_nested_array_access_lhs(int32: NumericalType):
         match=FhYStructuralError.__name__,
     ):
         validate_expression_statement_lhs(program_ast)
+
+
+def test_warns_on_bare_value_expression_statement(int32: NumericalType):
+    """Test that an expression statement with no LHS and a non-call RHS warns."""
+    from fhy.lang.ast.passes.expression_statement_lhs_validator import (
+        _ExpressionStatementLHSValidator,
+    )
+    from fhy_core import DiagnosticLevel
+
+    main = Identifier("main")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(),
+                body=(
+                    ExpressionStatement(
+                        left=None,
+                        right=IntLiteral(value=1, provenance=Provenance.unknown()),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    validator = _ExpressionStatementLHSValidator()
+    result = validator.execute(program_ast)
+    warnings = [d for d in result.diagnostics if d.level == DiagnosticLevel.WARNING]
+    assert len(warnings) == 1
+    assert "IntLiteral" in warnings[0].message_text
+
+
+def test_does_not_warn_on_function_call_statement(int32: NumericalType):
+    """Test that a bare function-call expression statement does not warn."""
+    from fhy.lang.ast import FunctionExpression
+    from fhy.lang.ast.passes.expression_statement_lhs_validator import (
+        _ExpressionStatementLHSValidator,
+    )
+    from fhy_core import DiagnosticLevel
+
+    main = Identifier("main")
+    other = Identifier("other")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(),
+                body=(
+                    ExpressionStatement(
+                        left=None,
+                        right=FunctionExpression(
+                            function=IdentifierExpression(
+                                identifier=other,
+                                provenance=Provenance.unknown(),
+                            ),
+                            args=(),
+                            provenance=Provenance.unknown(),
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    validator = _ExpressionStatementLHSValidator()
+    result = validator.execute(program_ast)
+    warnings = [d for d in result.diagnostics if d.level == DiagnosticLevel.WARNING]
+    assert warnings == []

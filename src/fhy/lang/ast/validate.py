@@ -64,7 +64,7 @@ def validate_ast(
               expression or an identifier expression on the LHS is invalid.
             - [IMPLEMENTED] The array expression of an array-access LHS must
               be an identifier expression.
-            - [NOT IMPLEMENTED] An `ExpressionStatement` with `left is None`
+            - [IMPLEMENTED] An `ExpressionStatement` with `left is None`
               must have its `right` be a `FunctionExpression` (otherwise the
               statement has no effect). Generates a warning.
         2. For-all statement validation [IMPLEMENTED]
