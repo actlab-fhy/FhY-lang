@@ -247,6 +247,127 @@ def test_dce_removes_dead_initialized_declaration(int32):
     assert not any(isinstance(s, DeclarationStatement) for s in procedure_ast.body)
 
 
+def test_dce_removes_dead_uninitialized_declaration(int32):
+    """Test a TEMP declaration without an initializer whose variable is never
+    referenced is removed."""
+    a, b, unused = Identifier("a"), Identifier("b"), Identifier("unused")
+    procedure_ast = Procedure(
+        name=Identifier("main"),
+        args=(
+            Argument(
+                name=a,
+                qualified_type=QualifiedType(
+                    base_type=int32,
+                    type_qualifier=TypeQualifier.INPUT,
+                    provenance=Provenance.unknown(),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+            Argument(
+                name=b,
+                qualified_type=QualifiedType(
+                    base_type=int32,
+                    type_qualifier=TypeQualifier.OUTPUT,
+                    provenance=Provenance.unknown(),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        body=(
+            DeclarationStatement(
+                variable_name=unused,
+                variable_type=QualifiedType(
+                    base_type=int32,
+                    type_qualifier=TypeQualifier.TEMP,
+                    provenance=Provenance.unknown(),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+            ExpressionStatement(
+                left=IdentifierExpression(
+                    identifier=b, provenance=Provenance.unknown()
+                ),
+                right=IdentifierExpression(
+                    identifier=a, provenance=Provenance.unknown()
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    program_ast = Module(statements=(procedure_ast,), provenance=Provenance.unknown())
+
+    optimized = _run_dce(program_ast)
+
+    procedure_ast = _get_main_procedure(optimized)
+    assert not any(isinstance(s, DeclarationStatement) for s in procedure_ast.body)
+
+
+def test_dce_keeps_uninitialized_declaration_when_used(int32):
+    """Test a TEMP declaration without an initializer is kept when the
+    variable is later read."""
+    a, b, x = Identifier("a"), Identifier("b"), Identifier("x")
+    procedure_ast = Procedure(
+        name=Identifier("main"),
+        args=(
+            Argument(
+                name=a,
+                qualified_type=QualifiedType(
+                    base_type=int32,
+                    type_qualifier=TypeQualifier.INPUT,
+                    provenance=Provenance.unknown(),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+            Argument(
+                name=b,
+                qualified_type=QualifiedType(
+                    base_type=int32,
+                    type_qualifier=TypeQualifier.OUTPUT,
+                    provenance=Provenance.unknown(),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        body=(
+            DeclarationStatement(
+                variable_name=x,
+                variable_type=QualifiedType(
+                    base_type=int32,
+                    type_qualifier=TypeQualifier.TEMP,
+                    provenance=Provenance.unknown(),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+            ExpressionStatement(
+                left=IdentifierExpression(
+                    identifier=x, provenance=Provenance.unknown()
+                ),
+                right=IdentifierExpression(
+                    identifier=a, provenance=Provenance.unknown()
+                ),
+                provenance=Provenance.unknown(),
+            ),
+            ExpressionStatement(
+                left=IdentifierExpression(
+                    identifier=b, provenance=Provenance.unknown()
+                ),
+                right=IdentifierExpression(
+                    identifier=x, provenance=Provenance.unknown()
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    program_ast = Module(statements=(procedure_ast,), provenance=Provenance.unknown())
+
+    optimized = _run_dce(program_ast)
+
+    procedure_ast = _get_main_procedure(optimized)
+    assert any(isinstance(s, DeclarationStatement) for s in procedure_ast.body)
+
+
 def test_dce_preserves_function_call_with_side_effects(int32):
     """Test DCE must not remove assignments whose RHS contains a function call."""
     source = """

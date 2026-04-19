@@ -185,11 +185,8 @@ def validate_ast(
               live-out set and whose RHS has no function calls.
             - [IMPLEMENTED] Removes initialized TEMP `DeclarationStatement`s
               under the same liveness / side-effect conditions.
-            - [NOT IMPLEMENTED] Drop uninitialized TEMP `DeclarationStatement`s
-              whose variable is never assigned and never read after other
-              DCE iterations converge. Extend `_is_dead_declaration` to
-              track never-written TEMPs using a forward "ever-assigned"
-              scan, or a second liveness-style analysis over declarations.
+            - [IMPLEMENTED] Removes uninitialized TEMP `DeclarationStatement`s
+              whose variable is not in the declaration's live-out set.
             - [NOT IMPLEMENTED] Remove `ExpressionStatement`s with an
               `ArrayAccessExpression` LHS when the array is a TEMP and the
               written element is provably not in live-out (requires

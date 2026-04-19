@@ -4,6 +4,8 @@ __all__ = [
     "DeadCodeEliminationPass",
 ]
 
+from collections import Counter
+
 from fhy_core import (
     AnalysisManager,
     AnalysisVisitablePass,
@@ -20,18 +22,61 @@ from fhy.lang.ast.node import (
     DeclarationStatement,
     Expression,
     ExpressionStatement,
+    ForAllStatement,
     FunctionExpression,
     IdentifierExpression,
     Module,
     Node,
+    Operation,
+    Procedure,
     QualifiedType,
+    SelectionStatement,
+    Statement,
 )
 from fhy.lang.builtins import (
     BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS,
 )
 
+from .identifier_collector import collect_identifiers
 from .liveness_analysis import LivenessAnalysis, LivenessResult
 from .transformer import Statements, Transformer
+
+
+def _count_identifier_occurrences_in_body(
+    body: tuple[Statement, ...], counts: Counter[Identifier]
+) -> None:
+    for statement in body:
+        if isinstance(statement, ForAllStatement):
+            for identifier in collect_identifiers(statement.index):
+                counts[identifier] += 1
+            _count_identifier_occurrences_in_body(statement.body, counts)
+        elif isinstance(statement, SelectionStatement):
+            for identifier in collect_identifiers(statement.condition):
+                counts[identifier] += 1
+            _count_identifier_occurrences_in_body(statement.true_body, counts)
+            _count_identifier_occurrences_in_body(statement.false_body, counts)
+        else:
+            for identifier in collect_identifiers(statement):
+                counts[identifier] += 1
+
+
+def _count_identifier_occurrences(module: Module) -> Counter[Identifier]:
+    """Count identifier occurrences across atomic statements of every function.
+
+    An identifier's count reflects how many atomic statements mention it:
+    `ExpressionStatement`, `DeclarationStatement`, and `ReturnStatement`
+    contribute one count per identifier they mention; `ForAllStatement` and
+    `SelectionStatement` contribute via their `index` / `condition`, with their
+    nested bodies walked recursively. An uninitialized TEMP declaration is
+    dead when its variable's count is exactly 1 (it only appears in its own
+    declaration).
+
+    """
+    counts: Counter[Identifier] = Counter()
+    for top in module.statements:
+        if isinstance(top, Procedure | Operation):
+            _count_identifier_occurrences_in_body(top.body, counts)
+    return counts
 
 
 class _FunctionCallFinder(AnalysisVisitablePass[Node]):
@@ -80,6 +125,7 @@ class DeadCodeEliminationPass(Transformer):
     _symbol_table: SymbolTable
     _namespace_stack: Stack[Identifier]
     _live_out: dict[int, frozenset[Identifier]]
+    _identifier_use_counts: Counter[Identifier]
     _removed_count: int
 
     def __init__(
@@ -91,11 +137,13 @@ class DeadCodeEliminationPass(Transformer):
         self._analysis_manager = analysis_manager
         self._symbol_table = symbol_table
         self._live_out = {}
+        self._identifier_use_counts = Counter()
         self._removed_count = 0
 
     def run_pass(self, ir: Module) -> Module:
         liveness: LivenessResult = self._analysis_manager.get(LivenessAnalysis, ir)
         self._live_out = dict(liveness.live_out)
+        self._identifier_use_counts = _count_identifier_occurrences(ir)
         self._removed_count = 0
         return super().run_pass(ir)
 
@@ -135,14 +183,13 @@ class DeadCodeEliminationPass(Transformer):
             return target not in self._live_out.get(id(node), frozenset())
 
     def _is_dead_declaration(self, node: DeclarationStatement) -> bool:
+        if node.variable_type.type_qualifier != TypeQualifier.TEMP:
+            return False
         if node.expression is None:
+            return self._identifier_use_counts.get(node.variable_name, 0) <= 1
+        if _is_expression_may_have_side_effects(node.expression):
             return False
-        elif node.variable_type.type_qualifier != TypeQualifier.TEMP:
-            return False
-        elif _is_expression_may_have_side_effects(node.expression):
-            return False
-        else:
-            return node.variable_name not in self._live_out.get(id(node), frozenset())
+        return node.variable_name not in self._live_out.get(id(node), frozenset())
 
     def _is_temp_variable(self, identifier: Identifier) -> bool:
         frame = self._symbol_table.get_frame_from_namespace(
