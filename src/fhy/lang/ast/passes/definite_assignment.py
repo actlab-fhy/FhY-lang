@@ -1,19 +1,18 @@
 """Definite-assignment analysis and validation over the FhY AST."""
 
 __all__ = [
-    "DefiniteAssignmentAnalysis",
-    "DefiniteAssignmentResult",
     "validate_definite_assignment",
 ]
 
 from dataclasses import dataclass, field
 
 from fhy_core import (
-    Analysis,
+    CompilerPass,
     FunctionSymbolTableFrame,
     Identifier,
     SymbolTable,
     TypeQualifier,
+    register_pass,
 )
 
 from fhy.lang.ast.cfg import (
@@ -51,32 +50,6 @@ class _FunctionDefiniteAssignment:
     live_out: dict[int, frozenset[Identifier]] = field(default_factory=dict)
 
 
-@dataclass(frozen=True)
-class DefiniteAssignmentResult:
-    """Per-function definite-assignment results for a module."""
-
-    by_function: dict[Identifier, _FunctionDefiniteAssignment] = field(
-        default_factory=dict
-    )
-
-    def get_definitely_assigned_on_entry(
-        self, function_name: Identifier, node: CFGNode
-    ) -> frozenset[Identifier]:
-        """Definitely-assigned identifiers at entry of `node`."""
-        info = self.by_function[function_name]
-        return info.live_in.get(node.id, frozenset())
-
-    def get_definitely_assigned_on_exit(
-        self, function_name: Identifier, node: CFGNode
-    ) -> frozenset[Identifier]:
-        """Definitely-assigned identifiers at exit of `node`."""
-        info = self.by_function[function_name]
-        return info.live_out.get(node.id, frozenset())
-
-    def get_cfg(self, function_name: Identifier) -> ControlFlowGraph:
-        return self.by_function[function_name].cfg
-
-
 def _get_function_universe(
     function: Function, cfg: ControlFlowGraph
 ) -> frozenset[Identifier]:
@@ -89,13 +62,9 @@ def _get_function_universe(
     return frozenset(universe)
 
 
-def _get_entry_assigned(function: Function) -> frozenset[Identifier]:
-    """Identifiers considered definitely assigned on function entry.
-
-    Every argument except `OUTPUT` is populated by the caller. `OUTPUT`
-    arguments must be written by the callee before the function returns.
-
-    """
+def _get_identifiers_definitely_assigned_on_func_entry(
+    function: Function,
+) -> frozenset[Identifier]:
     return frozenset(
         arg.name
         for arg in function.args
@@ -174,7 +143,7 @@ def _compute_definite_assignment(
 ) -> _FunctionDefiniteAssignment:
     """Forward MUST dataflow: definitely-assigned identifiers at every node."""
     universe = _get_function_universe(function, cfg)
-    entry_assigned = _get_entry_assigned(function)
+    entry_assigned = _get_identifiers_definitely_assigned_on_func_entry(function)
 
     gen: dict[int, frozenset[Identifier]] = {
         node.id: _statement_gen(node, symbol_table, function.name) for node in cfg.nodes
@@ -211,36 +180,6 @@ def _compute_definite_assignment(
                 changed = True
 
     return _FunctionDefiniteAssignment(cfg=cfg, live_in=in_sets, live_out=out_sets)
-
-
-class DefiniteAssignmentAnalysis(Analysis[Module, DefiniteAssignmentResult]):
-    """Cached per-function definite-assignment analysis for a FhY AST module.
-
-    Uses a lightweight symbol-table rebuild (from `build_symbol_table`) when
-    invoked directly via the `AnalysisManager`. For use inside
-    `validate_definite_assignment`, prefer that entry point since it accepts
-    an already-built symbol table.
-
-    """
-
-    def run(self, ir: Module) -> DefiniteAssignmentResult:
-        # Local import to avoid a cycle with `symbol_table_builder`, which
-        # imports from the same passes package.
-        from .symbol_table_builder import build_symbol_table
-
-        symbol_table = build_symbol_table(ir)
-        return _analyze_module(ir, symbol_table)
-
-
-def _analyze_module(ir: Module, symbol_table: SymbolTable) -> DefiniteAssignmentResult:
-    by_function: dict[Identifier, _FunctionDefiniteAssignment] = {}
-    for statement in ir.statements:
-        if isinstance(statement, Procedure | Operation):
-            cfg = build_cfg(statement)
-            by_function[statement.name] = _compute_definite_assignment(
-                statement, cfg, symbol_table
-            )
-    return DefiniteAssignmentResult(by_function=by_function)
 
 
 def _collect_read_identifiers(  # noqa: C901, PLR0912
@@ -334,72 +273,96 @@ def _is_qualifier_requiring_definite_assignment(
     return True
 
 
-def _validate_function(  # noqa: C901
-    function: Function,
-    symbol_table: SymbolTable,
-    liveness: LivenessResult,
-) -> None:
-    cfg = build_cfg(function)
-    result = _compute_definite_assignment(function, cfg, symbol_table)
+@register_pass(
+    "fhy_ast_definite_assignment_validator",
+    "Validates definite assignment of OUTPUT arguments and TEMP reads.",
+)
+class _DefiniteAssignmentValidator(CompilerPass[Module, None]):
+    """Definite-assignment validator as a standalone compiler pass.
 
-    # 1. Every OUTPUT argument must be definitely assigned at the exit.
-    assigned_at_exit = result.live_in.get(cfg.exit.id, frozenset())
-    for argument in function.args:
-        if argument.qualified_type.type_qualifier != TypeQualifier.OUTPUT:
-            continue
-        if argument.name not in assigned_at_exit:
-            raise FhYSemanticsError(
-                f"OUTPUT argument {argument.name.name_hint!r} of "
-                f"{function.name.name_hint!r} is not assigned on every "
-                "control flow path.",
-                argument.provenance,
-            )
+    Uses :func:`build_cfg` per function together with the existing
+    :class:`LivenessAnalysis` to restrict the use-before-def check to reads
+    that are also live (unused reads cannot cause observable violations).
 
-    # 2. Every read of a TEMP (or OUTPUT-arg-being-read) must be preceded by
-    # a definite assignment. We restrict the check to identifiers that are
-    # also live at the point of the read — unused reads cannot cause harm.
-    for node in cfg.nodes:
-        if node.kind != CFGNodeKind.STATEMENT or node.statement is None:
-            continue
-        read_identifiers = _collect_read_identifiers(node, symbol_table, function.name)
-        if not read_identifiers:
-            continue
-        assigned_in = result.live_in.get(node.id, frozenset())
-        live_in = liveness.live_in.get(id(node.statement), frozenset())
-        for identifier in read_identifiers:
-            if identifier in assigned_in:
+    """
+
+    _symbol_table: SymbolTable
+
+    def __init__(self, symbol_table: SymbolTable) -> None:
+        super().__init__()
+        self._symbol_table = symbol_table
+
+    def get_noop_output(self, ir: Module) -> None:
+        _ = ir
+
+    def run_pass(self, ir: Module) -> None:
+        liveness = LivenessAnalysis().run(ir)
+        for statement in ir.statements:
+            if isinstance(statement, Procedure | Operation):
+                self._validate_function(statement, liveness)
+
+    def _validate_function(  # noqa: C901
+        self, function: Function, liveness: LivenessResult
+    ) -> None:
+        cfg = build_cfg(function)
+        result = _compute_definite_assignment(function, cfg, self._symbol_table)
+
+        # 1. Every OUTPUT argument must be definitely assigned at the exit.
+        assigned_at_exit = result.live_in.get(cfg.exit.id, frozenset())
+        for argument in function.args:
+            if argument.qualified_type.type_qualifier != TypeQualifier.OUTPUT:
                 continue
-            if identifier not in live_in:
+            if argument.name not in assigned_at_exit:
+                raise FhYSemanticsError(
+                    f"OUTPUT argument {argument.name.name_hint!r} of "
+                    f"{function.name.name_hint!r} is not assigned on every "
+                    "control flow path.",
+                    argument.provenance,
+                )
+
+        # 2. Every read of a TEMP (or OUTPUT-arg-being-read) must be preceded
+        # by a definite assignment. Restrict the check to identifiers that
+        # are also live at the point of the read — unused reads cannot cause
+        # observable use-before-def.
+        for node in cfg.nodes:
+            if node.kind != CFGNodeKind.STATEMENT or node.statement is None:
                 continue
-            if not _is_qualifier_requiring_definite_assignment(
-                identifier, symbol_table, function.name
-            ):
-                continue
-            raise FhYSemanticsError(
-                f"Variable {identifier.name_hint!r} may be read before it "
-                "is assigned.",
-                node.statement.provenance,
+            read_identifiers = _collect_read_identifiers(
+                node, self._symbol_table, function.name
             )
+            if not read_identifiers:
+                continue
+            assigned_in = result.live_in.get(node.id, frozenset())
+            live_in = liveness.live_in.get(id(node.statement), frozenset())
+            for identifier in read_identifiers:
+                if identifier in assigned_in:
+                    continue
+                if identifier not in live_in:
+                    continue
+                if not _is_qualifier_requiring_definite_assignment(
+                    identifier, self._symbol_table, function.name
+                ):
+                    continue
+                raise FhYSemanticsError(
+                    f"Variable {identifier.name_hint!r} may be read before it "
+                    "is assigned.",
+                    node.statement.provenance,
+                )
 
 
 def validate_definite_assignment(ast: Module, symbol_table: SymbolTable) -> None:
     """Check for definite assignment violations in the AST.
-
-    Uses :func:`build_cfg` per function and the existing
-    :class:`LivenessAnalysis` to identify which reads are live (unused reads
-    are ignored; they cannot cause observable use-before-def).
 
     Args:
         ast: The AST to validate.
         symbol_table: The symbol table to use.
 
     Raises:
-        FhYDefiniteAssignmentError: When an OUTPUT argument is not
-            definitely assigned at function exit or a read may precede its
-            definition on some path.
+        FhYSemanticsError: When an OUTPUT argument is not definitely
+            assigned at function exit or a read may precede its definition
+            on some path. Wrapped in `PassExecutionError` when raised from
+            inside the compiler-pass framework.
 
     """
-    liveness = LivenessAnalysis().run(ast)
-    for statement in ast.statements:
-        if isinstance(statement, Procedure | Operation):
-            _validate_function(statement, symbol_table, liveness)
+    validator = _DefiniteAssignmentValidator(symbol_table)
+    validator(ast)

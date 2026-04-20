@@ -11,13 +11,13 @@ from fhy.lang.ast import (
 )
 from fhy.lang.ast.cfg import build_cfg
 from fhy.lang.ast.passes import (
-    DefiniteAssignmentAnalysis,
     build_symbol_table,
     validate_definite_assignment,
 )
 from fhy.lang.ast.passes.definite_assignment import _compute_definite_assignment
 from fhy_core import (
     Identifier,
+    PassExecutionError,
     Provenance,
     TypeQualifier,
 )
@@ -77,7 +77,7 @@ def test_output_not_assigned_on_all_paths_raises(int32):
     program_ast = make_module_with_statement(procedure_ast)
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(FhYSemanticsError):
+    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
         validate_definite_assignment(program_ast, symbol_table)
 
 
@@ -117,7 +117,7 @@ def test_use_before_def_on_temp_raises(int32):
     program_ast = make_module_with_statement(procedure_ast)
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(FhYSemanticsError):
+    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
         validate_definite_assignment(program_ast, symbol_table)
 
 
@@ -140,33 +140,6 @@ def test_temp_used_after_being_assigned_validates(int32):
     symbol_table = build_symbol_table(program_ast)
 
     validate_definite_assignment(program_ast, symbol_table)
-
-
-def test_analysis_result_contains_all_functions(int32):
-    """Test that the analysis result contains all functions."""
-    a, b = Identifier("a"), Identifier("b")
-    foo = make_procedure(
-        name=Identifier("foo"),
-        args=(
-            make_argument(a, TypeQualifier.INPUT, int32),
-            make_argument(b, TypeQualifier.OUTPUT, int32),
-        ),
-        body=(make_identifier_assignment(b, a),),
-    )
-    bar = make_procedure(
-        name=Identifier("bar"),
-        args=(
-            make_argument(a, TypeQualifier.INPUT, int32),
-            make_argument(b, TypeQualifier.OUTPUT, int32),
-        ),
-        body=(make_identifier_assignment(b, a),),
-    )
-    program_ast = Module(statements=(foo, bar), provenance=Provenance.unknown())
-
-    result = DefiniteAssignmentAnalysis().run(program_ast)
-
-    assert foo.name in result.by_function
-    assert bar.name in result.by_function
 
 
 def test_procedure_call_with_output_arg_assigns_through(int32):
