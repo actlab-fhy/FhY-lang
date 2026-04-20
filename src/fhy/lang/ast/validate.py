@@ -4,7 +4,15 @@ __all__ = [
     "validate_ast",
 ]
 
-from fhy_core import FixpointPassGroup, Identifier, PassManager, SymbolTable
+from typing import cast
+
+from fhy_core import (
+    CompilerPass,
+    FixpointPassGroup,
+    Identifier,
+    PassManager,
+    SymbolTable,
+)
 
 from .node import Module
 from .passes import (
@@ -306,7 +314,10 @@ def validate_ast(
             name=Identifier("fhy_ast_dead_code_elimination_fixpoint"),
         )
         dce_fixpoint_group.add_pass(
-            DeadCodeEliminationPass(pass_manager.analysis_manager, symbol_table)
+            cast(
+                CompilerPass[Module, Module],
+                DeadCodeEliminationPass(pass_manager.analysis_manager, symbol_table),
+            )
         )
         pass_manager.add_fixpoint_group(dce_fixpoint_group)
         ast = pass_manager.run(ast).output

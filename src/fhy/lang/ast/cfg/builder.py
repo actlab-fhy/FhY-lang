@@ -10,13 +10,16 @@ import networkx as nx
 
 from fhy.lang.ast.node import (
     ForAllStatement,
-    Function,
+    Operation,
+    Procedure,
     ReturnStatement,
     SelectionStatement,
     Statement,
 )
 
 from .graph import CFGEdgeKind, CFGNode, CFGNodeKind, ControlFlowGraph
+
+_FunctionDefinition = Procedure | Operation
 
 # A pending predecessor: (node, edge_kind_from_it). The next node added to the
 # CFG draws an edge of `edge_kind_from_it` from `node`. `None` means control
@@ -27,13 +30,13 @@ _Tail = tuple[CFGNode, CFGEdgeKind] | None
 class _CFGBuilder:
     """Recursive-descent CFG builder for a FhY function body."""
 
-    _function: Function
+    _function: _FunctionDefinition
     _next_id: int
-    _graph: nx.MultiDiGraph
+    _graph: "nx.MultiDiGraph[int]"
     _entry: CFGNode
     _exit: CFGNode
 
-    def __init__(self, function: Function) -> None:
+    def __init__(self, function: _FunctionDefinition) -> None:
         self._function = function
         self._next_id = 0
         self._graph = nx.MultiDiGraph()
@@ -132,7 +135,7 @@ class _CFGBuilder:
         return (node, CFGEdgeKind.UNCONDITIONAL)
 
 
-def build_cfg(function: Function) -> ControlFlowGraph:
+def build_cfg(function: _FunctionDefinition) -> ControlFlowGraph:
     """Build a control flow graph for a FhY function.
 
     Args:

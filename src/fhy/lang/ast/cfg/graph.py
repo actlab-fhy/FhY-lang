@@ -16,6 +16,7 @@ __all__ = [
 
 from collections.abc import Iterator
 from dataclasses import dataclass
+from typing import cast
 
 import networkx as nx
 from fhy_core import Identifier, StrEnum
@@ -83,7 +84,7 @@ class ControlFlowGraph:
     """
 
     _function_name: Identifier
-    _graph: nx.MultiDiGraph
+    _graph: "nx.MultiDiGraph[int]"
     _entry: CFGNode
     _exit: CFGNode
 
@@ -91,7 +92,7 @@ class ControlFlowGraph:
         self,
         *,
         function_name: Identifier,
-        graph: nx.MultiDiGraph,
+        graph: "nx.MultiDiGraph[int]",
         entry: CFGNode,
         exit: CFGNode,
     ) -> None:
@@ -148,20 +149,24 @@ class ControlFlowGraph:
         separately.
 
         """
+        edges = cast(
+            "Iterator[tuple[int, int, CFGEdgeKind]]",
+            self._graph.out_edges(node.id, data=_EDGE_KIND_ATTRIBUTE),
+        )
         return tuple(
             (self._graph.nodes[target_id][_NODE_ATTRIBUTE], kind)
-            for _, target_id, kind in self._graph.out_edges(
-                node.id, data=_EDGE_KIND_ATTRIBUTE
-            )
+            for _, target_id, kind in edges
         )
 
     def get_incoming_edges(
         self, node: CFGNode
     ) -> tuple[tuple[CFGNode, CFGEdgeKind], ...]:
         """Return incoming edges `(source, kind)` for `node`."""
+        edges = cast(
+            "Iterator[tuple[int, int, CFGEdgeKind]]",
+            self._graph.in_edges(node.id, data=_EDGE_KIND_ATTRIBUTE),
+        )
         return tuple(
             (self._graph.nodes[source_id][_NODE_ATTRIBUTE], kind)
-            for source_id, _, kind in self._graph.in_edges(
-                node.id, data=_EDGE_KIND_ATTRIBUTE
-            )
+            for source_id, _, kind in edges
         )

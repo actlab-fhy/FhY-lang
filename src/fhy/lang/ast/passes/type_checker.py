@@ -16,6 +16,7 @@ __all__ = [
     "validate_types",
 ]
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from fhy_core import (
@@ -28,12 +29,16 @@ from fhy_core import (
     IndexType,
     NumericalType,
     PrimitiveDataType,
+    Provenance,
     SymbolTable,
     SymbolTableError,
     Type,
     VariableSymbolTableFrame,
     promote_primitive_data_types,
     register_pass,
+)
+from fhy_core import (
+    Expression as CoreExpression,
 )
 
 from fhy.lang.ast.error import FhYTypeError
@@ -67,7 +72,9 @@ class _InferredType:
     free_indices: frozenset[Identifier]
 
 
-def _shapes_equivalent(shape_a, shape_b) -> bool:
+def _shapes_equivalent(
+    shape_a: Sequence[CoreExpression], shape_b: Sequence[CoreExpression]
+) -> bool:
     if len(shape_a) != len(shape_b):
         return False
     return all(a.is_structurally_equivalent(b) for a, b in zip(shape_a, shape_b))
@@ -183,7 +190,7 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
         actual: _InferredType,
         *,
         context: str,
-        provenance,
+        provenance: Provenance | None,
     ) -> None:
         element_types_assignable = _is_element_types_assignable(
             expected.type, actual.type
@@ -266,7 +273,9 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
     def _get_int_literal_core_type(value: int) -> CoreDataType:
         return CoreDataType.UINT if value >= 0 else CoreDataType.INT
 
-    def _infer_identifier(self, identifier: Identifier, provenance) -> _InferredType:
+    def _infer_identifier(
+        self, identifier: Identifier, provenance: Provenance | None
+    ) -> _InferredType:
         frame = self.get_frame_from_namespace(self.current_namespace, identifier)
         if not isinstance(frame, VariableSymbolTableFrame):
             raise FhYTypeError(
@@ -425,8 +434,8 @@ class _TypeChecker(AnalysisPassWithSymbolTable):
                     expression.provenance,
                 )
             arg_free_indices: frozenset[Identifier] = frozenset()
-            for arg in expression.args:
-                arg_free_indices |= self._infer_type(arg).free_indices
+            for call_arg in expression.args:
+                arg_free_indices |= self._infer_type(call_arg).free_indices
             return _InferredType(type=return_type, free_indices=arg_free_indices)
         elif isinstance(frame, ImportSymbolTableFrame):
             if not expression.args:

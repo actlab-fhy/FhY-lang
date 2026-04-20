@@ -27,7 +27,6 @@ from fhy.lang.ast.node import (
     DeclarationStatement,
     ExpressionStatement,
     ForAllStatement,
-    Function,
     FunctionExpression,
     IdentifierExpression,
     Module,
@@ -40,6 +39,8 @@ from fhy.lang.ast.node import (
 from .identifier_collector import collect_identifiers
 from .liveness_analysis import LivenessAnalysis, LivenessResult
 
+_FunctionDefinition = Procedure | Operation
+
 
 @dataclass(frozen=True)
 class _FunctionDefiniteAssignment:
@@ -51,7 +52,7 @@ class _FunctionDefiniteAssignment:
 
 
 def _get_function_universe(
-    function: Function, cfg: ControlFlowGraph
+    function: _FunctionDefinition, cfg: ControlFlowGraph
 ) -> frozenset[Identifier]:
     universe: set[Identifier] = {arg.name for arg in function.args}
     for node in cfg.nodes:
@@ -63,7 +64,7 @@ def _get_function_universe(
 
 
 def _get_identifiers_definitely_assigned_on_func_entry(
-    function: Function,
+    function: _FunctionDefinition,
 ) -> frozenset[Identifier]:
     return frozenset(
         arg.name
@@ -132,12 +133,13 @@ def _statement_gen(
             return _get_procedure_call_output_writes(
                 statement.right, symbol_table, namespace
             )
+        return frozenset()
     else:
         return frozenset()
 
 
 def _compute_definite_assignment(
-    function: Function,
+    function: _FunctionDefinition,
     cfg: ControlFlowGraph,
     symbol_table: SymbolTable,
 ) -> _FunctionDefiniteAssignment:
@@ -302,7 +304,7 @@ class _DefiniteAssignmentValidator(CompilerPass[Module, None]):
                 self._validate_function(statement, liveness)
 
     def _validate_function(  # noqa: C901
-        self, function: Function, liveness: LivenessResult
+        self, function: _FunctionDefinition, liveness: LivenessResult
     ) -> None:
         cfg = build_cfg(function)
         result = _compute_definite_assignment(function, cfg, self._symbol_table)
