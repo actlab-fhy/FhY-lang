@@ -1350,3 +1350,357 @@ def test_fails_on_ternary_branch_shape_mismatch():
 
     with pytest.raises(ValidationFailedError, match="type error"):
         run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_int_literal_overflowing_declared_type():
+    """Test that `uint8 t = 300;` fails because literal 300 doesn't fit in uint8."""
+    op = Identifier("f")
+    a, t = Identifier("a"), Identifier("t")
+
+    def qt(t_, q):
+        return QualifiedType(
+            base_type=t_, type_qualifier=q, provenance=Provenance.unknown()
+        )
+
+    uint8_scalar = NumericalType(PrimitiveDataType(CoreDataType.UINT8))
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=qt(uint8_scalar, TypeQualifier.INPUT),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=t,
+                        variable_type=qt(uint8_scalar, TypeQualifier.TEMP),
+                        expression=IntLiteral(
+                            value=300, provenance=Provenance.unknown()
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                    ReturnStatement(
+                        expression=IdentifierExpression(
+                            identifier=t, provenance=Provenance.unknown()
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                return_type=qt(uint8_scalar, TypeQualifier.OUTPUT),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_valid_int_literal_fits_declared_type_via_promotion():
+    """Test `int32 t = 5;` validates — literal 5 fits uint8 and promotes to int32."""
+    op = Identifier("f")
+    a, t = Identifier("a"), Identifier("t")
+
+    def qt(t_, q):
+        return QualifiedType(
+            base_type=t_, type_qualifier=q, provenance=Provenance.unknown()
+        )
+
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=qt(int32_scalar, TypeQualifier.INPUT),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=t,
+                        variable_type=qt(int32_scalar, TypeQualifier.TEMP),
+                        expression=IntLiteral(value=5, provenance=Provenance.unknown()),
+                        provenance=Provenance.unknown(),
+                    ),
+                    ReturnStatement(
+                        expression=IdentifierExpression(
+                            identifier=t, provenance=Provenance.unknown()
+                        ),
+                        provenance=Provenance.unknown(),
+                    ),
+                ),
+                return_type=qt(int32_scalar, TypeQualifier.OUTPUT),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        provenance=Provenance.unknown(),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_call_site_argument_data_type_mismatch():
+    """Test that calling `f(x)` where `f` expects int32 but `x` is float32 fails."""
+    f, main = Identifier("f"), Identifier("main")
+    x = Identifier("x")
+    a, t = Identifier("a"), Identifier("t")
+
+    def qt(t_, q):
+        return QualifiedType(
+            base_type=t_, type_qualifier=q, provenance=Provenance.unknown()
+        )
+
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    float32_scalar = NumericalType(PrimitiveDataType(CoreDataType.FLOAT32))
+
+    callee = Operation(
+        name=f,
+        args=(
+            Argument(
+                name=x,
+                qualified_type=qt(int32_scalar, TypeQualifier.INPUT),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        body=(
+            ReturnStatement(
+                expression=IdentifierExpression(
+                    identifier=x, provenance=Provenance.unknown()
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        return_type=qt(int32_scalar, TypeQualifier.OUTPUT),
+        provenance=Provenance.unknown(),
+    )
+    caller = Operation(
+        name=main,
+        args=(
+            Argument(
+                name=a,
+                qualified_type=qt(float32_scalar, TypeQualifier.INPUT),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        body=(
+            DeclarationStatement(
+                variable_name=t,
+                variable_type=qt(int32_scalar, TypeQualifier.TEMP),
+                provenance=Provenance.unknown(),
+            ),
+            ExpressionStatement(
+                left=IdentifierExpression(
+                    identifier=t, provenance=Provenance.unknown()
+                ),
+                right=FunctionExpression(
+                    function=IdentifierExpression(
+                        identifier=f, provenance=Provenance.unknown()
+                    ),
+                    args=(
+                        IdentifierExpression(
+                            identifier=a, provenance=Provenance.unknown()
+                        ),
+                    ),
+                    provenance=Provenance.unknown(),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+            ReturnStatement(
+                expression=IdentifierExpression(
+                    identifier=t, provenance=Provenance.unknown()
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        return_type=qt(int32_scalar, TypeQualifier.OUTPUT),
+        provenance=Provenance.unknown(),
+    )
+    program_ast = Module(statements=(callee, caller), provenance=Provenance.unknown())
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_call_site_literal_shape_mismatch():
+    """Test that calling `f(x)` where `f` expects int32[3] but `x` is int32[5] fails."""
+    f, main = Identifier("f"), Identifier("main")
+    x = Identifier("x")
+    a, t = Identifier("a"), Identifier("t")
+
+    def qt(t_, q):
+        return QualifiedType(
+            base_type=t_, type_qualifier=q, provenance=Provenance.unknown()
+        )
+
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    int32_vec3 = NumericalType(
+        PrimitiveDataType(CoreDataType.INT32), shape=(LiteralExpression(3),)
+    )
+    int32_vec5 = NumericalType(
+        PrimitiveDataType(CoreDataType.INT32), shape=(LiteralExpression(5),)
+    )
+
+    callee = Operation(
+        name=f,
+        args=(
+            Argument(
+                name=x,
+                qualified_type=qt(int32_vec3, TypeQualifier.INPUT),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        body=(
+            ReturnStatement(
+                expression=IntLiteral(value=0, provenance=Provenance.unknown()),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        return_type=qt(int32_scalar, TypeQualifier.OUTPUT),
+        provenance=Provenance.unknown(),
+    )
+    caller = Operation(
+        name=main,
+        args=(
+            Argument(
+                name=a,
+                qualified_type=qt(int32_vec5, TypeQualifier.INPUT),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        body=(
+            DeclarationStatement(
+                variable_name=t,
+                variable_type=qt(int32_scalar, TypeQualifier.TEMP),
+                provenance=Provenance.unknown(),
+            ),
+            ExpressionStatement(
+                left=IdentifierExpression(
+                    identifier=t, provenance=Provenance.unknown()
+                ),
+                right=FunctionExpression(
+                    function=IdentifierExpression(
+                        identifier=f, provenance=Provenance.unknown()
+                    ),
+                    args=(
+                        IdentifierExpression(
+                            identifier=a, provenance=Provenance.unknown()
+                        ),
+                    ),
+                    provenance=Provenance.unknown(),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+            ReturnStatement(
+                expression=IdentifierExpression(
+                    identifier=t, provenance=Provenance.unknown()
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        return_type=qt(int32_scalar, TypeQualifier.OUTPUT),
+        provenance=Provenance.unknown(),
+    )
+    program_ast = Module(statements=(callee, caller), provenance=Provenance.unknown())
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_valid_call_site_literal_shape_match_with_promotion():
+    """Test that calling `f(x)` with int32[3] where `f` expects int64[3] validates."""
+    f, main = Identifier("f"), Identifier("main")
+    x = Identifier("x")
+    a, t = Identifier("a"), Identifier("t")
+
+    def qt(t_, q):
+        return QualifiedType(
+            base_type=t_, type_qualifier=q, provenance=Provenance.unknown()
+        )
+
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    int32_vec3 = NumericalType(
+        PrimitiveDataType(CoreDataType.INT32), shape=(LiteralExpression(3),)
+    )
+    int64_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT64))
+    int64_vec3 = NumericalType(
+        PrimitiveDataType(CoreDataType.INT64), shape=(LiteralExpression(3),)
+    )
+
+    callee = Operation(
+        name=f,
+        args=(
+            Argument(
+                name=x,
+                qualified_type=qt(int64_vec3, TypeQualifier.INPUT),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        body=(
+            ReturnStatement(
+                expression=IntLiteral(value=0, provenance=Provenance.unknown()),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        return_type=qt(int64_scalar, TypeQualifier.OUTPUT),
+        provenance=Provenance.unknown(),
+    )
+    caller = Operation(
+        name=main,
+        args=(
+            Argument(
+                name=a,
+                qualified_type=qt(int32_vec3, TypeQualifier.INPUT),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        body=(
+            DeclarationStatement(
+                variable_name=t,
+                variable_type=qt(int64_scalar, TypeQualifier.TEMP),
+                provenance=Provenance.unknown(),
+            ),
+            ExpressionStatement(
+                left=IdentifierExpression(
+                    identifier=t, provenance=Provenance.unknown()
+                ),
+                right=FunctionExpression(
+                    function=IdentifierExpression(
+                        identifier=f, provenance=Provenance.unknown()
+                    ),
+                    args=(
+                        IdentifierExpression(
+                            identifier=a, provenance=Provenance.unknown()
+                        ),
+                    ),
+                    provenance=Provenance.unknown(),
+                ),
+                provenance=Provenance.unknown(),
+            ),
+            ReturnStatement(
+                expression=IdentifierExpression(
+                    identifier=t, provenance=Provenance.unknown()
+                ),
+                provenance=Provenance.unknown(),
+            ),
+        ),
+        return_type=qt(int64_scalar, TypeQualifier.OUTPUT),
+        provenance=Provenance.unknown(),
+    )
+    program_ast = Module(statements=(callee, caller), provenance=Provenance.unknown())
+    symbol_table = build_symbol_table(program_ast)
+
+    # Should not raise — arg data type int32 promotes to the declared
+    # int64 parameter type; shapes match on literal 3 == 3.
+    run_validator(TypeChecker(symbol_table), program_ast)

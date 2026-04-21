@@ -37,9 +37,13 @@ from fhy_core import (
     VariableSymbolTableFrame,
     promote_primitive_data_types,
     register_pass,
+    resolve_literal_core_data_type,
 )
 from fhy_core import (
     Expression as CoreExpression,
+)
+from fhy_core import (
+    LiteralExpression as CoreLiteralExpression,
 )
 
 from fhy.lang.ast.node import (
@@ -128,6 +132,63 @@ def _is_element_types_assignable(target: Type, source: Type) -> bool:
         )
 
 
+def _shapes_call_compatible(
+    param_shape: Sequence[CoreExpression], actual_shape: Sequence[CoreExpression]
+) -> bool:
+    """Shape-compatibility rule for function call argument passing.
+
+    FhY does not support broadcasting. Arities must match; per-dimension
+    compatibility is:
+
+    - Both sides literal: value must match exactly.
+    - Otherwise (at least one symbolic dim): accept. Symbolic dims on the
+      callee side name parameters in the callee's namespace, and matching
+      them precisely against caller-side symbolic dims (possibly named the
+      same thing by coincidence) would require cross-namespace unification
+      that FhY does not currently perform.
+
+    """
+    if len(param_shape) != len(actual_shape):
+        return False
+    for param_dim, actual_dim in zip(param_shape, actual_shape):
+        if isinstance(param_dim, CoreLiteralExpression) and isinstance(
+            actual_dim, CoreLiteralExpression
+        ):
+            if not param_dim.is_structurally_equivalent(actual_dim):
+                return False
+    return True
+
+
+def _is_callable_with(param_type: Type, actual_type: Type) -> bool:
+    """Return True when ``actual_type`` can be passed where ``param_type`` is declared.
+
+    Same promotion rule as :func:`_is_assignable`, but with
+    :func:`_shapes_call_compatible` instead of strict
+    :func:`_shapes_equivalent` — so symbolic dims in the callee's
+    signature accept any matching-arity caller shape.
+
+    """
+    if param_type.is_structurally_equivalent(actual_type):
+        return True
+    if not isinstance(param_type, NumericalType) or not isinstance(
+        actual_type, NumericalType
+    ):
+        return False
+    if not _shapes_call_compatible(param_type.shape, actual_type.shape):
+        return False
+    if not isinstance(param_type.data_type, PrimitiveDataType) or not isinstance(
+        actual_type.data_type, PrimitiveDataType
+    ):
+        return False
+    try:
+        promoted = promote_primitive_data_types(
+            param_type.data_type, actual_type.data_type
+        )
+    except FhYCoreTypeError:
+        return False
+    return promoted.core_data_type == param_type.data_type.core_data_type
+
+
 _INTEGER_CORE_DATA_TYPES: frozenset[CoreDataType] = frozenset(
     {
         CoreDataType.UINT,
@@ -210,8 +271,80 @@ class TypeChecker(AnalysisPassWithSymbolTable):
             format_diagnostic_message("type error", error.message, error.provenance),
         )
 
+    def _check_call_argument_types(self, expression: FunctionExpression) -> None:
+        """Verify argument types at a call site against the callee's signature.
+
+        Reductions and builtin-import calls are skipped (no declared
+        signature). When the argument count does not match the callee's
+        signature, the check is also skipped — the
+        :class:`CallSiteValidator` reports that specific mismatch.
+        Otherwise, each actual argument's inferred type is compared
+        against the declared parameter type via :func:`_is_callable_with`,
+        which accepts data-type promotion and matches literal shape dims
+        exactly while leaving symbolic dims unconstrained.
+
+        Raises:
+            _TypeCheckError: At the first argument whose type cannot be
+                passed for the declared parameter type.
+
+        """
+        if not isinstance(expression.function, IdentifierExpression):
+            return
+        identifier = expression.function.identifier
+        try:
+            frame = self.get_frame_from_namespace(self.current_namespace, identifier)
+        except SymbolTableError:
+            return
+        if not isinstance(frame, FunctionSymbolTableFrame):
+            return
+        self._check_call_argument_types_against_signature(
+            identifier, expression, frame.signature
+        )
+
+    def _check_call_argument_types_against_signature(
+        self,
+        identifier: Identifier,
+        expression: FunctionExpression,
+        signature: Sequence[tuple[object, Type]],
+    ) -> frozenset[Identifier]:
+        """Inner helper: check actuals against a known signature.
+
+        Also aggregates the free-index set across every argument (the
+        caller of :meth:`_infer_function_expression` needs it). Returns
+        an empty frozenset when the count mismatches so callers don't
+        over-report — the missing free indices are harmless because a
+        diagnostic was already emitted at the call site.
+
+        """
+        if len(expression.args) != len(signature):
+            # Count mismatch is reported by `CallSiteValidator`; skipping
+            # per-argument type checks avoids cascaded diagnostics.
+            return frozenset()
+        arg_free_indices: frozenset[Identifier] = frozenset()
+        for position, (actual_expr, (_qualifier, param_type)) in enumerate(
+            zip(expression.args, signature)
+        ):
+            actual = self._infer_type(actual_expr)
+            arg_free_indices |= actual.free_indices
+            if not _is_callable_with(param_type, actual.type):
+                raise _TypeCheckError(
+                    f"Argument {position} to {identifier.name_hint!r}: "
+                    f"cannot pass {actual.type} where {param_type} is "
+                    "expected.",
+                    actual_expr.provenance,
+                )
+        return arg_free_indices
+
     def visit_expression_statement(self, node: ExpressionStatement) -> None:
         if node.left is None:
+            # Procedure / operation call used as a bare statement. Its
+            # return type (if any) is discarded, but the argument types
+            # still need to match the callee's signature.
+            if isinstance(node.right, FunctionExpression):
+                try:
+                    self._check_call_argument_types(node.right)
+                except _TypeCheckError as error:
+                    self._report_type_error(error)
             return
         try:
             lhs = self._infer_type(node.left)
@@ -307,13 +440,28 @@ class TypeChecker(AnalysisPassWithSymbolTable):
                 provenance,
             )
 
-    def _infer_type(self, expression: Expression) -> _InferredType:
+    def _infer_type(self, expression: Expression) -> _InferredType:  #  noqa: C901
         if isinstance(expression, IntLiteral):
-            primitive = PrimitiveDataType(
-                self._get_int_literal_core_type(expression.value)
+            # Dispatch to fhy_core's literal resolver with a "weak" target
+            # family: non-negative values that fit uint32 pick from the
+            # uint chain, otherwise fall through to the signed chain so
+            # large positives still land on int64. Negatives always go to
+            # the signed chain.
+            value = expression.value
+            weak_target = (
+                CoreDataType.UINT if 0 <= value < (1 << 32) else CoreDataType.INT
             )
+            try:
+                core_type = resolve_literal_core_data_type(value, weak_target)
+            except FhYCoreTypeError as exc:
+                raise _TypeCheckError(
+                    f"Integer literal {value} does not fit in any supported "
+                    "integer type.",
+                    expression.provenance,
+                ) from exc
             return _InferredType(
-                type=NumericalType(primitive), free_indices=frozenset()
+                type=NumericalType(PrimitiveDataType(core_type)),
+                free_indices=frozenset(),
             )
         elif isinstance(expression, FloatLiteral):
             return _InferredType(
@@ -343,10 +491,6 @@ class TypeChecker(AnalysisPassWithSymbolTable):
                 f"{type(expression).__name__}.",
                 expression.provenance,
             )
-
-    @staticmethod
-    def _get_int_literal_core_type(value: int) -> CoreDataType:
-        return CoreDataType.UINT if value >= 0 else CoreDataType.INT
 
     def _infer_identifier(
         self, identifier: Identifier, provenance: Provenance | None
@@ -560,9 +704,9 @@ class TypeChecker(AnalysisPassWithSymbolTable):
                     f"{identifier.name_hint!r}.",
                     expression.provenance,
                 )
-            arg_free_indices: frozenset[Identifier] = frozenset()
-            for call_arg in expression.args:
-                arg_free_indices |= self._infer_type(call_arg).free_indices
+            arg_free_indices = self._check_call_argument_types_against_signature(
+                identifier, expression, frame.signature
+            )
             return _InferredType(type=return_type, free_indices=arg_free_indices)
         elif isinstance(frame, ImportSymbolTableFrame):
             if not expression.args:
