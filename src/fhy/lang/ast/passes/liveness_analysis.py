@@ -16,6 +16,7 @@ from fhy_core import (
     TypeQualifier,
     register_pass,
 )
+from frozendict import frozendict
 
 from fhy.lang.ast.node import (
     DeclarationStatement,
@@ -44,8 +45,8 @@ class LivenessResult(FrozenMixin):
 
     """
 
-    live_in: dict[int, frozenset[Identifier]] = field(default_factory=dict)
-    live_out: dict[int, frozenset[Identifier]] = field(default_factory=dict)
+    live_in: frozendict[int, frozenset[Identifier]] = field(default_factory=frozendict)
+    live_out: frozendict[int, frozenset[Identifier]] = field(default_factory=frozendict)
 
     def get_live_input_identifiers(self, statement: Statement) -> frozenset[Identifier]:
         """Return the set of identifiers live on entry to the statement."""
@@ -170,8 +171,8 @@ class _LivenessAnalysisPass(AnalysisVisitablePass[Node]):
     @property
     def result(self) -> LivenessResult:
         return LivenessResult(
-            live_in=dict(self._live_in),
-            live_out=dict(self._live_out),
+            live_in=frozendict(self._live_in),
+            live_out=frozendict(self._live_out),
         )
 
     def visit_procedure(self, node: Procedure) -> None:
