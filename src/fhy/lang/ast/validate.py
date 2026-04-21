@@ -24,6 +24,7 @@ from fhy_core import (
 from .node import Module
 from .passes import (
     CallSiteValidator,
+    ConstantFoldingPass,
     ConstantSafetyValidator,
     DeadCodeEliminationPass,
     DefiniteAssignmentValidator,
@@ -155,6 +156,12 @@ def validate_ast(
     """
     symbol_table = build_symbol_table(ast)
 
+    pre_constant_folding_pass_manager = PassManager[Module](
+        Identifier("fhy_ast_pre_constant_folding_pass_manager")
+    )
+    pre_constant_folding_pass_manager.add_pass(ConstantFoldingPass())
+    ast = pre_constant_folding_pass_manager.run(ast).output
+
     structural_report = build_structural_validation_manager(symbol_table).validate(ast)
     structural_report.raise_if_failed()
 
@@ -163,16 +170,22 @@ def validate_ast(
 
     if perform_optimizations:
         pass_manager = PassManager[Module](Identifier("fhy_ast_pass_manager"))
-        dce_fixpoint_group = FixpointPassGroup[Module](
-            name=Identifier("fhy_ast_dead_code_elimination_fixpoint"),
+        fixpoint_group = FixpointPassGroup[Module](
+            name=Identifier("fhy_ast_fixpoint"),
         )
-        dce_fixpoint_group.add_pass(
+        fixpoint_group.add_pass(
+            cast(
+                CompilerPass[Module, Module],
+                ConstantFoldingPass(),
+            )
+        )
+        fixpoint_group.add_pass(
             cast(
                 CompilerPass[Module, Module],
                 DeadCodeEliminationPass(symbol_table),
             )
         )
-        pass_manager.add_fixpoint_group(dce_fixpoint_group)
+        pass_manager.add_fixpoint_group(fixpoint_group)
         ast = pass_manager.run(ast).output
 
     return ast, symbol_table

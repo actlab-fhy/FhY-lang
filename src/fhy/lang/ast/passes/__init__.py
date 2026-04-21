@@ -18,6 +18,7 @@ __all__ = [
     "ReturnValidator",
     "TypeChecker",
     "TypeQualifierValidator",
+    "ConstantFoldingPass",
     "DeadCodeEliminationPass",
     "LivenessAnalysis",
     "LivenessResult",
@@ -26,6 +27,7 @@ __all__ = [
 
 from .ast_to_core_expression_converter import convert_ast_expression_to_core_expression
 from .call_site_validator import CallSiteValidator
+from .constant_folding import ConstantFoldingPass
 from .constant_safety_validator import ConstantSafetyValidator
 from .dead_code_elimination import DeadCodeEliminationPass
 from .definite_assignment import DefiniteAssignmentValidator
