@@ -7,7 +7,6 @@ __all__ = [
 from collections import Counter
 
 from fhy_core import (
-    AnalysisManager,
     AnalysisVisitablePass,
     Identifier,
     Stack,
@@ -121,7 +120,6 @@ class DeadCodeEliminationPass(Transformer):
 
     """
 
-    _analysis_manager: AnalysisManager[Module]
     _symbol_table: SymbolTable
     _namespace_stack: Stack[Identifier]
     _live_out: dict[int, frozenset[Identifier]]
@@ -130,11 +128,9 @@ class DeadCodeEliminationPass(Transformer):
 
     def __init__(
         self,
-        analysis_manager: AnalysisManager[Module],
         symbol_table: SymbolTable,
     ) -> None:
         super().__init__()
-        self._analysis_manager = analysis_manager
         self._symbol_table = symbol_table
         self._live_out = {}
         self._identifier_use_counts = Counter()
@@ -146,7 +142,7 @@ class DeadCodeEliminationPass(Transformer):
                 f"{type(self).__name__} requires a Module input; "
                 f"got {type(ir).__name__}."
             )
-        liveness: LivenessResult = self._analysis_manager.get(LivenessAnalysis, ir)
+        liveness: LivenessResult = self.get_analysis(LivenessAnalysis, ir)
         self._live_out = dict(liveness.live_out)
         self._identifier_use_counts = _count_identifier_occurrences(ir)
         self._removed_count = 0

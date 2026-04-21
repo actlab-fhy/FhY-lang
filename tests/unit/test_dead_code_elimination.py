@@ -17,7 +17,6 @@ from fhy.lang.ast.passes import (
     build_symbol_table,
 )
 from fhy_core import (
-    AnalysisManager,
     FixpointGroupRecord,
     FixpointPassGroup,
     Identifier,
@@ -38,8 +37,7 @@ from .utils import (
 
 def _run_dce(ast: Module) -> Module:
     symbol_table = build_symbol_table(ast)
-    analysis_manager = AnalysisManager[Module]()
-    dce_pass = DeadCodeEliminationPass(analysis_manager, symbol_table)
+    dce_pass = DeadCodeEliminationPass(symbol_table)
     return dce_pass(ast)
 
 
@@ -300,9 +298,7 @@ def test_dce_is_idempotent_in_fixpoint_group(int32):
     symbol_table = build_symbol_table(program_ast)
     pass_manager = PassManager[Module](Identifier("test_dce_fixpoint"))
     fixpoint_group = FixpointPassGroup[Module](name=Identifier("dce_group"))
-    fixpoint_group.add_pass(
-        DeadCodeEliminationPass(pass_manager.analysis_manager, symbol_table)
-    )
+    fixpoint_group.add_pass(DeadCodeEliminationPass(symbol_table))
     pass_manager.add_fixpoint_group(fixpoint_group)
 
     result = pass_manager.run(program_ast)

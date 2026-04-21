@@ -169,7 +169,7 @@ def validate_ast(
         dce_fixpoint_group.add_pass(
             cast(
                 CompilerPass[Module, Module],
-                DeadCodeEliminationPass(pass_manager.analysis_manager, symbol_table),
+                DeadCodeEliminationPass(symbol_table),
             )
         )
         pass_manager.add_fixpoint_group(dce_fixpoint_group)
