@@ -32,6 +32,7 @@ from .passes import (
     IndexDomainValidator,
     OperationValidator,
     ReductionValidator,
+    ReturnValidator,
     TypeChecker,
     TypeQualifierValidator,
     build_symbol_table,
@@ -80,6 +81,7 @@ def build_structural_validation_manager(
     manager.add(_as_module_validator(ReductionValidator(symbol_table)))
     manager.add(_as_module_validator(CallSiteValidator(symbol_table)))
     manager.add(_as_module_validator(OperationValidator()))
+    manager.add(_as_module_validator(ReturnValidator()))
     return manager
 
 

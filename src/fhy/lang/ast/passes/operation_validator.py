@@ -15,31 +15,11 @@ from fhy_core import (
 
 from fhy.lang.ast.node import (
     Argument,
-    ForAllStatement,
     Node,
     Operation,
-    ReturnStatement,
-    SelectionStatement,
-    Statement,
 )
 
 from .utils import format_diagnostic_message
-
-
-def _contains_return_statement(statements: tuple[Statement, ...]) -> bool:
-    for statement in statements:
-        if isinstance(statement, ReturnStatement):
-            return True
-        elif isinstance(statement, ForAllStatement) and _contains_return_statement(
-            statement.body
-        ):
-            return True
-        elif isinstance(statement, SelectionStatement) and (
-            _contains_return_statement(statement.true_body)
-            or _contains_return_statement(statement.false_body)
-        ):
-            return True
-    return False
 
 
 def _is_scalar_numerical(type_: Type) -> bool:
@@ -54,9 +34,11 @@ class OperationValidator(AnalysisVisitablePass[Node]):
     """Validate operation argument and return-type shape constraints.
 
     Every argument and the return type must be a scalar numerical type
-    (shape-free primitive), the return-type qualifier must be OUTPUT, and
-    the body must contain at least one return statement (somewhere on any
-    path).
+    (shape-free primitive), and the return-type qualifier must be OUTPUT.
+
+    Return-statement placement (operations must return on every path,
+    procedures must not return at all) is enforced separately by
+    :class:`~fhy.lang.ast.passes.return_validator.ReturnValidator`.
 
     """
 
@@ -84,17 +66,6 @@ class OperationValidator(AnalysisVisitablePass[Node]):
                     "return type qualifier; got "
                     f"{return_type.type_qualifier.value!r}.",
                     return_type.provenance,
-                ),
-            )
-
-        if not _contains_return_statement(node.body):
-            self.report(
-                DiagnosticLevel.ERROR,
-                format_diagnostic_message(
-                    "structural error",
-                    f"Operation {node.name.name_hint!r} must contain a "
-                    "return statement.",
-                    node.provenance,
                 ),
             )
 

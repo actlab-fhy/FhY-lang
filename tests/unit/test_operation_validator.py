@@ -190,33 +190,6 @@ def test_fails_with_non_output_return_qualifier():
         run_validator(OperationValidator(), program_ast)
 
 
-def test_fails_with_missing_return_statement():
-    """Test failure when an operation body has no return statement."""
-    op = Identifier("op")
-    a = Identifier("a")
-    program_ast = Module(
-        statements=(
-            Operation(
-                name=op,
-                args=(
-                    Argument(
-                        name=a,
-                        qualified_type=_qt(_scalar_int32(), TypeQualifier.INPUT),
-                        provenance=Provenance.unknown(),
-                    ),
-                ),
-                body=(),
-                return_type=_qt(_scalar_int32(), TypeQualifier.OUTPUT),
-                provenance=Provenance.unknown(),
-            ),
-        ),
-        provenance=Provenance.unknown(),
-    )
-
-    with pytest.raises(ValidationFailedError, match="structural error"):
-        run_validator(OperationValidator(), program_ast)
-
-
 def test_procedure_is_not_validated_as_operation():
     """Test that a procedure (with no return, tensor args) is not flagged."""
     main = Identifier("main")

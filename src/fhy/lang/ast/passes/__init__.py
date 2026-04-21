@@ -15,6 +15,7 @@ __all__ = [
     "IndexDomainValidator",
     "OperationValidator",
     "ReductionValidator",
+    "ReturnValidator",
     "TypeChecker",
     "TypeQualifierValidator",
     "DeadCodeEliminationPass",
@@ -37,6 +38,7 @@ from .index_domain_validator import IndexDomainValidator
 from .liveness_analysis import LivenessAnalysis, LivenessResult
 from .operation_validator import OperationValidator
 from .reduction_validator import ReductionValidator
+from .return_validator import ReturnValidator
 from .symbol_table_builder import FhYSymbolTableBuilderError, build_symbol_table
 from .type_checker import TypeChecker
 from .type_qualifier_validator import TypeQualifierValidator
