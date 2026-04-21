@@ -1,16 +1,18 @@
 """Definite-assignment analysis and validation over the FhY AST."""
 
 __all__ = [
-    "validate_definite_assignment",
+    "DefiniteAssignmentValidator",
 ]
 
 from dataclasses import dataclass, field
 
 from fhy_core import (
     CompilerPass,
+    DiagnosticLevel,
     FunctionSymbolTableFrame,
     Identifier,
     SymbolTable,
+    SymbolTableError,
     TypeQualifier,
     register_pass,
 )
@@ -21,7 +23,6 @@ from fhy.lang.ast.cfg import (
     ControlFlowGraph,
     build_cfg,
 )
-from fhy.lang.ast.error import FhYSemanticsError
 from fhy.lang.ast.node import (
     ArrayAccessExpression,
     DeclarationStatement,
@@ -38,6 +39,7 @@ from fhy.lang.ast.node import (
 
 from .identifier_collector import collect_identifiers
 from .liveness_analysis import LivenessAnalysis, LivenessResult
+from .utils import format_diagnostic_message
 
 _FunctionDefinition = Procedure | Operation
 
@@ -88,7 +90,7 @@ def _get_procedure_call_output_writes(
         frame = symbol_table.get_frame_from_namespace(
             namespace, call.function.identifier
         )
-    except Exception:
+    except SymbolTableError:
         return frozenset()
     if not isinstance(frame, FunctionSymbolTableFrame):
         return frozenset()
@@ -241,7 +243,7 @@ def _collect_procedure_call_reads(
         frame = symbol_table.get_frame_from_namespace(
             namespace, call.function.identifier
         )
-    except Exception:
+    except SymbolTableError:
         return collect_identifiers(call)
     reads: set[Identifier] = set()
     if not isinstance(frame, FunctionSymbolTableFrame):
@@ -262,7 +264,7 @@ def _is_qualifier_requiring_definite_assignment(
 
     try:
         frame = symbol_table.get_frame_from_namespace(namespace, identifier)
-    except Exception:
+    except SymbolTableError:
         return False
     if not isinstance(frame, VariableSymbolTableFrame):
         return False
@@ -279,12 +281,15 @@ def _is_qualifier_requiring_definite_assignment(
     "fhy_ast_definite_assignment_validator",
     "Validates definite assignment of OUTPUT arguments and TEMP reads.",
 )
-class _DefiniteAssignmentValidator(CompilerPass[Module, None]):
+class DefiniteAssignmentValidator(CompilerPass[Module, None]):
     """Definite-assignment validator as a standalone compiler pass.
 
     Uses :func:`build_cfg` per function together with the existing
     :class:`LivenessAnalysis` to restrict the use-before-def check to reads
     that are also live (unused reads cannot cause observable violations).
+    Every violation is emitted as an ERROR diagnostic; the pass continues
+    across functions and across reads within the same function so one run
+    surfaces every violation.
 
     """
 
@@ -315,11 +320,15 @@ class _DefiniteAssignmentValidator(CompilerPass[Module, None]):
             if argument.qualified_type.type_qualifier != TypeQualifier.OUTPUT:
                 continue
             if argument.name not in assigned_at_exit:
-                raise FhYSemanticsError(
-                    f"OUTPUT argument {argument.name.name_hint!r} of "
-                    f"{function.name.name_hint!r} is not assigned on every "
-                    "control flow path.",
-                    argument.provenance,
+                self.report(
+                    DiagnosticLevel.ERROR,
+                    format_diagnostic_message(
+                        "semantic error",
+                        f"OUTPUT argument {argument.name.name_hint!r} of "
+                        f"{function.name.name_hint!r} is not assigned on "
+                        "every control flow path.",
+                        argument.provenance,
+                    ),
                 )
 
         # 2. Every read of a TEMP (or OUTPUT-arg-being-read) must be preceded
@@ -345,26 +354,12 @@ class _DefiniteAssignmentValidator(CompilerPass[Module, None]):
                     identifier, self._symbol_table, function.name
                 ):
                     continue
-                raise FhYSemanticsError(
-                    f"Variable {identifier.name_hint!r} may be read before it "
-                    "is assigned.",
-                    node.statement.provenance,
+                self.report(
+                    DiagnosticLevel.ERROR,
+                    format_diagnostic_message(
+                        "semantic error",
+                        f"Variable {identifier.name_hint!r} may be read "
+                        "before it is assigned.",
+                        node.statement.provenance,
+                    ),
                 )
-
-
-def validate_definite_assignment(ast: Module, symbol_table: SymbolTable) -> None:
-    """Check for definite assignment violations in the AST.
-
-    Args:
-        ast: The AST to validate.
-        symbol_table: The symbol table to use.
-
-    Raises:
-        FhYSemanticsError: When an OUTPUT argument is not definitely
-            assigned at function exit or a read may precede its definition
-            on some path. Wrapped in `PassExecutionError` when raised from
-            inside the compiler-pass framework.
-
-    """
-    validator = _DefiniteAssignmentValidator(symbol_table)
-    validator(ast)

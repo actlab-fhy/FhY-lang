@@ -1,7 +1,6 @@
 """Tests for the FhY definite-assignment analysis and validator."""
 
 import pytest
-from fhy.lang import FhYSemanticsError
 from fhy.lang.ast import (
     ExpressionStatement,
     FunctionExpression,
@@ -11,15 +10,15 @@ from fhy.lang.ast import (
 )
 from fhy.lang.ast.cfg import build_cfg
 from fhy.lang.ast.passes import (
+    DefiniteAssignmentValidator,
     build_symbol_table,
-    validate_definite_assignment,
 )
 from fhy.lang.ast.passes.definite_assignment import _compute_definite_assignment
 from fhy_core import (
     Identifier,
-    PassExecutionError,
     Provenance,
     TypeQualifier,
+    ValidationFailedError,
 )
 
 from .utils import (
@@ -28,6 +27,7 @@ from .utils import (
     make_module_with_statement,
     make_procedure,
     make_uninitialized_temp_declaration,
+    run_validator,
 )
 
 
@@ -77,8 +77,8 @@ def test_output_not_assigned_on_all_paths_raises(int32):
     program_ast = make_module_with_statement(procedure_ast)
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
-        validate_definite_assignment(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="semantic error"):
+        run_validator(DefiniteAssignmentValidator(symbol_table), program_ast)
 
 
 def test_output_assigned_on_all_paths_validates(int32):
@@ -96,7 +96,7 @@ def test_output_assigned_on_all_paths_validates(int32):
     symbol_table = build_symbol_table(program_ast)
 
     # Should not raise.
-    validate_definite_assignment(program_ast, symbol_table)
+    run_validator(DefiniteAssignmentValidator(symbol_table), program_ast)
 
 
 def test_use_before_def_on_temp_raises(int32):
@@ -117,8 +117,8 @@ def test_use_before_def_on_temp_raises(int32):
     program_ast = make_module_with_statement(procedure_ast)
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
-        validate_definite_assignment(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="semantic error"):
+        run_validator(DefiniteAssignmentValidator(symbol_table), program_ast)
 
 
 def test_temp_used_after_being_assigned_validates(int32):
@@ -139,7 +139,7 @@ def test_temp_used_after_being_assigned_validates(int32):
     program_ast = make_module_with_statement(procedure_ast)
     symbol_table = build_symbol_table(program_ast)
 
-    validate_definite_assignment(program_ast, symbol_table)
+    run_validator(DefiniteAssignmentValidator(symbol_table), program_ast)
 
 
 def test_procedure_call_with_output_arg_assigns_through(int32):
@@ -188,7 +188,7 @@ def test_procedure_call_with_output_arg_assigns_through(int32):
     symbol_table = build_symbol_table(program_ast)
 
     # Should not raise — b is written by the procedure call.
-    validate_definite_assignment(program_ast, symbol_table)
+    run_validator(DefiniteAssignmentValidator(symbol_table), program_ast)
 
 
 def test_computed_sets_include_intermediate_assignments(int32):

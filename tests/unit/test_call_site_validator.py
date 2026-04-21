@@ -10,8 +10,6 @@ from fhy.lang.ast import (
     BinaryOperation,
     DeclarationStatement,
     ExpressionStatement,
-    FhYSemanticsError,
-    FhYStructuralError,
     FunctionExpression,
     IdentifierExpression,
     IntLiteral,
@@ -22,8 +20,8 @@ from fhy.lang.ast import (
     Statement,
 )
 from fhy.lang.ast.passes import (
+    CallSiteValidator,
     build_symbol_table,
-    validate_call_sites,
 )
 from fhy.lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
 from fhy_core import (
@@ -31,14 +29,16 @@ from fhy_core import (
     IndexType,
     LiteralExpression,
     NumericalType,
-    PassExecutionError,
     Provenance,
     Type,
     TypeQualifier,
+    ValidationFailedError,
 )
 from fhy_core import (
     IdentifierExpression as CoreIdentifierExpression,
 )
+
+from .utils import run_validator
 
 
 def _make_module_ast(statements: Sequence[Statement]) -> Module:
@@ -84,7 +84,7 @@ def test_empty_module(empty_module_ast):
     """Test validation of an empty module."""
     symbol_table = build_symbol_table(empty_module_ast)
 
-    validate_call_sites(empty_module_ast, symbol_table)
+    run_validator(CallSiteValidator(symbol_table), empty_module_ast)
 
 
 def test_valid_operation_call_with_lhs(int32: NumericalType):
@@ -157,7 +157,7 @@ def test_valid_operation_call_with_lhs(int32: NumericalType):
     program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
-    validate_call_sites(program_ast, symbol_table)
+    run_validator(CallSiteValidator(symbol_table), program_ast)
 
 
 def test_valid_procedure_call_without_lhs(int32: NumericalType):
@@ -219,7 +219,7 @@ def test_valid_procedure_call_without_lhs(int32: NumericalType):
     program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
-    validate_call_sites(program_ast, symbol_table)
+    run_validator(CallSiteValidator(symbol_table), program_ast)
 
 
 def test_valid_reduction_call_with_indices(int32: NumericalType):
@@ -305,7 +305,7 @@ def test_valid_reduction_call_with_indices(int32: NumericalType):
     program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
-    validate_call_sites(program_ast, symbol_table)
+    run_validator(CallSiteValidator(symbol_table), program_ast)
 
 
 def test_fails_with_non_identifier_function_expression(int32: NumericalType):
@@ -353,8 +353,8 @@ def test_fails_with_non_identifier_function_expression(int32: NumericalType):
     program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYStructuralError.__name__):
-        validate_call_sites(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="structural error"):
+        run_validator(CallSiteValidator(symbol_table), program_ast)
 
 
 def test_fails_with_non_function_identifier(int32: NumericalType):
@@ -395,8 +395,8 @@ def test_fails_with_non_function_identifier(int32: NumericalType):
     program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
-        validate_call_sites(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="semantic error"):
+        run_validator(CallSiteValidator(symbol_table), program_ast)
 
 
 def test_fails_with_non_reduction_call_having_indices(int32: NumericalType):
@@ -476,8 +476,8 @@ def test_fails_with_non_reduction_call_having_indices(int32: NumericalType):
     program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYStructuralError.__name__):
-        validate_call_sites(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="structural error"):
+        run_validator(CallSiteValidator(symbol_table), program_ast)
 
 
 def test_fails_with_procedure_call_having_lhs(int32: NumericalType):
@@ -549,8 +549,8 @@ def test_fails_with_procedure_call_having_lhs(int32: NumericalType):
     program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYStructuralError.__name__):
-        validate_call_sites(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="structural error"):
+        run_validator(CallSiteValidator(symbol_table), program_ast)
 
 
 def test_fails_with_wrong_number_of_arguments(int32: NumericalType):
@@ -620,8 +620,8 @@ def test_fails_with_wrong_number_of_arguments(int32: NumericalType):
     program_ast = _make_module_ast(module_statements)
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYStructuralError.__name__):
-        validate_call_sites(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="structural error"):
+        run_validator(CallSiteValidator(symbol_table), program_ast)
 
 
 def test_fails_with_procedure_called_in_value_position(int32: NumericalType):
@@ -702,13 +702,13 @@ def test_fails_with_procedure_called_in_value_position(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYStructuralError.__name__):
-        validate_call_sites(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="structural error"):
+        run_validator(CallSiteValidator(symbol_table), program_ast)
 
 
 def test_warns_on_operation_called_as_bare_statement(int32: NumericalType):
     """Test that calling an operation as a bare statement emits a warning."""
-    from fhy.lang.ast.passes.call_site_validator import _CallSiteValidator
+    from fhy.lang.ast.passes.call_site_validator import CallSiteValidator
     from fhy_core import DiagnosticLevel
 
     main = Identifier("main")
@@ -775,7 +775,7 @@ def test_warns_on_operation_called_as_bare_statement(int32: NumericalType):
         provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
-    validator = _CallSiteValidator(symbol_table)
+    validator = CallSiteValidator(symbol_table)
     result = validator.execute(program_ast)
     warnings = [d for d in result.diagnostics if d.level == DiagnosticLevel.WARNING]
     assert len(warnings) == 1

@@ -1,5 +1,7 @@
 """Shared utilities for unit tests."""
 
+from typing import Any, cast
+
 from fhy.lang.ast import (
     Argument,
     DeclarationStatement,
@@ -11,11 +13,39 @@ from fhy.lang.ast import (
     Statement,
 )
 from fhy_core import (
+    CompilerPass,
     Identifier,
     Provenance,
     Type,
     TypeQualifier,
+    ValidationManager,
 )
+
+
+def run_validator(validator: CompilerPass[Any, Any], module: Module) -> None:
+    """Run ``validator`` against ``module`` and raise on ERROR diagnostics.
+
+    Test-only helper that wraps the validator in a single-pass
+    :class:`~fhy_core.pass_infrastructure.ValidationManager` so every
+    "run one validator in isolation" call goes through the same
+    diagnostic-aggregation machinery as the production pipelines in
+    :mod:`fhy.lang.ast.validate`. The cast is always safe at runtime
+    because a :class:`Module` is a :class:`Node`.
+
+    Args:
+        validator: The validator pass to run.
+        module: The AST module to validate.
+
+    Raises:
+        ValidationFailedError: If the validator emitted any ERROR-level
+            diagnostic.
+
+    """
+    manager = ValidationManager[Module](
+        Identifier(f"test::{validator.get_pass_name()}")
+    )
+    manager.add(cast("CompilerPass[Module, Any]", validator))
+    manager.validate(module).raise_if_failed()
 
 
 def make_argument(

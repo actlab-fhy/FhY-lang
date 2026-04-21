@@ -91,10 +91,13 @@ module = [
 ignore_errors = true
 
 [[tool.mypy.overrides]]
+# The parse tree converter calls ANTLR-generated visitor/context methods that
+# have no static types. Rather than adding `# type: ignore` on every call,
+# silence the `no-untyped-call` error code for this module only.
 module = [
    "fhy.lang.converter.from_parse_tree",
 ]
-ignore_errors = true
+disable_error_code = ["no-untyped-call"]
 
 [tool.pylint.main]
 extension-pkg-whitelist = ["antlr4", "networkx"]

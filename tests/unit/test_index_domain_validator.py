@@ -6,9 +6,6 @@ from fhy.lang.ast import (
     ArrayAccessExpression,
     DeclarationStatement,
     ExpressionStatement,
-    FhYSemanticsError,
-    FhYStructuralError,
-    FhYTypeError,
     FloatLiteral,
     IdentifierExpression,
     IntLiteral,
@@ -18,8 +15,8 @@ from fhy.lang.ast import (
     TupleAccessExpression,
 )
 from fhy.lang.ast.passes import (
+    IndexDomainValidator,
     build_symbol_table,
-    validate_index_domains,
 )
 from fhy_core import (
     CoreDataType,
@@ -27,14 +24,16 @@ from fhy_core import (
     IndexType,
     LiteralExpression,
     NumericalType,
-    PassExecutionError,
     PrimitiveDataType,
     Provenance,
     TypeQualifier,
+    ValidationFailedError,
 )
 from fhy_core import (
     IdentifierExpression as CoreIdentifierExpression,
 )
+
+from .utils import run_validator
 
 
 def _make_int32_vector(size_identifier: Identifier) -> NumericalType:
@@ -48,7 +47,7 @@ def test_empty_module(empty_module_ast):
     """Test validation of an empty module."""
     symbol_table = build_symbol_table(empty_module_ast)
 
-    validate_index_domains(empty_module_ast, symbol_table)
+    run_validator(IndexDomainValidator(symbol_table), empty_module_ast)
 
 
 def test_valid_in_bounds_symbolic_access():
@@ -109,7 +108,7 @@ def test_valid_in_bounds_symbolic_access():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_index_domains(program_ast, symbol_table)
+    run_validator(IndexDomainValidator(symbol_table), program_ast)
 
 
 def test_valid_in_bounds_constant_access():
@@ -172,7 +171,7 @@ def test_valid_in_bounds_constant_access():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_index_domains(program_ast, symbol_table)
+    run_validator(IndexDomainValidator(symbol_table), program_ast)
 
 
 def test_fails_with_constant_out_of_bounds_lower():
@@ -235,8 +234,8 @@ def test_fails_with_constant_out_of_bounds_lower():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
-        validate_index_domains(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="semantic error"):
+        run_validator(IndexDomainValidator(symbol_table), program_ast)
 
 
 def test_fails_with_constant_out_of_bounds_upper():
@@ -299,8 +298,8 @@ def test_fails_with_constant_out_of_bounds_upper():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
-        validate_index_domains(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="semantic error"):
+        run_validator(IndexDomainValidator(symbol_table), program_ast)
 
 
 def test_fails_with_symbolic_mismatched_dimension():
@@ -361,8 +360,8 @@ def test_fails_with_symbolic_mismatched_dimension():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
-        validate_index_domains(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="semantic error"):
+        run_validator(IndexDomainValidator(symbol_table), program_ast)
 
 
 def test_valid_scalar_literal_access():
@@ -412,7 +411,7 @@ def test_valid_scalar_literal_access():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_index_domains(program_ast, symbol_table)
+    run_validator(IndexDomainValidator(symbol_table), program_ast)
 
 
 def test_valid_scalar_param_identifier_access():
@@ -472,8 +471,8 @@ def test_valid_scalar_param_identifier_access():
     symbol_table = build_symbol_table(program_ast)
 
     # p is unconstrained, so z3 can find violations (e.g., p = 0 or p > m).
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
-        validate_index_domains(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="semantic error"):
+        run_validator(IndexDomainValidator(symbol_table), program_ast)
 
 
 def test_fails_with_scalar_literal_out_of_bounds():
@@ -523,8 +522,8 @@ def test_fails_with_scalar_literal_out_of_bounds():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
-        validate_index_domains(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="semantic error"):
+        run_validator(IndexDomainValidator(symbol_table), program_ast)
 
 
 def test_fails_with_float_literal_index():
@@ -574,8 +573,8 @@ def test_fails_with_float_literal_index():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYTypeError.__name__):
-        validate_index_domains(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(IndexDomainValidator(symbol_table), program_ast)
 
 
 def test_fails_with_non_param_scalar_index(int32: NumericalType):
@@ -636,8 +635,8 @@ def test_fails_with_non_param_scalar_index(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYTypeError.__name__):
-        validate_index_domains(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(IndexDomainValidator(symbol_table), program_ast)
 
 
 def test_fails_with_non_identifier_array_expression(int32: NumericalType):
@@ -708,8 +707,8 @@ def test_fails_with_non_identifier_array_expression(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match="NotImplementedError"):
-        validate_index_domains(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="structural error"):
+        run_validator(IndexDomainValidator(symbol_table), program_ast)
 
 
 def test_fails_when_array_variable_is_not_numerical():
@@ -772,8 +771,8 @@ def test_fails_when_array_variable_is_not_numerical():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match="RuntimeError"):
-        validate_index_domains(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(IndexDomainValidator(symbol_table), program_ast)
 
 
 def test_fails_with_indices_shape_mismatch():
@@ -838,8 +837,8 @@ def test_fails_with_indices_shape_mismatch():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYStructuralError.__name__):
-        validate_index_domains(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="structural error"):
+        run_validator(IndexDomainValidator(symbol_table), program_ast)
 
 
 def test_fails_with_tuple_access_index():
@@ -896,5 +895,5 @@ def test_fails_with_tuple_access_index():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYTypeError.__name__):
-        validate_index_domains(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(IndexDomainValidator(symbol_table), program_ast)

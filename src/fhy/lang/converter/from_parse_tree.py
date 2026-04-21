@@ -25,7 +25,7 @@ from fhy_core import (
 from fhy.lang import ast
 from fhy.lang.ast.passes import convert_ast_expression_to_core_expression
 from fhy.lang.builtins import BUILTIN_LANG_IDENTIFIERS
-from fhy.lang.parser import FhYParser, FhYVisitor  # type: ignore[import-untyped]
+from fhy.lang.parser import FhYParser, FhYVisitor
 
 from .error import FhYSyntaxError
 
@@ -56,9 +56,11 @@ def _get_source_info(
 def _get_src_pos_msg(span: Span | None) -> str:
     if span is None:
         return ""
-    line, col = span.line, span.column
-    text = f"Lines {line.start}:{col.start} - {line.stop}:{col.stop}"
-    return text
+    start = span.start_position
+    end = span.end_position
+    if start is None or end is None:
+        return ""
+    return f"Lines {start.line}:{start.column} - {end.line}:{end.column}"
 
 
 def _initialize_builtin_identifiers() -> dict[str, Identifier]:
@@ -126,7 +128,7 @@ class ParseTreeConverter(FhYVisitor):
 
         statements: list[ast.Statement] = self.visitScope(ctx.scope())
 
-        return ast.Module(statements=statements, provenance=provenance)
+        return ast.Module(statements=tuple(statements), provenance=provenance)
 
     # =====================
     # STATEMENT VISITORS
@@ -177,9 +179,9 @@ class ParseTreeConverter(FhYVisitor):
 
             return ast.Procedure(
                 name=name,
-                templates=template,
-                args=args,
-                body=body,
+                templates=tuple(template),
+                args=tuple(args),
+                body=tuple(body),
                 provenance=provenance,
             )
 
@@ -194,9 +196,9 @@ class ParseTreeConverter(FhYVisitor):
             return ast.Operation(
                 provenance=provenance,
                 name=name,
-                templates=template,
-                args=args,
-                body=body,
+                templates=tuple(template),
+                args=tuple(args),
+                body=tuple(body),
                 return_type=return_type,
             )
 
@@ -372,7 +374,7 @@ class ParseTreeConverter(FhYVisitor):
         body_ctx: FhYParser.ScopeContext = ctx.scope()
         body: list[ast.Statement] = self.visitScope(body_ctx)
 
-        return ast.ForAllStatement(index=index, body=body, provenance=provenance)
+        return ast.ForAllStatement(index=index, body=tuple(body), provenance=provenance)
 
     def visitReturn_statement(
         self, ctx: FhYParser.Return_statementContext

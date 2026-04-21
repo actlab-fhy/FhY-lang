@@ -10,15 +10,15 @@ optimization pass.
 """
 
 __all__ = [
-    "validate_constant_safety",
+    "ConstantSafetyValidator",
 ]
 
 from fhy_core import (
     AnalysisVisitablePass,
+    DiagnosticLevel,
     register_pass,
 )
 
-from fhy.lang.ast.error import FhYSemanticsError
 from fhy.lang.ast.node import (
     BinaryExpression,
     BinaryOperation,
@@ -26,11 +26,12 @@ from fhy.lang.ast.node import (
     Expression,
     FloatLiteral,
     IntLiteral,
-    Module,
     Node,
     UnaryExpression,
     UnaryOperation,
 )
+
+from .utils import format_diagnostic_message
 
 _ZERO_DIVISOR_OPERATIONS: frozenset[BinaryOperation] = frozenset(
     {
@@ -68,29 +69,20 @@ def _is_literal_zero(expression: Expression) -> bool:
     "fhy_ast_constant_safety_validator",
     "Flags division or modulo by a compile-time literal zero.",
 )
-class _ConstantSafetyValidator(AnalysisVisitablePass[Node]):
+class ConstantSafetyValidator(AnalysisVisitablePass[Node]):
+    """Flag division / floor-division / modulo by a compile-time literal zero."""
+
     def visit_binary_expression(self, node: BinaryExpression) -> None:
         if node.operation not in _ZERO_DIVISOR_OPERATIONS:
             return
         if not _is_literal_zero(node.right):
             return
-        raise FhYSemanticsError(
-            f"Right-hand side of a {node.operation.value!r} operation is a "
-            "compile-time literal zero.",
-            node.provenance,
+        self.report(
+            DiagnosticLevel.ERROR,
+            format_diagnostic_message(
+                "semantic error",
+                f"Right-hand side of a {node.operation.value!r} operation is "
+                "a compile-time literal zero.",
+                node.provenance,
+            ),
         )
-
-
-def validate_constant_safety(module: Module) -> None:
-    """Validate constant-safety properties of the FhY AST.
-
-    Args:
-        module: The module to validate.
-
-    Raises:
-        FhYSemanticsError: When division, floor-division, or modulo has a
-            compile-time literal zero on the right-hand side.
-
-    """
-    validator = _ConstantSafetyValidator()
-    validator(module)

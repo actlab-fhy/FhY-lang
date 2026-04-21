@@ -40,16 +40,16 @@ __all__ = [
     "Visitor",
     "BasePass",
     "Transformer",
-    "FhYSemanticsError",
-    "FhYTypeError",
     "pformat_ast",
     "FhYSymbolTableBuilderError",
-    "FhYStructuralError",
+    "ValidationFailedError",
+    "ValidationReport",
+    "build_semantic_validation_manager",
+    "build_structural_validation_manager",
     "validate_ast",
 ]
 
 
-from .error import FhYSemanticsError, FhYStructuralError, FhYTypeError
 from .node import (
     Argument,
     ArrayAccessExpression,
@@ -92,4 +92,10 @@ from .passes import (
     replace_identifiers,
 )
 from .pprint import pformat_ast
-from .validate import validate_ast
+from .validate import (
+    ValidationFailedError,
+    ValidationReport,
+    build_semantic_validation_manager,
+    build_structural_validation_manager,
+    validate_ast,
+)

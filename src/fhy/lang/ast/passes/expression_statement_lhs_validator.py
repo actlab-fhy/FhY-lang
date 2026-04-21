@@ -1,7 +1,7 @@
 """Validate the left-hand side of expression statements in the AST."""
 
 __all__ = [
-    "validate_expression_statement_lhs",
+    "ExpressionStatementLHSValidator",
 ]
 
 from fhy_core import (
@@ -10,22 +10,31 @@ from fhy_core import (
     register_pass,
 )
 
-from fhy.lang.ast.error import FhYStructuralError
 from fhy.lang.ast.node import (
     ArrayAccessExpression,
     ExpressionStatement,
     FunctionExpression,
     IdentifierExpression,
-    Module,
     Node,
 )
+
+from .utils import format_diagnostic_message
 
 
 @register_pass(
     "fhy_ast_expression_statement_lhs_validator",
     "Validates the left-hand side of expression statements in the AST.",
 )
-class _ExpressionStatementLHSValidator(AnalysisVisitablePass[Node]):
+class ExpressionStatementLHSValidator(AnalysisVisitablePass[Node]):
+    """Validate the shape of expression-statement left-hand sides.
+
+    Emits an ERROR diagnostic when the LHS is an expression form that
+    cannot receive an assignment (e.g., a binary expression, a non-
+    identifier-backed array access). Emits a WARNING when a bare
+    expression statement has no side-effecting right-hand side.
+
+    """
+
     def visit_expression_statement(self, node: ExpressionStatement) -> None:
         if node.left is None:
             if not isinstance(node.right, FunctionExpression):
@@ -43,33 +52,26 @@ class _ExpressionStatementLHSValidator(AnalysisVisitablePass[Node]):
             return
         elif isinstance(node.left, ArrayAccessExpression):
             if not isinstance(node.left.array_expression, IdentifierExpression):
-                raise FhYStructuralError(
-                    "The array expression of an array access expression on the "
-                    "left-hand side of an expression statement must be an "
-                    "identifier expression; got "
-                    f"{type(node.left.array_expression).__name__}.",
-                    node.left.provenance,
+                self.report(
+                    DiagnosticLevel.ERROR,
+                    format_diagnostic_message(
+                        "structural error",
+                        "The array expression of an array access expression "
+                        "on the left-hand side of an expression statement "
+                        "must be an identifier expression; got "
+                        f"{type(node.left.array_expression).__name__}.",
+                        node.left.provenance,
+                    ),
                 )
             return
         else:
-            raise FhYStructuralError(
-                "The left-hand side of an expression statement must be an "
-                "identifier expression or an array access expression; got "
-                f"{type(node.left).__name__}.",
-                node.left.provenance,
+            self.report(
+                DiagnosticLevel.ERROR,
+                format_diagnostic_message(
+                    "structural error",
+                    "The left-hand side of an expression statement must be "
+                    "an identifier expression or an array access expression; "
+                    f"got {type(node.left).__name__}.",
+                    node.left.provenance,
+                ),
             )
-
-
-def validate_expression_statement_lhs(module: Module) -> None:
-    """Validate the left-hand side of expression statements in the AST.
-
-    Args:
-        module: The module to validate.
-
-    Raises:
-        FhYStructuralError: If an expression statement LHS validation
-            error is detected.
-
-    """
-    validator = _ExpressionStatementLHSValidator()
-    validator(module)

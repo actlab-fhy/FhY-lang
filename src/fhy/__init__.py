@@ -41,10 +41,7 @@ __all__ = [
     "build_symbol_table",
     "ASTExpression",
     "ASTStatement",
-    "FhYSemanticsError",
-    "FhYTypeError",
     "FhYSymbolTableBuilderError",
-    "FhYStructuralError",
     "validate_ast",
 ]
 
@@ -77,11 +74,8 @@ from .lang import (
     ASTTupleExpression,
     ASTUnaryExpression,
     ASTUnaryOperation,
-    FhYSemanticsError,
-    FhYStructuralError,
     FhYSymbolTableBuilderError,
     FhYSyntaxError,
-    FhYTypeError,
     build_symbol_table,
     collect_indices,
     collect_reduced_indices,

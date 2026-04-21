@@ -123,11 +123,18 @@ class _CFGBuilder:
             if body_tail is None:
                 # Body always returns; nothing after the loop is reachable.
                 return None
+            # The back-edge from the body tail to the header is always
+            # labeled LOOP_BACK, irrespective of the pending edge kind the
+            # body tail was going to emit into its (non-existent) successor.
             back_pred, _ = body_tail
             self._add_edge(back_pred, header, CFGEdgeKind.LOOP_BACK)
             # FhY forall is bounded and assumed to execute at least once, so
-            # the exit from the loop follows the body's tail rather than
-            # re-using the header directly.
+            # the LOOP_EXIT edge leaving the loop originates at the body
+            # tail rather than the header. This preserves the body's
+            # must-definitions on the path out of the loop — a header-sourced
+            # LOOP_EXIT would model a zero-trip path that FhY's semantics
+            # forbid and would render definite-assignment unsound for
+            # writes inside the body.
             return (back_pred, CFGEdgeKind.LOOP_EXIT)
 
         node = self._new_node(CFGNodeKind.STATEMENT, statement)

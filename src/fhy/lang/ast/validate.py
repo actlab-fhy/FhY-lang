@@ -1,10 +1,14 @@
 """Validate the FhY AST."""
 
 __all__ = [
+    "ValidationFailedError",
+    "ValidationReport",
+    "build_semantic_validation_manager",
+    "build_structural_validation_manager",
     "validate_ast",
 ]
 
-from typing import cast
+from typing import Any, cast
 
 from fhy_core import (
     CompilerPass,
@@ -12,42 +16,100 @@ from fhy_core import (
     Identifier,
     PassManager,
     SymbolTable,
+    ValidationFailedError,
+    ValidationManager,
+    ValidationReport,
 )
 
 from .node import Module
 from .passes import (
+    CallSiteValidator,
+    ConstantSafetyValidator,
     DeadCodeEliminationPass,
+    DefiniteAssignmentValidator,
+    ExpressionStatementLHSValidator,
+    ForAllStatementValidator,
+    IndexDomainValidator,
+    OperationValidator,
+    ReductionValidator,
+    TypeChecker,
+    TypeQualifierValidator,
     build_symbol_table,
-    validate_call_sites,
-    validate_constant_safety,
-    validate_definite_assignment,
-    validate_expression_statement_lhs,
-    validate_for_all_statements,
-    validate_index_domains,
-    validate_operations,
-    validate_reductions,
-    validate_type_qualifiers,
-    validate_types,
 )
 
 
-def _perform_structural_validation(ast: Module, symbol_table: SymbolTable) -> None:
-    validate_expression_statement_lhs(ast)
-    validate_for_all_statements(ast, symbol_table)
-    validate_reductions(ast, symbol_table)
-    validate_call_sites(ast, symbol_table)
-    validate_operations(ast)
+def _as_module_validator(
+    validator: CompilerPass[Any, Any],
+) -> CompilerPass[Module, Any]:
+    """Adapt a ``CompilerPass[Node, ...]`` for a ``ValidationManager[Module]``.
+
+    Most FhY validator passes inherit from ``AnalysisVisitablePass[Node]``,
+    which declares their input as ``Node`` even though at runtime they are
+    always invoked with a :class:`Module`. The :class:`ValidationManager`
+    pipeline is parameterised by the concrete IR type it runs over, so this
+    helper performs the matching type-level narrowing via a single ``cast``
+    — the runtime dispatch is unchanged because ``Module`` is a ``Node``.
+
+    """
+    return cast("CompilerPass[Module, Any]", validator)
 
 
-def _perform_type_checking(ast: Module, symbol_table: SymbolTable) -> None:
-    validate_type_qualifiers(ast, symbol_table)
-    validate_types(ast, symbol_table)
+def build_structural_validation_manager(
+    symbol_table: SymbolTable,
+) -> ValidationManager[Module]:
+    """Build the structural-validation pipeline.
+
+    Structural validators enforce the invariants every subsequent pass
+    assumes: every assignment has a sensible LHS, every forall and
+    reduction has well-formed index expressions, every call site resolves,
+    and operations have scalar argument / return shapes. These passes run
+    before any type- or semantic-level analysis — if they fail, later
+    passes would likely crash or produce spurious diagnostics.
+
+    Args:
+        symbol_table: The symbol table built for the module.
+
+    Returns:
+        A :class:`ValidationManager` pre-populated with the structural
+        validators in a stable execution order.
+
+    """
+    manager = ValidationManager[Module](Identifier("fhy_ast_structural_validation"))
+    manager.add(_as_module_validator(ExpressionStatementLHSValidator()))
+    manager.add(_as_module_validator(ForAllStatementValidator(symbol_table)))
+    manager.add(_as_module_validator(ReductionValidator(symbol_table)))
+    manager.add(_as_module_validator(CallSiteValidator(symbol_table)))
+    manager.add(_as_module_validator(OperationValidator()))
+    return manager
 
 
-def _perform_semantic_validation(ast: Module, symbol_table: SymbolTable) -> None:
-    validate_index_domains(ast, symbol_table)
-    validate_definite_assignment(ast, symbol_table)
-    validate_constant_safety(ast)
+def build_semantic_validation_manager(
+    symbol_table: SymbolTable,
+) -> ValidationManager[Module]:
+    """Build the type + semantic validation pipeline.
+
+    These passes rely on the structural invariants above. Running them on
+    a structurally ill-formed module would at best produce cascaded /
+    confusing diagnostics and at worst raise from within the pass. We
+    therefore only invoke this manager after the structural manager has
+    completed without ERROR diagnostics.
+
+    Args:
+        symbol_table: The symbol table built for the module.
+
+    Returns:
+        A :class:`ValidationManager` pre-populated with the type checker,
+        qualifier validator, index-domain validator, definite-assignment
+        validator, and constant-safety validator, in a stable order.
+
+    """
+    manager = ValidationManager[Module](Identifier("fhy_ast_semantic_validation"))
+    manager.add(_as_module_validator(TypeQualifierValidator(symbol_table)))
+    manager.add(_as_module_validator(TypeChecker(symbol_table)))
+    manager.add(_as_module_validator(IndexDomainValidator(symbol_table)))
+    manager.add(_as_module_validator(DefiniteAssignmentValidator(symbol_table)))
+    manager.add(_as_module_validator(ConstantSafetyValidator()))
+    return manager
 
 
 def validate_ast(
@@ -55,242 +117,27 @@ def validate_ast(
 ) -> tuple[Module, SymbolTable]:
     """Validate the FhY AST.
 
-    High-level steps (not completely disparate):
-        1. Symbol table construction
-        2. Structural validation
-        3. Type checking
-        4. Semantic validation
-        5. Optimization (optional)
+    High-level steps:
+        1. Symbol table construction.
+        2. Structural validation (via a :class:`ValidationManager`).
+        3. Semantic validation (via a second :class:`ValidationManager`),
+           run only if step 2 produced no ERROR diagnostics.
+        4. Optional optimization (DCE fixpoint).
 
-    Each check below is tagged as either [IMPLEMENTED] or [NOT IMPLEMENTED].
-    When implemented, the pass enforcing the check is named in brackets; when
-    not, a brief sketch of the enforcement approach is given so it can be
-    picked up later.
+    Validators report diagnostics through ``CompilerPass.report(...)`` and
+    never raise directly. After each :class:`ValidationManager` runs, we
+    call :meth:`ValidationReport.raise_if_failed` to convert any
+    accumulated ERROR diagnostics into a single :class:`ValidationFailedError`
+    whose message is the aggregated report. Warnings and info diagnostics
+    from passes that completed without errors are preserved but do not
+    stop compilation.
 
-    Symbol table construction:
-        [IMPLEMENTED] (build_symbol_table)
-            - Throws an error if a symbol is already defined.
-
-    Structural validation:
-        1. Expression statement LHS validation [IMPLEMENTED]
-           (validate_expression_statement_lhs)
-            - [IMPLEMENTED] Any expression other than an array access
-              expression or an identifier expression on the LHS is invalid.
-            - [IMPLEMENTED] The array expression of an array-access LHS must
-              be an identifier expression.
-            - [IMPLEMENTED] An `ExpressionStatement` with `left is None`
-              must have its `right` be a `FunctionExpression` (otherwise the
-              statement has no effect). Generates a warning.
-        2. For-all statement validation [IMPLEMENTED]
-           (validate_for_all_statements)
-            - [IMPLEMENTED] Index expression is an identifier expression.
-            - [IMPLEMENTED] The identifier resolves to an index variable via
-              the symbol table.
-        3. Reduction validation [IMPLEMENTED] (validate_reductions)
-            - [IMPLEMENTED] Indices passed to a reduction are identifier
-              expressions resolving to index variables.
-            - [IMPLEMENTED] A reduction is passed exactly one argument.
-            - [IMPLEMENTED] Indices are distinct.
-            - [IMPLEMENTED] Indices are used within the reduction argument.
-        4. Call-site validation [IMPLEMENTED] (validate_call_sites)
-            - [IMPLEMENTED] The function name is an identifier expression.
-            - [IMPLEMENTED] The identifier resolves to a function frame
-              (user function or builtin import) via the symbol table.
-            - [IMPLEMENTED] The function call has the correct number of
-              arguments (for user-defined functions).
-            - [IMPLEMENTED] Non-reduction functions do not receive indices.
-            - [IMPLEMENTED] A procedure is not called with a left-hand side
-              expression.
-            - [IMPLEMENTED] A procedure is not called in a value /
-              expression position (e.g., inside a `BinaryExpression` or a
-              `TernaryExpression` branch).
-            - [IMPLEMENTED] Calling an operation as a bare statement
-              (no LHS) discards its return value. Generates a warning.
-        5. Operation validation [IMPLEMENTED] (validate_operations)
-            - [IMPLEMENTED] The operation's arguments must all be scalars.
-            - [IMPLEMENTED] The operation's return type must be a scalar OUTPUT.
-            - [IMPLEMENTED] The operation's body must contain a return statement.
-        6. Control-flow validation [NOT IMPLEMENTED]
-            - [NOT IMPLEMENTED] Every execution path through an `Operation`
-              body must reach a `ReturnStatement`. Fires on `Operation.body`
-              (including `SelectionStatement` and `ForAllStatement` bodies).
-              Needs a CFG / structured-reachability walk.
-            - [NOT IMPLEMENTED] A `Procedure.body` must not contain a
-              `ReturnStatement`. Trivial visitor scan.
-            - [NOT IMPLEMENTED] Flag unreachable statements after a
-              `ReturnStatement` in any body (low priority; disjoint from the
-              dead-code elimination optimization pass).
-            - [NOT IMPLEMENTED] Detect direct and indirect recursion: a
-              function whose body transitively calls itself. Fires on
-              `FunctionExpression.function.identifier`. Needs a call graph
-              built from resolved `FunctionSymbolTableFrame` entries +
-              SCC detection.
-
-    Type checking:
-        1. Qualifier validation [IMPLEMENTED] (validate_type_qualifiers)
-            - [IMPLEMENTED] INPUTs only defined in argument lists and are
-              read-only (cannot be assigned to).
-            - [IMPLEMENTED] TEMPs only defined in declaration statements.
-            - [IMPLEMENTED] OUTPUTs only defined in argument lists or return
-              types.
-            - [IMPLEMENTED] PARAMs are compile-time constants (cannot be
-              assigned to).
-            - [NOT IMPLEMENTED] `Native.args` qualifier restrictions are
-              handled by the shared `visit_argument` in this pass; add a
-              focused test to lock in that behaviour.
-        2. Type checking [IMPLEMENTED] (validate_types)
-            - [IMPLEMENTED] Expression statement LHS and RHS types are
-              compatible (structural element-type match with primitive
-              data-type promotion, matching free-index sets).
-            - [IMPLEMENTED] Declaration-statement initializer types match
-              the declared type.
-            - [IMPLEMENTED] Return-statement expression types match the
-              operation's declared return type.
-            - [IMPLEMENTED] Ternary-branch and binary-operand types promote
-              to a common primitive data type with matching shapes.
-            - [NOT IMPLEMENTED] `UnaryExpression` operator constraints: `!`
-              (logical not) requires a bool-convention value; `~` (bitwise
-              not) must reject floats/complex data types. Add operator-
-              aware dispatch in `_infer_type`.
-            - [NOT IMPLEMENTED] `TupleAccessExpression.element_index` must
-              be a non-negative `IntLiteral` strictly less than the arity
-              of the `tuple_expression`'s `TupleType`. Extend `_infer_type`.
-            - [NOT IMPLEMENTED] Selection/ternary condition must be a
-              scalar bool-convention value (once the bool convention is
-              canonical). Extend `_infer_ternary` / add a selection check.
-            - [NOT IMPLEMENTED] `Procedure.templates` / `Operation.templates`
-              parameters must be uniquely named and actually referenced in
-              the signature or body's `TemplateDataType` nodes. Collect
-              declared templates, walk the function body, error on
-              unreferenced or re-defined templates.
-            - [NOT IMPLEMENTED] Shape-dimension identifier coherence: the
-              same shape identifier used in multiple argument types must
-              refer to the same symbol-table entry with identical bounds.
-
-    Semantic validation:
-        1. Index-domain validation [IMPLEMENTED] (validate_index_domains)
-            - [IMPLEMENTED] Number of indices matches the array's
-              dimensionality.
-            - [IMPLEMENTED] Each index is either an `IndexType` variable or
-              a scalar unsigned-integer `PARAM` expression.
-            - [IMPLEMENTED] Each array access is within the array's bounds
-              (universally, via a z3 check on `lower >= 1 AND upper <= dim`).
-            - [NOT IMPLEMENTED] Tuple-access bounds — see tuple rule above.
-        2. Definite assignment [IMPLEMENTED] (validate_definite_assignment)
-            - [IMPLEMENTED] Every `OUTPUT` argument is assigned on every
-              control-flow path before the function returns. Uses a forward
-              MUST dataflow over the function's CFG (`fhy.lang.ast.cfg`)
-              with intersection at merge points.
-            - [IMPLEMENTED] Every read of a `TEMP` (or `OUTPUT`-as-read)
-              must be preceded by a definite assignment on every incoming
-              path. The check is scoped to identifiers that are also in
-              `LivenessAnalysis.live_in` so unused reads do not produce
-              false positives.
-            - [NOT IMPLEMENTED] Per-element array-write tracking: the
-              analysis treats `b[i] = ...` as fully defining `b` to
-              accommodate idiomatic per-element initialization in a
-              `ForAllStatement`. A precise per-index analysis would need
-              symbolic-index reasoning (integrating with the z3 checker
-              used for index-domain validation).
-        3. Constant safety [IMPLEMENTED] (validate_constant_safety)
-            - [IMPLEMENTED] Division / floor-division / modulo by a
-              compile-time literal zero. Structural check over
-              `BinaryExpression(DIVISION | FLOORDIV | MODULO, _, <zero>)`
-              where `<zero>` is `IntLiteral(0)`, `FloatLiteral(0.0)`,
-              `ComplexLiteral(0+0j)`, or any chain of `UnaryOperation.NEGATION`
-              over those.
-            - [NOT IMPLEMENTED] Constant folding-driven zero detection
-              (e.g. `x / (1 - 1)`). Belongs to a follow-up constant
-              folding pass that rewrites literal-operand
-              `BinaryExpression` / `UnaryExpression` nodes — once folded,
-              this pass catches the resulting literal zero naturally.
-
-    Fixpoint group:
-        1. Constant folding [NOT IMPLEMENTED]
-            - [NOT IMPLEMENTED] Fold `BinaryExpression` and `UnaryExpression`
-              nodes whose operands are all `IntLiteral` / `FloatLiteral` /
-              `ComplexLiteral` into a single literal of the promoted
-              primitive data type. Pure `Transformer` pass — reuse
-              `promote_primitive_data_types` / `promote_core_data_types`
-              from fhy_core to pick the result type. Place in the DCE
-              fixpoint group so folded expressions create fresh dead code.
-        2. Algebraic simplification [NOT IMPLEMENTED]
-            - [NOT IMPLEMENTED] Pattern-match identity / absorbing cases on
-              `BinaryExpression`: `x + 0 -> x`, `0 + x -> x`, `x - 0 -> x`,
-              `x * 1 -> x`, `1 * x -> x`, `x * 0 -> 0` (only when `x` is
-              side-effect-free), `x / 1 -> x`, `x ** 1 -> x`, `x || true
-              -> true`, `x && false -> false`. Also collapse `UnaryExpression`
-              pairs (`!!x -> x`, `~~x -> x`, `--x -> x`). Pure `Transformer`
-              pass; depends on constant folding to normalize literals first.
-        3. Unreachable code elimination [NOT IMPLEMENTED]
-            - [NOT IMPLEMENTED] Collapse `SelectionStatement` whose
-              condition folds to a literal bool: replace with the taken
-              body. Drop statements that follow a `ReturnStatement` in the
-              same block.
-        4. Dead code elimination [IMPLEMENTED] (DeadCodeEliminationPass)
-            - [IMPLEMENTED] Removes `ExpressionStatement`s that assign to a
-              TEMP identifier target whose value is not in the statement's
-              live-out set and whose RHS has no function calls.
-            - [IMPLEMENTED] Removes initialized TEMP `DeclarationStatement`s
-              under the same liveness / side-effect conditions.
-            - [IMPLEMENTED] Removes uninitialized TEMP `DeclarationStatement`s
-              whose variable is not in the declaration's live-out set.
-            - [NOT IMPLEMENTED] Remove `ExpressionStatement`s with an
-              `ArrayAccessExpression` LHS when the array is a TEMP and the
-              written element is provably not in live-out (requires
-              per-element / per-index liveness, not just per-variable).
-
-    Other optimizations:
-        1. Strength reduction [NOT IMPLEMENTED]
-            - [NOT IMPLEMENTED] Rewrite integer `BinaryExpression`s to
-              cheaper equivalents: `x * 2**k -> x << k`, `x / 2**k -> x >> k`
-              (signed-right-shift caveat), `x % 2**k -> x & (2**k - 1)` for
-              unsigned. Check the LHS operand's `CoreDataType` via the
-              symbol table; restrict to integer data types.
-        2. Canonicalization [NOT IMPLEMENTED]
-            - [NOT IMPLEMENTED] For commutative `BinaryOperation`s
-              (`+`, `*`, `&`, `|`, `^`, `==`, `!=`, `&&`, `||`), move
-              literal operands to the right and sort identifier operands
-              by identifier id. Normalize `FunctionExpression.indices`
-              within reductions by sorted index id. Enables CSE and
-              cheaper structural equivalence.
-        3. Copy / constant propagation [NOT IMPLEMENTED]
-            - [NOT IMPLEMENTED] Build a forward "reaching definitions"
-              `Analysis` (analogous to `LivenessAnalysis`, same block /
-              selection / for-all handling) that maps every
-              `IdentifierExpression` use to the set of possibly-reaching
-              `ExpressionStatement` / `DeclarationStatement` definitions.
-              When a use has exactly one reaching definition whose RHS is
-              an `IdentifierExpression` or a literal, rewrite the use via
-              a `Transformer`. Place in the DCE fixpoint group — the
-              propagation creates more dead stores for DCE to drop.
-        4. Common subexpression elimination [NOT IMPLEMENTED]
-            - [NOT IMPLEMENTED] Per straight-line block, hash pure
-              sub-expressions (reuse the existing `_FunctionCallFinder`
-              side-effect check from DCE); on the second occurrence,
-              introduce a synthesized TEMP `DeclarationStatement` +
-              `ExpressionStatement` before the first use and substitute
-              the TEMP at every occurrence. Benefits greatly from
-              canonicalization running first.
-        5. Loop-invariant code motion [NOT IMPLEMENTED]
-            - [NOT IMPLEMENTED] For each `ForAllStatement`, identify
-              sub-expressions whose free identifiers do not intersect the
-              loop index (and any variables written inside the body).
-              `IdentifierCollector` already provides the free-identifier
-              walk; combine with a "written-in-body" set derived from
-              `LivenessAnalysis`'s `def` logic. Hoist invariant
-              sub-expressions into fresh TEMP declarations immediately
-              preceding the loop.
-       6. Operation inlining [NOT IMPLEMENTED]
-            - [NOT IMPLEMENTED] At each `FunctionExpression` whose target
-              resolves to an `Operation` (guaranteed pure by the qualifier
-              validator's `OUTPUT`-return-type rule), substitute the
-              callee body at the call site: alpha-rename declarations via
-              `IdentifierReplacer`, map callee arguments to actual
-              expressions, and replace the call with the renamed return
-              expression. Size-threshold and recursion check (see the
-              call-graph item under Control-flow validation) gate the
-              rewrite.
+    The structural manager intentionally runs on its own: its validators
+    establish the invariants (well-formed LHS, well-formed calls, etc.)
+    that the semantic validators rely on, so running the semantic manager
+    on a structurally invalid AST would produce misleading cascaded
+    diagnostics (or outright crashes inside a pass). If the structural
+    manager reports errors, compilation stops there.
 
     Args:
         ast: The FhY AST to validate.
@@ -300,13 +147,17 @@ def validate_ast(
         A tuple containing the validated AST and the symbol table.
 
     Raises:
-        Exception: If the FhY AST is invalid.
+        ValidationFailedError: If any ERROR diagnostic was emitted by
+            either the structural or semantic validation pipeline.
 
     """
     symbol_table = build_symbol_table(ast)
-    _perform_structural_validation(ast, symbol_table)
-    _perform_type_checking(ast, symbol_table)
-    _perform_semantic_validation(ast, symbol_table)
+
+    structural_report = build_structural_validation_manager(symbol_table).validate(ast)
+    structural_report.raise_if_failed()
+
+    semantic_report = build_semantic_validation_manager(symbol_table).validate(ast)
+    semantic_report.raise_if_failed()
 
     if perform_optimizations:
         pass_manager = PassManager[Module](Identifier("fhy_ast_pass_manager"))

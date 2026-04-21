@@ -3,8 +3,6 @@
 import pytest
 from fhy.lang.ast import (
     Argument,
-    FhYStructuralError,
-    FhYTypeError,
     IdentifierExpression,
     IntLiteral,
     Module,
@@ -13,19 +11,21 @@ from fhy.lang.ast import (
     QualifiedType,
     ReturnStatement,
 )
-from fhy.lang.ast.passes import validate_operations
+from fhy.lang.ast.passes import OperationValidator
 from fhy_core import (
     CoreDataType,
     Identifier,
     NumericalType,
-    PassExecutionError,
     PrimitiveDataType,
     Provenance,
     TypeQualifier,
+    ValidationFailedError,
 )
 from fhy_core import (
     IdentifierExpression as CoreIdentifierExpression,
 )
+
+from .utils import run_validator
 
 
 def _qt(type_, qualifier: TypeQualifier) -> QualifiedType:
@@ -44,7 +44,7 @@ def test_empty_program():
     """Test validation of an empty program."""
     program_ast = Module(provenance=Provenance.unknown())
 
-    validate_operations(program_ast)
+    run_validator(OperationValidator(), program_ast)
 
 
 def test_valid_scalar_operation():
@@ -77,7 +77,7 @@ def test_valid_scalar_operation():
         provenance=Provenance.unknown(),
     )
 
-    validate_operations(program_ast)
+    run_validator(OperationValidator(), program_ast)
 
 
 def test_fails_with_non_scalar_argument():
@@ -113,8 +113,8 @@ def test_fails_with_non_scalar_argument():
         provenance=Provenance.unknown(),
     )
 
-    with pytest.raises(PassExecutionError, match=FhYTypeError.__name__):
-        validate_operations(program_ast)
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(OperationValidator(), program_ast)
 
 
 def test_fails_with_non_scalar_return_type():
@@ -152,8 +152,8 @@ def test_fails_with_non_scalar_return_type():
         provenance=Provenance.unknown(),
     )
 
-    with pytest.raises(PassExecutionError, match=FhYTypeError.__name__):
-        validate_operations(program_ast)
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(OperationValidator(), program_ast)
 
 
 def test_fails_with_non_output_return_qualifier():
@@ -186,8 +186,8 @@ def test_fails_with_non_output_return_qualifier():
         provenance=Provenance.unknown(),
     )
 
-    with pytest.raises(PassExecutionError, match=FhYTypeError.__name__):
-        validate_operations(program_ast)
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(OperationValidator(), program_ast)
 
 
 def test_fails_with_missing_return_statement():
@@ -213,8 +213,8 @@ def test_fails_with_missing_return_statement():
         provenance=Provenance.unknown(),
     )
 
-    with pytest.raises(PassExecutionError, match=FhYStructuralError.__name__):
-        validate_operations(program_ast)
+    with pytest.raises(ValidationFailedError, match="structural error"):
+        run_validator(OperationValidator(), program_ast)
 
 
 def test_procedure_is_not_validated_as_operation():
@@ -244,4 +244,4 @@ def test_procedure_is_not_validated_as_operation():
         provenance=Provenance.unknown(),
     )
 
-    validate_operations(program_ast)
+    run_validator(OperationValidator(), program_ast)

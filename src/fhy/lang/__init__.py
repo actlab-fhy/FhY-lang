@@ -36,10 +36,7 @@ __all__ = [
     "pformat_ast",
     "ASTExpression",
     "ASTStatement",
-    "FhYSemanticsError",
     "FhYSymbolTableBuilderError",
-    "FhYTypeError",
-    "FhYStructuralError",
     "validate_ast",
 ]
 
@@ -52,10 +49,7 @@ from .ast import DeclarationStatement as ASTDeclarationStatement
 from .ast import Expression as ASTExpression
 from .ast import ExpressionStatement as ASTExpressionStatement
 from .ast import (
-    FhYSemanticsError,
-    FhYStructuralError,
     FhYSymbolTableBuilderError,
-    FhYTypeError,
     build_symbol_table,
     collect_indices,
     collect_reduced_indices,

@@ -3,8 +3,6 @@
 import pytest
 from fhy.lang.ast import (
     DeclarationStatement,
-    FhYStructuralError,
-    FhYTypeError,
     ForAllStatement,
     IdentifierExpression,
     IntLiteral,
@@ -13,18 +11,20 @@ from fhy.lang.ast import (
     QualifiedType,
 )
 from fhy.lang.ast.passes import (
+    ForAllStatementValidator,
     build_symbol_table,
-    validate_for_all_statements,
 )
 from fhy_core import (
     Identifier,
     IndexType,
     LiteralExpression,
     NumericalType,
-    PassExecutionError,
     Provenance,
     TypeQualifier,
+    ValidationFailedError,
 )
+
+from .utils import run_validator
 
 
 @pytest.fixture
@@ -40,7 +40,7 @@ def test_empty_module(empty_module_ast):
     """Test validation of an empty module."""
     symbol_table = build_symbol_table(empty_module_ast)
 
-    validate_for_all_statements(empty_module_ast, symbol_table)
+    run_validator(ForAllStatementValidator(symbol_table), empty_module_ast)
 
 
 def test_valid_for_all_with_index_variable(dummy_index_type: IndexType):
@@ -77,7 +77,7 @@ def test_valid_for_all_with_index_variable(dummy_index_type: IndexType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_for_all_statements(program_ast, symbol_table)
+    run_validator(ForAllStatementValidator(symbol_table), program_ast)
 
 
 def test_fails_with_non_identifier_index(int32: NumericalType):
@@ -102,8 +102,8 @@ def test_fails_with_non_identifier_index(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYStructuralError.__name__):
-        validate_for_all_statements(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="structural error"):
+        run_validator(ForAllStatementValidator(symbol_table), program_ast)
 
 
 def test_fails_with_non_index_variable(int32: NumericalType):
@@ -140,8 +140,8 @@ def test_fails_with_non_index_variable(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYTypeError.__name__):
-        validate_for_all_statements(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(ForAllStatementValidator(symbol_table), program_ast)
 
 
 def test_valid_nested_for_all_statements(dummy_index_type: IndexType):
@@ -198,4 +198,4 @@ def test_valid_nested_for_all_statements(dummy_index_type: IndexType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_for_all_statements(program_ast, symbol_table)
+    run_validator(ForAllStatementValidator(symbol_table), program_ast)

@@ -8,7 +8,6 @@ from fhy.lang.ast import (
     BinaryOperation,
     DeclarationStatement,
     ExpressionStatement,
-    FhYStructuralError,
     IdentifierExpression,
     IntLiteral,
     Module,
@@ -16,20 +15,22 @@ from fhy.lang.ast import (
     QualifiedType,
 )
 from fhy.lang.ast.passes import (
-    validate_expression_statement_lhs,
+    ExpressionStatementLHSValidator,
 )
 from fhy_core import (
     Identifier,
     NumericalType,
-    PassExecutionError,
     Provenance,
     TypeQualifier,
+    ValidationFailedError,
 )
+
+from .utils import run_validator
 
 
 def test_empty_module(empty_module_ast):
     """Test validation of an empty module."""
-    validate_expression_statement_lhs(empty_module_ast)
+    run_validator(ExpressionStatementLHSValidator(), empty_module_ast)
 
 
 def test_valid_identifier_lhs(int32: NumericalType):
@@ -77,7 +78,7 @@ def test_valid_identifier_lhs(int32: NumericalType):
         provenance=Provenance.unknown(),
     )
 
-    validate_expression_statement_lhs(program_ast)
+    run_validator(ExpressionStatementLHSValidator(), program_ast)
 
 
 def test_valid_array_access_lhs(int32: NumericalType):
@@ -131,7 +132,7 @@ def test_valid_array_access_lhs(int32: NumericalType):
         provenance=Provenance.unknown(),
     )
 
-    validate_expression_statement_lhs(program_ast)
+    run_validator(ExpressionStatementLHSValidator(), program_ast)
 
 
 def test_valid_no_lhs(int32: NumericalType):
@@ -168,7 +169,7 @@ def test_valid_no_lhs(int32: NumericalType):
         provenance=Provenance.unknown(),
     )
 
-    validate_expression_statement_lhs(program_ast)
+    run_validator(ExpressionStatementLHSValidator(), program_ast)
 
 
 def test_fails_with_binary_expression_lhs(int32: NumericalType):
@@ -212,10 +213,10 @@ def test_fails_with_binary_expression_lhs(int32: NumericalType):
     )
 
     with pytest.raises(
-        PassExecutionError,
-        match=FhYStructuralError.__name__,
+        ValidationFailedError,
+        match="structural error",
     ):
-        validate_expression_statement_lhs(program_ast)
+        run_validator(ExpressionStatementLHSValidator(), program_ast)
 
 
 def test_fails_with_literal_lhs(int32: NumericalType):
@@ -252,10 +253,10 @@ def test_fails_with_literal_lhs(int32: NumericalType):
     )
 
     with pytest.raises(
-        PassExecutionError,
-        match=FhYStructuralError.__name__,
+        ValidationFailedError,
+        match="structural error",
     ):
-        validate_expression_statement_lhs(program_ast)
+        run_validator(ExpressionStatementLHSValidator(), program_ast)
 
 
 def test_fails_with_array_access_on_non_identifier(int32: NumericalType):
@@ -310,10 +311,10 @@ def test_fails_with_array_access_on_non_identifier(int32: NumericalType):
     )
 
     with pytest.raises(
-        PassExecutionError,
-        match=FhYStructuralError.__name__,
+        ValidationFailedError,
+        match="structural error",
     ):
-        validate_expression_statement_lhs(program_ast)
+        run_validator(ExpressionStatementLHSValidator(), program_ast)
 
 
 def test_fails_with_nested_array_access_lhs(int32: NumericalType):
@@ -368,16 +369,16 @@ def test_fails_with_nested_array_access_lhs(int32: NumericalType):
     )
 
     with pytest.raises(
-        PassExecutionError,
-        match=FhYStructuralError.__name__,
+        ValidationFailedError,
+        match="structural error",
     ):
-        validate_expression_statement_lhs(program_ast)
+        run_validator(ExpressionStatementLHSValidator(), program_ast)
 
 
 def test_warns_on_bare_value_expression_statement(int32: NumericalType):
     """Test that an expression statement with no LHS and a non-call RHS warns."""
     from fhy.lang.ast.passes.expression_statement_lhs_validator import (
-        _ExpressionStatementLHSValidator,
+        ExpressionStatementLHSValidator,
     )
     from fhy_core import DiagnosticLevel
 
@@ -399,7 +400,7 @@ def test_warns_on_bare_value_expression_statement(int32: NumericalType):
         ),
         provenance=Provenance.unknown(),
     )
-    validator = _ExpressionStatementLHSValidator()
+    validator = ExpressionStatementLHSValidator()
     result = validator.execute(program_ast)
     warnings = [d for d in result.diagnostics if d.level == DiagnosticLevel.WARNING]
     assert len(warnings) == 1
@@ -410,7 +411,7 @@ def test_does_not_warn_on_function_call_statement(int32: NumericalType):
     """Test that a bare function-call expression statement does not warn."""
     from fhy.lang.ast import FunctionExpression
     from fhy.lang.ast.passes.expression_statement_lhs_validator import (
-        _ExpressionStatementLHSValidator,
+        ExpressionStatementLHSValidator,
     )
     from fhy_core import DiagnosticLevel
 
@@ -440,7 +441,7 @@ def test_does_not_warn_on_function_call_statement(int32: NumericalType):
         ),
         provenance=Provenance.unknown(),
     )
-    validator = _ExpressionStatementLHSValidator()
+    validator = ExpressionStatementLHSValidator()
     result = validator.execute(program_ast)
     warnings = [d for d in result.diagnostics if d.level == DiagnosticLevel.WARNING]
     assert warnings == []

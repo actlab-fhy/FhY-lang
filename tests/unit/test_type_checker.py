@@ -8,7 +8,6 @@ from fhy.lang.ast import (
     BinaryOperation,
     DeclarationStatement,
     ExpressionStatement,
-    FhYTypeError,
     ForAllStatement,
     FunctionExpression,
     IdentifierExpression,
@@ -20,7 +19,7 @@ from fhy.lang.ast import (
     ReturnStatement,
     TernaryExpression,
 )
-from fhy.lang.ast.passes import build_symbol_table, validate_types
+from fhy.lang.ast.passes import TypeChecker, build_symbol_table
 from fhy.lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
 from fhy_core import (
     CoreDataType,
@@ -28,14 +27,16 @@ from fhy_core import (
     IndexType,
     LiteralExpression,
     NumericalType,
-    PassExecutionError,
     PrimitiveDataType,
     Provenance,
     TypeQualifier,
+    ValidationFailedError,
 )
 from fhy_core import (
     IdentifierExpression as CoreIdentifierExpression,
 )
+
+from .utils import run_validator
 
 
 def _make_int32_type(shape=()) -> NumericalType:
@@ -50,7 +51,7 @@ def test_empty_module(empty_module_ast):
     """Test validation of an empty program."""
     symbol_table = build_symbol_table(empty_module_ast)
 
-    validate_types(empty_module_ast, symbol_table)
+    run_validator(TypeChecker(symbol_table), empty_module_ast)
 
 
 def test_valid_matmul_like_reduction():
@@ -228,7 +229,7 @@ def test_valid_matmul_like_reduction():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_types(program_ast, symbol_table)
+    run_validator(TypeChecker(symbol_table), program_ast)
 
 
 def test_valid_forall_binds_index():
@@ -344,7 +345,7 @@ def test_valid_forall_binds_index():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_types(program_ast, symbol_table)
+    run_validator(TypeChecker(symbol_table), program_ast)
 
 
 def test_valid_operation_return_type():
@@ -386,7 +387,7 @@ def test_valid_operation_return_type():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_types(program_ast, symbol_table)
+    run_validator(TypeChecker(symbol_table), program_ast)
 
 
 def test_valid_operation_call_assignment():
@@ -474,7 +475,7 @@ def test_valid_operation_call_assignment():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_types(program_ast, symbol_table)
+    run_validator(TypeChecker(symbol_table), program_ast)
 
 
 def test_valid_operation_call_with_indexed_argument():
@@ -577,7 +578,7 @@ def test_valid_operation_call_with_indexed_argument():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_types(program_ast, symbol_table)
+    run_validator(TypeChecker(symbol_table), program_ast)
 
 
 def test_fails_on_element_type_mismatch():
@@ -626,8 +627,8 @@ def test_fails_on_element_type_mismatch():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYTypeError.__name__):
-        validate_types(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(TypeChecker(symbol_table), program_ast)
 
 
 def test_fails_on_free_index_mismatch():
@@ -733,8 +734,8 @@ def test_fails_on_free_index_mismatch():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYTypeError.__name__):
-        validate_types(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(TypeChecker(symbol_table), program_ast)
 
 
 def test_fails_on_return_type_mismatch():
@@ -776,8 +777,8 @@ def test_fails_on_return_type_mismatch():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYTypeError.__name__):
-        validate_types(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(TypeChecker(symbol_table), program_ast)
 
 
 def test_fails_on_declaration_initializer_mismatch():
@@ -808,8 +809,8 @@ def test_fails_on_declaration_initializer_mismatch():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYTypeError.__name__):
-        validate_types(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(TypeChecker(symbol_table), program_ast)
 
 
 def test_fails_on_unreduced_index():
@@ -898,8 +899,8 @@ def test_fails_on_unreduced_index():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYTypeError.__name__):
-        validate_types(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(TypeChecker(symbol_table), program_ast)
 
 
 def test_valid_data_type_promotion_in_binary_op():
@@ -960,7 +961,7 @@ def test_valid_data_type_promotion_in_binary_op():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_types(program_ast, symbol_table)
+    run_validator(TypeChecker(symbol_table), program_ast)
 
 
 def test_valid_narrower_source_promotes_to_wider_lhs():
@@ -1016,7 +1017,7 @@ def test_valid_narrower_source_promotes_to_wider_lhs():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_types(program_ast, symbol_table)
+    run_validator(TypeChecker(symbol_table), program_ast)
 
 
 def test_fails_on_wider_source_to_narrower_lhs():
@@ -1072,8 +1073,8 @@ def test_fails_on_wider_source_to_narrower_lhs():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYTypeError.__name__):
-        validate_types(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(TypeChecker(symbol_table), program_ast)
 
 
 def test_valid_ternary_expression_promotes_branches():
@@ -1153,7 +1154,7 @@ def test_valid_ternary_expression_promotes_branches():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_types(program_ast, symbol_table)
+    run_validator(TypeChecker(symbol_table), program_ast)
 
 
 def test_valid_ternary_expression_unions_free_indices():
@@ -1273,7 +1274,7 @@ def test_valid_ternary_expression_unions_free_indices():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_types(program_ast, symbol_table)
+    run_validator(TypeChecker(symbol_table), program_ast)
 
 
 def test_fails_on_ternary_branch_shape_mismatch():
@@ -1347,5 +1348,5 @@ def test_fails_on_ternary_branch_shape_mismatch():
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYTypeError.__name__):
-        validate_types(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(TypeChecker(symbol_table), program_ast)

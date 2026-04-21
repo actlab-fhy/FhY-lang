@@ -13,24 +13,23 @@ from fhy.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy.lang.ast.passes import build_symbol_table, validate_type_qualifiers
-from fhy.lang.ast.passes.type_qualifier_validator import (
-    FhYTypeQualifierValidatorError,
-)
+from fhy.lang.ast.passes import TypeQualifierValidator, build_symbol_table
 from fhy_core import (
     Identifier,
     NumericalType,
-    PassExecutionError,
     Provenance,
     TypeQualifier,
+    ValidationFailedError,
 )
+
+from .utils import run_validator
 
 
 def test_empty_module(empty_module_ast):
     """Test validation of an empty module."""
     symbol_table = build_symbol_table(empty_module_ast)
 
-    validate_type_qualifiers(empty_module_ast, symbol_table)
+    run_validator(TypeQualifierValidator(symbol_table), empty_module_ast)
 
 
 def test_valid_procedure(int32: NumericalType):
@@ -97,7 +96,7 @@ def test_valid_procedure(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_type_qualifiers(program_ast, symbol_table)
+    run_validator(TypeQualifierValidator(symbol_table), program_ast)
 
 
 def test_valid_operation_with_output_return_type(int32: NumericalType):
@@ -132,7 +131,7 @@ def test_valid_operation_with_output_return_type(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_type_qualifiers(program_ast, symbol_table)
+    run_validator(TypeQualifierValidator(symbol_table), program_ast)
 
 
 def test_valid_param_argument(int32: NumericalType):
@@ -162,7 +161,7 @@ def test_valid_param_argument(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_type_qualifiers(program_ast, symbol_table)
+    run_validator(TypeQualifierValidator(symbol_table), program_ast)
 
 
 def test_fails_with_temp_argument(int32: NumericalType):
@@ -192,10 +191,8 @@ def test_fails_with_temp_argument(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(
-        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
-    ):
-        validate_type_qualifiers(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type qualifier error"):
+        run_validator(TypeQualifierValidator(symbol_table), program_ast)
 
 
 def test_fails_with_input_declaration(int32: NumericalType):
@@ -225,10 +222,8 @@ def test_fails_with_input_declaration(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(
-        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
-    ):
-        validate_type_qualifiers(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type qualifier error"):
+        run_validator(TypeQualifierValidator(symbol_table), program_ast)
 
 
 def test_fails_with_output_declaration(int32: NumericalType):
@@ -258,10 +253,8 @@ def test_fails_with_output_declaration(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(
-        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
-    ):
-        validate_type_qualifiers(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type qualifier error"):
+        run_validator(TypeQualifierValidator(symbol_table), program_ast)
 
 
 def test_fails_with_input_return_type(int32: NumericalType):
@@ -285,10 +278,8 @@ def test_fails_with_input_return_type(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(
-        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
-    ):
-        validate_type_qualifiers(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type qualifier error"):
+        run_validator(TypeQualifierValidator(symbol_table), program_ast)
 
 
 def test_fails_with_temp_return_type(int32: NumericalType):
@@ -312,10 +303,8 @@ def test_fails_with_temp_return_type(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(
-        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
-    ):
-        validate_type_qualifiers(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type qualifier error"):
+        run_validator(TypeQualifierValidator(symbol_table), program_ast)
 
 
 def test_fails_with_assignment_to_input(int32: NumericalType):
@@ -355,10 +344,8 @@ def test_fails_with_assignment_to_input(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(
-        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
-    ):
-        validate_type_qualifiers(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type qualifier error"):
+        run_validator(TypeQualifierValidator(symbol_table), program_ast)
 
 
 def test_fails_with_assignment_to_param(int32: NumericalType):
@@ -407,10 +394,8 @@ def test_fails_with_assignment_to_param(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(
-        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
-    ):
-        validate_type_qualifiers(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type qualifier error"):
+        run_validator(TypeQualifierValidator(symbol_table), program_ast)
 
 
 def test_fails_with_array_access_assignment_to_input(int32: NumericalType):
@@ -465,10 +450,8 @@ def test_fails_with_array_access_assignment_to_input(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    with pytest.raises(
-        PassExecutionError, match=FhYTypeQualifierValidatorError.__name__
-    ):
-        validate_type_qualifiers(program_ast, symbol_table)
+    with pytest.raises(ValidationFailedError, match="type qualifier error"):
+        run_validator(TypeQualifierValidator(symbol_table), program_ast)
 
 
 def test_valid_array_access_assignment_to_output(int32: NumericalType):
@@ -523,4 +506,4 @@ def test_valid_array_access_assignment_to_output(int32: NumericalType):
     )
     symbol_table = build_symbol_table(program_ast)
 
-    validate_type_qualifiers(program_ast, symbol_table)
+    run_validator(TypeQualifierValidator(symbol_table), program_ast)

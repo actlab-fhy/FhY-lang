@@ -1,63 +1,67 @@
 """Validate the for-all statements in the AST."""
 
 __all__ = [
-    "validate_for_all_statements",
+    "ForAllStatementValidator",
 ]
 
 from fhy_core import (
+    DiagnosticLevel,
     IndexType,
-    SymbolTable,
+    SymbolTableError,
     VariableSymbolTableFrame,
     register_pass,
 )
 
-from fhy.lang.ast.error import FhYStructuralError, FhYTypeError
 from fhy.lang.ast.node import (
     ForAllStatement,
     IdentifierExpression,
-    Module,
 )
 
 from .analysis_pass_with_symbol_table import AnalysisPassWithSymbolTable
+from .utils import format_diagnostic_message
 
 
 @register_pass(
     "fhy_ast_for_all_statement_validator",
     "Validates the for-all statements in the AST.",
 )
-class _ForAllStatementValidator(AnalysisPassWithSymbolTable):
+class ForAllStatementValidator(AnalysisPassWithSymbolTable):
+    """Validate for-all statement indices.
+
+    The index expression must be an :class:`IdentifierExpression` whose
+    identifier resolves in the symbol table to an index-typed variable.
+
+    """
+
     def visit_for_all_statement(self, node: ForAllStatement) -> None:
         if not isinstance(node.index, IdentifierExpression):
-            raise FhYStructuralError(
-                "The index expression of a for-all statement must be an "
-                f"identifier expression; got {type(node.index).__name__}.",
-                node.index.provenance,
+            self.report(
+                DiagnosticLevel.ERROR,
+                format_diagnostic_message(
+                    "structural error",
+                    "The index expression of a for-all statement must be an "
+                    f"identifier expression; got {type(node.index).__name__}.",
+                    node.index.provenance,
+                ),
             )
+            return
         identifier = node.index.identifier
-        frame = self.get_frame_from_namespace(self.current_namespace, identifier)
+        try:
+            frame = self.get_frame_from_namespace(self.current_namespace, identifier)
+        except SymbolTableError:
+            # Leave unresolved-identifier reporting to a later validator; do
+            # not emit a duplicate here.
+            return
         if not isinstance(frame, VariableSymbolTableFrame) or not isinstance(
             frame.type, IndexType
         ):
-            raise FhYTypeError(
-                f'The identifier "{identifier.name_hint!r}" used as the index of '
-                "a for-all statement must refer to an index variable.",
-                node.index.provenance,
+            self.report(
+                DiagnosticLevel.ERROR,
+                format_diagnostic_message(
+                    "type error",
+                    f'The identifier "{identifier.name_hint!r}" used as the '
+                    "index of a for-all statement must refer to an index "
+                    "variable.",
+                    node.index.provenance,
+                ),
             )
-
-
-def validate_for_all_statements(module: Module, symbol_table: SymbolTable) -> None:
-    """Validate the for-all statements in the AST.
-
-    Args:
-        module: The module to validate.
-        symbol_table: The symbol table to use.
-
-    Raises:
-        FhYStructuralError: If a for-all statement's index expression is not an
-            identifier expression.
-        FhYTypeError: If a forall statement's index identifier does not
-            refer to an index variable via the symbol table.
-
-    """
-    validator = _ForAllStatementValidator(symbol_table)
-    validator(module)

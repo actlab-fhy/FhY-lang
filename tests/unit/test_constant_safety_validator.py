@@ -13,19 +13,19 @@ from fhy.lang.ast import (
     UnaryExpression,
     UnaryOperation,
 )
-from fhy.lang.ast.error import FhYSemanticsError
-from fhy.lang.ast.passes import validate_constant_safety
+from fhy.lang.ast.passes import ConstantSafetyValidator
 from fhy_core import (
     Identifier,
-    PassExecutionError,
     Provenance,
     TypeQualifier,
+    ValidationFailedError,
 )
 
 from .utils import (
     make_argument,
     make_module_with_statement,
     make_procedure,
+    run_validator,
 )
 
 
@@ -80,8 +80,8 @@ def test_zero_divisor_int_literal_raises(int32, operation):
     )
     program_ast = make_module_with_statement(procedure_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
-        validate_constant_safety(program_ast)
+    with pytest.raises(ValidationFailedError, match="semantic error"):
+        run_validator(ConstantSafetyValidator(), program_ast)
 
 
 def test_zero_divisor_float_literal_raises(int32):
@@ -93,8 +93,8 @@ def test_zero_divisor_float_literal_raises(int32):
     )
     program_ast = make_module_with_statement(procedure_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
-        validate_constant_safety(program_ast)
+    with pytest.raises(ValidationFailedError, match="semantic error"):
+        run_validator(ConstantSafetyValidator(), program_ast)
 
 
 def test_zero_divisor_complex_literal_raises(int32):
@@ -106,8 +106,8 @@ def test_zero_divisor_complex_literal_raises(int32):
     )
     program_ast = make_module_with_statement(procedure_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
-        validate_constant_safety(program_ast)
+    with pytest.raises(ValidationFailedError, match="semantic error"):
+        run_validator(ConstantSafetyValidator(), program_ast)
 
 
 def test_negated_zero_divisor_raises(int32):
@@ -124,8 +124,8 @@ def test_negated_zero_divisor_raises(int32):
     )
     program_ast = make_module_with_statement(procedure_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
-        validate_constant_safety(program_ast)
+    with pytest.raises(ValidationFailedError, match="semantic error"):
+        run_validator(ConstantSafetyValidator(), program_ast)
 
 
 def test_doubly_negated_zero_divisor_raises(int32):
@@ -143,8 +143,8 @@ def test_doubly_negated_zero_divisor_raises(int32):
     procedure_ast = _build_main_with_division_by(outer, BinaryOperation.DIVISION, int32)
     program_ast = make_module_with_statement(procedure_ast)
 
-    with pytest.raises(PassExecutionError, match=FhYSemanticsError.__name__):
-        validate_constant_safety(program_ast)
+    with pytest.raises(ValidationFailedError, match="semantic error"):
+        run_validator(ConstantSafetyValidator(), program_ast)
 
 
 def test_nonzero_literal_divisor_does_not_raise(int32):
@@ -156,7 +156,7 @@ def test_nonzero_literal_divisor_does_not_raise(int32):
     )
     program_ast = make_module_with_statement(procedure_ast)
 
-    validate_constant_safety(program_ast)
+    run_validator(ConstantSafetyValidator(), program_ast)
 
 
 def test_identifier_divisor_does_not_raise(int32):
@@ -180,7 +180,7 @@ def test_identifier_divisor_does_not_raise(int32):
     )
     program_ast = make_module_with_statement(procedure_ast)
 
-    validate_constant_safety(program_ast)
+    run_validator(ConstantSafetyValidator(), program_ast)
 
 
 def test_zero_on_left_hand_side_does_not_raise(int32):
@@ -211,7 +211,7 @@ def test_zero_on_left_hand_side_does_not_raise(int32):
     )
     program_ast = make_module_with_statement(procedure_ast)
 
-    validate_constant_safety(program_ast)
+    run_validator(ConstantSafetyValidator(), program_ast)
 
 
 def test_non_division_operation_with_zero_right_does_not_raise(int32):
@@ -227,4 +227,4 @@ def test_non_division_operation_with_zero_right_does_not_raise(int32):
             int32,
         )
         program_ast = make_module_with_statement(procedure_ast)
-        validate_constant_safety(program_ast)
+        run_validator(ConstantSafetyValidator(), program_ast)

@@ -1,65 +1,99 @@
 """Validate the reductions in the AST."""
 
 __all__ = [
-    "validate_reductions",
+    "ReductionValidator",
 ]
 
 from fhy_core import (
+    DiagnosticLevel,
     Identifier,
     IndexType,
-    SymbolTable,
+    SymbolTableError,
     VariableSymbolTableFrame,
     register_pass,
 )
 
-from fhy.lang.ast.error import FhYSemanticsError, FhYStructuralError, FhYTypeError
 from fhy.lang.ast.node import (
     FunctionExpression,
     IdentifierExpression,
-    Module,
 )
 
 from .analysis_pass_with_symbol_table import AnalysisPassWithSymbolTable
 from .identifier_collector import collect_identifiers
+from .utils import format_diagnostic_message
 
 
 @register_pass(
     "fhy_ast_reduction_validator",
     "Validates the reductions in the AST.",
 )
-class _ReductionValidator(AnalysisPassWithSymbolTable):
-    def visit_function_expression(self, node: FunctionExpression) -> None:
+class ReductionValidator(AnalysisPassWithSymbolTable):
+    """Validate reduction call sites.
+
+    Enforces the shape constraints on reduction calls: exactly one argument,
+    identifier-only indices, index identifiers that resolve to index
+    variables, index uniqueness, and that every declared index is actually
+    used inside the reduction argument.
+
+    """
+
+    def visit_function_expression(self, node: FunctionExpression) -> None:  # noqa: C901
         if len(node.indices) > 0 and len(node.args) != 1:
-            raise FhYStructuralError(
-                "A reduction must be passed exactly one argument; got "
-                f"{len(node.args)}.",
-                node.provenance,
+            self.report(
+                DiagnosticLevel.ERROR,
+                format_diagnostic_message(
+                    "structural error",
+                    "A reduction must be passed exactly one argument; got "
+                    f"{len(node.args)}.",
+                    node.provenance,
+                ),
             )
-        seen_indices = set()
+        seen_indices: set[Identifier] = set()
         for index in node.indices:
             if not isinstance(index, IdentifierExpression):
-                raise FhYStructuralError(
-                    "Each index passed to a reduction must be an identifier "
-                    f"expression; got {type(index).__name__}.",
-                    index.provenance,
+                self.report(
+                    DiagnosticLevel.ERROR,
+                    format_diagnostic_message(
+                        "structural error",
+                        "Each index passed to a reduction must be an "
+                        f"identifier expression; got {type(index).__name__}.",
+                        index.provenance,
+                    ),
                 )
+                continue
             identifier = index.identifier
-            frame = self.get_frame_from_namespace(self.current_namespace, identifier)
+            try:
+                frame = self.get_frame_from_namespace(
+                    self.current_namespace, identifier
+                )
+            except SymbolTableError:
+                continue
             if not isinstance(frame, VariableSymbolTableFrame) or not isinstance(
                 frame.type, IndexType
             ):
-                raise FhYTypeError(
-                    f'The identifier "{identifier.name_hint!r}" passed as an '
-                    "index to a reduction must refer to an index variable.",
-                    index.provenance,
+                self.report(
+                    DiagnosticLevel.ERROR,
+                    format_diagnostic_message(
+                        "type error",
+                        f'The identifier "{identifier.name_hint!r}" passed '
+                        "as an index to a reduction must refer to an index "
+                        "variable.",
+                        index.provenance,
+                    ),
                 )
+                continue
             if identifier in seen_indices:
-                raise FhYSemanticsError(
-                    f'The identifier "{identifier.name_hint!r}" is passed more '
-                    "than once as an index to a reduction; reduction indices "
-                    "must be distinct.",
-                    index.provenance,
+                self.report(
+                    DiagnosticLevel.ERROR,
+                    format_diagnostic_message(
+                        "semantic error",
+                        f'The identifier "{identifier.name_hint!r}" is '
+                        "passed more than once as an index to a reduction; "
+                        "reduction indices must be distinct.",
+                        index.provenance,
+                    ),
                 )
+                continue
             seen_indices.add(identifier)
 
         if not seen_indices:
@@ -69,30 +103,13 @@ class _ReductionValidator(AnalysisPassWithSymbolTable):
             used_identifiers.update(collect_identifiers(arg))
         for identifier in seen_indices:
             if identifier not in used_identifiers:
-                raise FhYSemanticsError(
-                    f'The identifier "{identifier.name_hint!r}" is passed as '
-                    "an index to a reduction but is not used within the "
-                    "reduction.",
-                    node.provenance,
+                self.report(
+                    DiagnosticLevel.ERROR,
+                    format_diagnostic_message(
+                        "semantic error",
+                        f'The identifier "{identifier.name_hint!r}" is '
+                        "passed as an index to a reduction but is not used "
+                        "within the reduction.",
+                        node.provenance,
+                    ),
                 )
-
-
-def validate_reductions(module: Module, symbol_table: SymbolTable) -> None:
-    """Validate the reductions in the AST.
-
-    Args:
-        module: The module to validate.
-        symbol_table: The symbol table to use.
-
-    Raises:
-        FhYStructuralError: If an expression passed as a reduction index is not
-            an identifier expression, or if a reduction is not passed exactly
-            one argument.
-        FhYTypeError: If a reduction index identifier does not refer to an
-            index variable via the symbol table.
-        FhYSemanticsError: If the reduction indices are not distinct, or if a
-            reduction index is not used within the reduction argument.
-
-    """
-    validator = _ReductionValidator(symbol_table)
-    validator(module)
