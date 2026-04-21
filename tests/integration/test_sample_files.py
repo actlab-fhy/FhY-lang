@@ -18,7 +18,7 @@ examples = glob(_INPUT)
 
 def _grab_expected_output_file(filepath: str) -> str:
     basename: str = os.path.basename(filepath).split(".")[0]
-    name = f"{basename}_output.fhy"
+    name = f"{basename}_output.txt"
     path_out = os.path.join(_OUTPUT, name)
     if not os.path.exists(path_out):
         raise FileNotFoundError(f"Expected output file does not exist: {basename}")
