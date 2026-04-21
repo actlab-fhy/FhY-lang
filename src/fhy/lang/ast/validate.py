@@ -159,7 +159,9 @@ def validate_ast(
     pre_constant_folding_pass_manager = PassManager[Module](
         Identifier("fhy_ast_pre_constant_folding_pass_manager")
     )
-    pre_constant_folding_pass_manager.add_pass(ConstantFoldingPass())
+    pre_constant_folding_pass_manager.add_pass(
+        cast(CompilerPass[Module, Module], ConstantFoldingPass())
+    )
     ast = pre_constant_folding_pass_manager.run(ast).output
 
     structural_report = build_structural_validation_manager(symbol_table).validate(ast)
