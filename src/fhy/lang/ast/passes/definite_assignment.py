@@ -1,10 +1,32 @@
-"""Definite-assignment analysis and validation over the FhY AST."""
+"""Definite-assignment analysis and validation over the FhY AST.
+
+The validator orchestrates two independent analyses that share a
+validator entry point but are otherwise decoupled:
+
+1. Scalar identifier definite assignment — a forward MUST dataflow over
+   each function's CFG that tracks which variables have been definitely
+   assigned at every control-flow point. It enforces that scalar
+   OUTPUT arguments are written on every path and that every read of a
+   TEMP (or an OUTPUT being read) is preceded by a definite assignment.
+
+2. Shape-symbolic coverage of OUTPUT arrays — a recursive walk over
+   each function's body that, for every OUTPUT array argument, builds
+   a Z3-friendly boolean predicate over fresh point variables
+   asserting "this index position is written on every path", and uses
+   satisfiability to prove that the predicate covers the array's
+   declared shape.
+
+Each analysis is encapsulated in its own helper class, so a new
+definite-assignment-style check can be added by introducing a new
+analysis class plus one ``_check_...`` method on the validator.
+"""
 
 __all__ = [
     "DefiniteAssignmentValidator",
 ]
 
-from dataclasses import dataclass, field
+from collections.abc import Iterable, Sequence
+from dataclasses import dataclass, replace
 
 from fhy_core import (
     CompilerPass,
@@ -12,12 +34,29 @@ from fhy_core import (
     FunctionSymbolTableFrame,
     Identifier,
     IndexType,
+    NumericalType,
     SymbolTable,
     SymbolTableError,
+    SymbolTableFrame,
+    SymbolType,
     TypeQualifier,
     VariableSymbolTableFrame,
+    is_satisfiable,
     register_pass,
 )
+from fhy_core import (
+    Expression as CoreExpression,
+)
+from fhy_core import (
+    IdentifierExpression as CoreIdentifierExpression,
+)
+from fhy_core import (
+    LiteralExpression as CoreLiteralExpression,
+)
+from fhy_core import (
+    collect_identifiers as core_collect_identifiers,
+)
+from frozendict import frozendict
 
 from fhy.lang.ast.cfg import (
     CFGNode,
@@ -26,8 +65,10 @@ from fhy.lang.ast.cfg import (
     build_cfg,
 )
 from fhy.lang.ast.node import (
+    Argument,
     ArrayAccessExpression,
     DeclarationStatement,
+    Expression,
     ExpressionStatement,
     ForAllStatement,
     FunctionExpression,
@@ -37,8 +78,12 @@ from fhy.lang.ast.node import (
     Procedure,
     ReturnStatement,
     SelectionStatement,
+    Statement,
 )
 
+from .ast_to_core_expression_converter import (
+    convert_ast_expression_to_core_expression,
+)
 from .identifier_collector import collect_identifiers
 from .liveness_analysis import LivenessAnalysis, LivenessResult
 from .utils import format_diagnostic_message
@@ -46,234 +91,46 @@ from .utils import format_diagnostic_message
 _FunctionDefinition = Procedure | Operation
 
 
-@dataclass(frozen=True)
-class _FunctionDefiniteAssignment:
-    """Per-CFG dataflow result: definitely-assigned sets at each node's boundary."""
-
-    cfg: ControlFlowGraph
-    live_in: dict[int, frozenset[Identifier]] = field(default_factory=dict)
-    live_out: dict[int, frozenset[Identifier]] = field(default_factory=dict)
-
-
-def _get_function_universe(
-    function: _FunctionDefinition, cfg: ControlFlowGraph
-) -> frozenset[Identifier]:
-    universe: set[Identifier] = {argument.name for argument in function.args}
-    for node in cfg.nodes:
-        if isinstance(node.statement, DeclarationStatement):
-            universe.add(node.statement.variable_name)
-    return frozenset(universe)
+def _is_array_output_argument(argument: Argument) -> bool:
+    """True when ``argument`` is an OUTPUT with non-scalar numerical shape."""
+    if argument.qualified_type.type_qualifier != TypeQualifier.OUTPUT:
+        return False
+    base_type = argument.qualified_type.base_type
+    return isinstance(base_type, NumericalType) and not base_type.is_scalar()
 
 
-def _get_identifiers_definitely_assigned_on_function_entry(
-    function: _FunctionDefinition,
-) -> frozenset[Identifier]:
-    return frozenset(
-        argument.name
-        for argument in function.args
-        if argument.qualified_type.type_qualifier != TypeQualifier.OUTPUT
-    )
-
-
-def _get_procedure_call_output_writes(
-    call: FunctionExpression, symbol_table: SymbolTable, namespace: Identifier
-) -> frozenset[Identifier]:
-    """Return the identifiers assigned by a procedure call via OUTPUT arguments.
-
-    Array-access arguments are skipped (they would partially write into an
-    existing aggregate, which we do not model here).
-
-    """
+def _try_get_callee_frame(
+    call: FunctionExpression,
+    symbol_table: SymbolTable,
+    namespace: Identifier,
+) -> FunctionSymbolTableFrame | None:
+    """Resolve a call site to its callee's signature frame, if possible."""
     if not isinstance(call.function, IdentifierExpression):
-        return frozenset()
+        return None
     try:
         frame = symbol_table.get_frame_from_namespace(
             namespace, call.function.identifier
         )
     except SymbolTableError:
-        return frozenset()
+        return None
     if not isinstance(frame, FunctionSymbolTableFrame):
-        return frozenset()
-    definitions: set[Identifier] = set()
-    for argument_expression, (qualifier, _) in zip(call.args, frame.signature):
-        if qualifier != TypeQualifier.OUTPUT:
-            continue
-        if isinstance(argument_expression, IdentifierExpression):
-            definitions.add(argument_expression.identifier)
-        elif isinstance(argument_expression, ArrayAccessExpression) and isinstance(
-            argument_expression.array_expression, IdentifierExpression
-        ):
-            definitions.add(argument_expression.array_expression.identifier)
-    return frozenset(definitions)
+        return None
+    return frame
 
 
-def _get_expression_statement_gen_set(
-    statement: ExpressionStatement,
+def _qualifier_requires_definite_assignment(
+    identifier: Identifier,
     symbol_table: SymbolTable,
     namespace: Identifier,
-) -> frozenset[Identifier]:
-    if statement.left is not None:
-        if isinstance(statement.left, IdentifierExpression):
-            return frozenset({statement.left.identifier})
-        if isinstance(statement.left, ArrayAccessExpression) and isinstance(
-            statement.left.array_expression, IdentifierExpression
-        ):
-            # An array-access write partially defines the array. We treat it
-            # as a full definition so idiomatic per-element initialization
-            # inside a ForAll is accepted.
-            return frozenset({statement.left.array_expression.identifier})
-        return frozenset()
-    # Bare ``procedure(...);`` statements: OUTPUT arguments bound to
-    # identifier actuals are written through to the caller's scope.
-    if isinstance(statement.right, FunctionExpression):
-        return _get_procedure_call_output_writes(
-            statement.right, symbol_table, namespace
-        )
-    return frozenset()
-
-
-def _get_statement_gen_set(
-    node: CFGNode, symbol_table: SymbolTable, namespace: Identifier
-) -> frozenset[Identifier]:
-    statement = node.statement
-    if statement is None:
-        return frozenset()
-    elif isinstance(statement, DeclarationStatement):
-        if statement.expression is None:
-            return frozenset()
-        return frozenset({statement.variable_name})
-    elif isinstance(statement, ExpressionStatement):
-        return _get_expression_statement_gen_set(statement, symbol_table, namespace)
-    else:
-        return frozenset()
-
-
-def _compute_definite_assignment(
-    function: _FunctionDefinition,
-    cfg: ControlFlowGraph,
-    symbol_table: SymbolTable,
-) -> _FunctionDefiniteAssignment:
-    """Run the forward MUST dataflow for definite assignment."""
-    universe = _get_function_universe(function, cfg)
-    entry_assigned = _get_identifiers_definitely_assigned_on_function_entry(function)
-
-    gen_sets: dict[int, frozenset[Identifier]] = {
-        node.id: _get_statement_gen_set(node, symbol_table, function.name)
-        for node in cfg.nodes
-    }
-
-    in_sets: dict[int, frozenset[Identifier]] = {}
-    out_sets: dict[int, frozenset[Identifier]] = {}
-    for node in cfg.nodes:
-        if node.kind == CFGNodeKind.ENTRY:
-            in_sets[node.id] = frozenset()
-            out_sets[node.id] = entry_assigned
-        else:
-            in_sets[node.id] = universe
-            out_sets[node.id] = universe
-
-    changed = True
-    while changed:
-        changed = False
-        for node in cfg.nodes:
-            if node.kind == CFGNodeKind.ENTRY:
-                continue
-            predecessors = cfg.get_predecessors(node)
-            if not predecessors:
-                new_in: frozenset[Identifier] = frozenset()
-            else:
-                predecessor_iterator = iter(predecessors)
-                new_in = out_sets[next(predecessor_iterator).id]
-                for predecessor in predecessor_iterator:
-                    new_in = new_in & out_sets[predecessor.id]
-            new_out = new_in | gen_sets[node.id]
-            if new_in != in_sets[node.id] or new_out != out_sets[node.id]:
-                in_sets[node.id] = new_in
-                out_sets[node.id] = new_out
-                changed = True
-
-    return _FunctionDefiniteAssignment(cfg=cfg, live_in=in_sets, live_out=out_sets)
-
-
-def _collect_procedure_call_reads(
-    call: FunctionExpression, symbol_table: SymbolTable, namespace: Identifier
-) -> frozenset[Identifier]:
-    """Return the identifier reads inside a bare procedure-call statement.
-
-    OUTPUT identifier arguments are writes, not reads. Non-OUTPUT arguments
-    contribute their full identifier set as reads (indices, shape, etc).
-
-    """
-    if not isinstance(call.function, IdentifierExpression):
-        return collect_identifiers(call)
-    try:
-        frame = symbol_table.get_frame_from_namespace(
-            namespace, call.function.identifier
-        )
-    except SymbolTableError:
-        return collect_identifiers(call)
-    if not isinstance(frame, FunctionSymbolTableFrame):
-        return collect_identifiers(call)
-    reads: set[Identifier] = set()
-    for argument_expression, (qualifier, _) in zip(call.args, frame.signature):
-        if qualifier == TypeQualifier.OUTPUT and isinstance(
-            argument_expression, IdentifierExpression
-        ):
-            continue
-        reads.update(collect_identifiers(argument_expression))
-    return frozenset(reads)
-
-
-def _collect_expression_statement_reads(
-    statement: ExpressionStatement,
-    symbol_table: SymbolTable,
-    namespace: Identifier,
-) -> frozenset[Identifier]:
-    if statement.left is None and isinstance(statement.right, FunctionExpression):
-        return _collect_procedure_call_reads(statement.right, symbol_table, namespace)
-    reads: set[Identifier] = set(collect_identifiers(statement.right))
-    if statement.left is None:
-        return frozenset(reads)
-    if isinstance(statement.left, ArrayAccessExpression):
-        for index in statement.left.indices:
-            reads.update(collect_identifiers(index))
-    return frozenset(reads)
-
-
-def _collect_read_identifiers(
-    node: CFGNode, symbol_table: SymbolTable, namespace: Identifier
-) -> frozenset[Identifier]:
-    """Return the identifiers read by the statement at the given CFG node.
-
-    For an assignment ``x = rhs``, the RHS is read and ``x`` is not. For an
-    array-indexed write ``b[i] = rhs``, the index identifiers (``i``) and
-    the RHS are read; ``b`` itself is not read. For a bare procedure call,
-    OUTPUT arguments bound to an identifier actual are writes (handled by
-    :func:`_get_statement_gen_set`) and so are excluded from reads.
-
-    """
-    statement = node.statement
-    if statement is None:
-        return frozenset()
-    elif isinstance(statement, DeclarationStatement):
-        if statement.expression is None:
-            return frozenset()
-        return collect_identifiers(statement.expression)
-    elif isinstance(statement, ExpressionStatement):
-        return _collect_expression_statement_reads(statement, symbol_table, namespace)
-    elif isinstance(statement, ReturnStatement):
-        return collect_identifiers(statement.expression)
-    elif isinstance(statement, ForAllStatement):
-        return collect_identifiers(statement.index)
-    elif isinstance(statement, SelectionStatement):
-        return collect_identifiers(statement.condition)
-    else:
-        return frozenset()
-
-
-def _is_qualifier_requiring_definite_assignment(
-    identifier: Identifier, symbol_table: SymbolTable, namespace: Identifier
 ) -> bool:
+    """True when reading ``identifier`` before assignment is a violation.
+
+    Only TEMPs and OUTPUTs are subject to the check; INPUTs and PARAMs
+    are assigned on entry. Index-typed variables are implicitly bound
+    by their enclosing ``forall`` or reduction and are never assigned
+    by an explicit statement.
+
+    """
     try:
         frame = symbol_table.get_frame_from_namespace(namespace, identifier)
     except SymbolTableError:
@@ -282,11 +139,539 @@ def _is_qualifier_requiring_definite_assignment(
         return False
     if frame.type_qualifier not in {TypeQualifier.TEMP, TypeQualifier.OUTPUT}:
         return False
-    # Index variables are implicitly bound by their enclosing `forall` or
-    # reduction and are never assigned by an explicit statement.
     if isinstance(frame.type, IndexType):
         return False
     return True
+
+
+def _and_over(clauses: Iterable[CoreExpression]) -> CoreExpression:
+    """Left-fold ``LOGICAL_AND`` over ``clauses``; empty ⇒ ``TRUE``."""
+    iterator = iter(clauses)
+    try:
+        result = next(iterator)
+    except StopIteration:
+        return CoreLiteralExpression(True)
+    for clause in iterator:
+        result = CoreExpression.logical_and(result, clause)
+    return result
+
+
+@dataclass(frozen=True)
+class _ScalarDefiniteAssignmentResult:
+    """Per-CFG-node sets of identifiers that are definitely assigned.
+
+    Sets are keyed by CFG-node id. ``definitely_assigned_in[n]`` is the
+    must-set on entry to node ``n``; ``definitely_assigned_out[n]`` is
+    the must-set on exit.
+
+    """
+
+    cfg: ControlFlowGraph
+    definitely_assigned_in: frozendict[int, frozenset[Identifier]]
+    definitely_assigned_out: frozendict[int, frozenset[Identifier]]
+
+
+class _ScalarDefiniteAssignmentAnalysis:
+    """Forward MUST dataflow for scalar-identifier definite assignment.
+
+    Treats an array-indexed LHS as a full definition of its base
+    identifier — the canonical FhY idiom for per-element initialization
+    inside a ``forall``. The stronger shape-sensitive coverage check
+    for OUTPUT arrays is performed separately by
+    :class:`_ArrayCoverageAnalysis`.
+
+    """
+
+    _function: _FunctionDefinition
+    _symbol_table: SymbolTable
+    _cfg: ControlFlowGraph
+
+    def __init__(
+        self,
+        function: _FunctionDefinition,
+        symbol_table: SymbolTable,
+    ) -> None:
+        self._function = function
+        self._symbol_table = symbol_table
+        self._cfg = build_cfg(function)
+
+    @property
+    def cfg(self) -> ControlFlowGraph:
+        return self._cfg
+
+    def run(self) -> _ScalarDefiniteAssignmentResult:
+        universe = self._get_universe()
+        entry_assigned = self._entry_assigned()
+        gen_sets = {node.id: self._gen_set(node) for node in self._cfg.nodes}
+
+        in_sets: dict[int, frozenset[Identifier]] = {}
+        out_sets: dict[int, frozenset[Identifier]] = {}
+        for node in self._cfg.nodes:
+            if node.kind == CFGNodeKind.ENTRY:
+                in_sets[node.id] = frozenset()
+                out_sets[node.id] = entry_assigned
+            else:
+                in_sets[node.id] = universe
+                out_sets[node.id] = universe
+
+        changed = True
+        while changed:
+            changed = False
+            for node in self._cfg.nodes:
+                if node.kind == CFGNodeKind.ENTRY:
+                    continue
+                predecessors = self._cfg.get_predecessors(node)
+                if not predecessors:
+                    new_in: frozenset[Identifier] = frozenset()
+                else:
+                    predecessor_iter = iter(predecessors)
+                    new_in = out_sets[next(predecessor_iter).id]
+                    for predecessor in predecessor_iter:
+                        new_in = new_in & out_sets[predecessor.id]
+                new_out = new_in | gen_sets[node.id]
+                if new_in != in_sets[node.id] or new_out != out_sets[node.id]:
+                    in_sets[node.id] = new_in
+                    out_sets[node.id] = new_out
+                    changed = True
+
+        return _ScalarDefiniteAssignmentResult(
+            cfg=self._cfg,
+            definitely_assigned_in=frozendict(in_sets),
+            definitely_assigned_out=frozendict(out_sets),
+        )
+
+    def read_identifiers(self, node: CFGNode) -> frozenset[Identifier]:
+        """Return the identifiers read by the statement wrapped by ``node``.
+
+        Public for the validator's use-before-def check, which shares
+        this analysis's view of reads so both sides of the comparison
+        agree on which operands count as reads.
+
+        For an assignment ``x = rhs`` the RHS is read and ``x`` is not;
+        for an array-indexed write ``b[i] = rhs`` the index identifiers
+        and the RHS are read but ``b`` itself is not. In a bare
+        procedure-call statement, OUTPUT arguments bound to an
+        identifier actual are writes (tracked by :meth:`_gen_set`) and
+        are excluded from reads.
+
+        """
+        statement = node.statement
+        if statement is None:
+            return frozenset()
+        elif isinstance(statement, DeclarationStatement):
+            if statement.expression is None:
+                return frozenset()
+            else:
+                return collect_identifiers(statement.expression)
+        elif isinstance(statement, ExpressionStatement):
+            return self._expression_statement_reads(statement)
+        elif isinstance(statement, ReturnStatement):
+            return collect_identifiers(statement.expression)
+        elif isinstance(statement, ForAllStatement):
+            return collect_identifiers(statement.index)
+        elif isinstance(statement, SelectionStatement):
+            return collect_identifiers(statement.condition)
+        else:
+            return frozenset()
+
+    def _get_universe(self) -> frozenset[Identifier]:
+        universe: set[Identifier] = {argument.name for argument in self._function.args}
+        for node in self._cfg.nodes:
+            if isinstance(node.statement, DeclarationStatement):
+                universe.add(node.statement.variable_name)
+        return frozenset(universe)
+
+    def _entry_assigned(self) -> frozenset[Identifier]:
+        return frozenset(
+            argument.name
+            for argument in self._function.args
+            if argument.qualified_type.type_qualifier != TypeQualifier.OUTPUT
+        )
+
+    def _gen_set(self, node: CFGNode) -> frozenset[Identifier]:
+        statement = node.statement
+        if statement is None:
+            return frozenset()
+        if isinstance(statement, DeclarationStatement):
+            if statement.expression is None:
+                return frozenset()
+            return frozenset({statement.variable_name})
+        if isinstance(statement, ExpressionStatement):
+            return self._expression_statement_gen_set(statement)
+        return frozenset()
+
+    def _expression_statement_gen_set(
+        self, statement: ExpressionStatement
+    ) -> frozenset[Identifier]:
+        if statement.left is not None:
+            if isinstance(statement.left, IdentifierExpression):
+                return frozenset({statement.left.identifier})
+            if isinstance(statement.left, ArrayAccessExpression) and isinstance(
+                statement.left.array_expression, IdentifierExpression
+            ):
+                # An array-access write partially defines the array.
+                # Accept it as a full definition here so per-element
+                # initialization inside a forall is not spuriously
+                # flagged; shape-sensitive coverage is handled by
+                # _ArrayCoverageAnalysis.
+                return frozenset({statement.left.array_expression.identifier})
+            return frozenset()
+        if isinstance(statement.right, FunctionExpression):
+            return self._call_output_writes(statement.right)
+        return frozenset()
+
+    def _call_output_writes(self, call: FunctionExpression) -> frozenset[Identifier]:
+        frame = _try_get_callee_frame(call, self._symbol_table, self._function.name)
+        if frame is None:
+            return frozenset()
+        definitions: set[Identifier] = set()
+        for argument_expression, (qualifier, _) in zip(call.args, frame.signature):
+            if qualifier != TypeQualifier.OUTPUT:
+                continue
+            if isinstance(argument_expression, IdentifierExpression):
+                definitions.add(argument_expression.identifier)
+            elif isinstance(argument_expression, ArrayAccessExpression) and isinstance(
+                argument_expression.array_expression, IdentifierExpression
+            ):
+                definitions.add(argument_expression.array_expression.identifier)
+        return frozenset(definitions)
+
+    def _expression_statement_reads(
+        self, statement: ExpressionStatement
+    ) -> frozenset[Identifier]:
+        if statement.left is None and isinstance(statement.right, FunctionExpression):
+            return self._call_reads(statement.right)
+        reads: set[Identifier] = set(collect_identifiers(statement.right))
+        if statement.left is None:
+            return frozenset(reads)
+        if isinstance(statement.left, ArrayAccessExpression):
+            for index in statement.left.indices:
+                reads.update(collect_identifiers(index))
+        return frozenset(reads)
+
+    def _call_reads(self, call: FunctionExpression) -> frozenset[Identifier]:
+        frame = _try_get_callee_frame(call, self._symbol_table, self._function.name)
+        if frame is None:
+            return collect_identifiers(call)
+        reads: set[Identifier] = set()
+        for argument_expression, (qualifier, _) in zip(call.args, frame.signature):
+            if qualifier == TypeQualifier.OUTPUT and isinstance(
+                argument_expression, IdentifierExpression
+            ):
+                continue
+            reads.update(collect_identifiers(argument_expression))
+        return frozenset(reads)
+
+
+@dataclass(frozen=True)
+class _WriteRegion:
+    """A hypercube covered by a single write to an array.
+
+    ``lower_bounds[j]`` and ``upper_bounds[j]`` are inclusive bounds on
+    dimension ``j``. If the index at position ``j`` is an index-typed
+    identifier, the bounds come from its declared range; for any other
+    core-convertible expression, the interval collapses to the point
+    ``[e, e]``.
+
+    """
+
+    lower_bounds: tuple[CoreExpression, ...]
+    upper_bounds: tuple[CoreExpression, ...]
+
+    def covers_predicate(
+        self, point_expressions: tuple[CoreExpression, ...]
+    ) -> CoreExpression:
+        return _and_over(
+            CoreExpression.logical_and(lower <= point, point <= upper)
+            for point, lower, upper in zip(
+                point_expressions, self.lower_bounds, self.upper_bounds
+            )
+        )
+
+
+@dataclass(frozen=True)
+class _Coverage:
+    """Must-coverage state threaded through the recursive body walk.
+
+    Immutable by design — the walk produces a new :class:`_Coverage`
+    at every step rather than mutating in place, so the merge at a
+    :class:`SelectionStatement` is a straightforward intersection of
+    two independently derived values.
+
+    """
+
+    predicate: CoreExpression
+    fully_written: bool = False
+    uncharacterisable_writes: tuple[Statement, ...] = ()
+
+    @staticmethod
+    def empty() -> "_Coverage":
+        """The bottom of the lattice: nothing covered."""
+        return _Coverage(predicate=CoreLiteralExpression(False))
+
+    def with_region(
+        self,
+        region: _WriteRegion,
+        point_expressions: tuple[CoreExpression, ...],
+    ) -> "_Coverage":
+        if self.fully_written:
+            return self
+        return replace(
+            self,
+            predicate=CoreExpression.logical_or(
+                self.predicate, region.covers_predicate(point_expressions)
+            ),
+        )
+
+    def marked_fully_written(self) -> "_Coverage":
+        return replace(self, fully_written=True)
+
+    def with_uncharacterisable(self, statement: Statement) -> "_Coverage":
+        return replace(
+            self,
+            uncharacterisable_writes=(*self.uncharacterisable_writes, statement),
+        )
+
+    def intersect(self, other: "_Coverage") -> "_Coverage":
+        """Merge two branches: a point is covered only if both cover it."""
+        return _Coverage(
+            predicate=CoreExpression.logical_and(self.predicate, other.predicate),
+            fully_written=self.fully_written and other.fully_written,
+            uncharacterisable_writes=(
+                self.uncharacterisable_writes + other.uncharacterisable_writes
+            ),
+        )
+
+
+@dataclass(frozen=True)
+class _ArrayCoverageResult:
+    """Outcome of shape-symbolic coverage analysis for one OUTPUT array.
+
+    ``complete`` is ``True`` when every valid index position is proven
+    written on every control-flow path, ``False`` when a counter-example
+    exists, and ``None`` when the SMT solver returned unknown.
+    ``uncharacterisable_writes`` lists writes whose region we could not
+    represent symbolically; when non-empty, failures attribute their
+    diagnostic to the first such statement.
+
+    """
+
+    complete: bool | None
+    uncharacterisable_writes: tuple[Statement, ...] = ()
+
+
+class _ArrayCoverageAnalysis:
+    """Per-argument shape-symbolic coverage analyzer.
+
+    One instance analyzes exactly one OUTPUT array argument of one
+    function. The walk threads an immutable :class:`_Coverage` through
+    the body, handling each statement kind as follows:
+
+    - an :class:`ExpressionStatement` whose LHS writes the target
+      array contributes a hypercube (or marks the array fully written
+      when the LHS is the array identifier);
+    - a bare procedure call with an OUTPUT argument bound to the
+      target contributes similarly;
+    - a :class:`ForAllStatement` is traversed straight-line — an
+      index variable's declared range is already baked into the
+      hypercube of any inner write, so the loop structure itself
+      does not affect coverage;
+    - a :class:`SelectionStatement` intersects the two branches
+      (must-cover on both paths).
+
+    """
+
+    _function: _FunctionDefinition
+    _symbol_table: SymbolTable
+    _argument: Argument
+    _target: Identifier
+    _shape: Sequence[CoreExpression]
+    _points: tuple[CoreExpression, ...]
+
+    def __init__(
+        self,
+        function: _FunctionDefinition,
+        symbol_table: SymbolTable,
+        argument: Argument,
+    ) -> None:
+        base_type = argument.qualified_type.base_type
+        assert isinstance(base_type, NumericalType)
+        self._function = function
+        self._symbol_table = symbol_table
+        self._argument = argument
+        self._target = argument.name
+        self._shape = base_type.shape
+        self._points = self._fresh_points(argument.name, len(base_type.shape))
+
+    def run(self) -> _ArrayCoverageResult:
+        coverage = self._analyze_block(self._function.body, _Coverage.empty())
+        complete = self._is_coverage_complete(coverage)
+        return _ArrayCoverageResult(
+            complete=complete,
+            uncharacterisable_writes=coverage.uncharacterisable_writes,
+        )
+
+    # Symbolic completeness check ----------------------------------------
+
+    def _is_coverage_complete(self, coverage: _Coverage) -> bool | None:
+        if coverage.fully_written:
+            return True
+        one = CoreLiteralExpression(1)
+        in_domain = _and_over(
+            CoreExpression.logical_and(point >= one, point <= dim_size)
+            for point, dim_size in zip(self._points, self._shape)
+        )
+        uncovered = CoreExpression.logical_and(
+            in_domain, coverage.predicate.logical_not()
+        )
+        identifiers = set(core_collect_identifiers(uncovered))
+        symbol_types = dict.fromkeys(identifiers, SymbolType.INT)
+        sat = is_satisfiable(identifiers, uncovered, symbol_types)
+        if sat is None:
+            return None
+        return not sat
+
+    @staticmethod
+    def _fresh_points(array_name: Identifier, rank: int) -> tuple[CoreExpression, ...]:
+        return tuple(
+            CoreIdentifierExpression(
+                Identifier(f"__coverage_point__{array_name.name_hint}__{j}")
+            )
+            for j in range(rank)
+        )
+
+    # Recursive walk -----------------------------------------------------
+
+    def _analyze_block(
+        self, body: Sequence[Statement], coverage: _Coverage
+    ) -> _Coverage:
+        for statement in body:
+            if coverage.fully_written:
+                break
+            coverage = self._analyze_statement(statement, coverage)
+        return coverage
+
+    def _analyze_statement(
+        self, statement: Statement, coverage: _Coverage
+    ) -> _Coverage:
+        if isinstance(statement, ExpressionStatement):
+            return self._analyze_expression_statement(statement, coverage)
+        if isinstance(statement, ForAllStatement):
+            return self._analyze_block(statement.body, coverage)
+        if isinstance(statement, SelectionStatement):
+            true_coverage = self._analyze_block(statement.true_body, coverage)
+            false_coverage = self._analyze_block(statement.false_body, coverage)
+            return true_coverage.intersect(false_coverage)
+        # DeclarationStatement / ReturnStatement contribute no writes.
+        return coverage
+
+    def _analyze_expression_statement(
+        self, statement: ExpressionStatement, coverage: _Coverage
+    ) -> _Coverage:
+        if statement.left is not None:
+            return self._analyze_direct_write(statement, coverage)
+        if isinstance(statement.right, FunctionExpression):
+            return self._analyze_call_output_writes(
+                statement, statement.right, coverage
+            )
+        return coverage
+
+    def _analyze_direct_write(
+        self, statement: ExpressionStatement, coverage: _Coverage
+    ) -> _Coverage:
+        left = statement.left
+        if isinstance(left, IdentifierExpression) and left.identifier == self._target:
+            return coverage.marked_fully_written()
+        if not isinstance(left, ArrayAccessExpression):
+            return coverage
+        if not isinstance(left.array_expression, IdentifierExpression):
+            return coverage
+        if left.array_expression.identifier != self._target:
+            return coverage
+        region = self._region_for_access(left)
+        if region is None:
+            return coverage.with_uncharacterisable(statement)
+        return coverage.with_region(region, self._points)
+
+    def _analyze_call_output_writes(
+        self,
+        statement: ExpressionStatement,
+        call: FunctionExpression,
+        coverage: _Coverage,
+    ) -> _Coverage:
+        frame = _try_get_callee_frame(call, self._symbol_table, self._function.name)
+        if frame is None:
+            return coverage
+        for argument_expression, (qualifier, _) in zip(call.args, frame.signature):
+            if qualifier != TypeQualifier.OUTPUT:
+                continue
+            if (
+                isinstance(argument_expression, IdentifierExpression)
+                and argument_expression.identifier == self._target
+            ):
+                return coverage.marked_fully_written()
+            if (
+                isinstance(argument_expression, ArrayAccessExpression)
+                and isinstance(
+                    argument_expression.array_expression, IdentifierExpression
+                )
+                and argument_expression.array_expression.identifier == self._target
+            ):
+                region = self._region_for_access(argument_expression)
+                if region is None:
+                    coverage = coverage.with_uncharacterisable(statement)
+                else:
+                    coverage = coverage.with_region(region, self._points)
+        return coverage
+
+    # Write-region derivation --------------------------------------------
+
+    def _region_for_access(
+        self, array_access: ArrayAccessExpression
+    ) -> _WriteRegion | None:
+        lower_bounds: list[CoreExpression] = []
+        upper_bounds: list[CoreExpression] = []
+        for index_expression in array_access.indices:
+            bounds = self._index_range(index_expression)
+            if bounds is None:
+                return None
+            lower, upper = bounds
+            lower_bounds.append(lower)
+            upper_bounds.append(upper)
+        return _WriteRegion(
+            lower_bounds=tuple(lower_bounds),
+            upper_bounds=tuple(upper_bounds),
+        )
+
+    def _index_range(
+        self, index_expression: Expression
+    ) -> tuple[CoreExpression, CoreExpression] | None:
+        if isinstance(index_expression, IdentifierExpression):
+            frame = self._try_get_frame(index_expression.identifier)
+            if isinstance(frame, VariableSymbolTableFrame) and isinstance(
+                frame.type, IndexType
+            ):
+                return frame.type.lower_bound, frame.type.upper_bound
+        try:
+            core_expression = convert_ast_expression_to_core_expression(
+                index_expression
+            )
+        except NotImplementedError:
+            return None
+        return core_expression, core_expression
+
+    def _try_get_frame(self, identifier: Identifier) -> SymbolTableFrame | None:
+        try:
+            return self._symbol_table.get_frame_from_namespace(
+                self._function.name, identifier
+            )
+        except SymbolTableError:
+            return None
+
+
+# ---------------------------------------------------------------------------
+# Validator
+# ---------------------------------------------------------------------------
 
 
 @register_pass(
@@ -294,14 +679,13 @@ def _is_qualifier_requiring_definite_assignment(
     "Validates definite assignment of OUTPUT arguments and TEMP reads.",
 )
 class DefiniteAssignmentValidator(CompilerPass[Module, None]):
-    """Definite-assignment validator as a standalone compiler pass.
+    """Definite-assignment validator.
 
-    Uses :func:`build_cfg` per function together with the existing
-    :class:`LivenessAnalysis` to restrict the use-before-def check to reads
-    that are also live (unused reads cannot cause observable violations).
-    Every violation is emitted as an ERROR diagnostic; the pass continues
-    across functions and across reads within the same function so one run
-    surfaces every violation.
+    Runs both the scalar identifier analysis (see
+    :class:`_ScalarDefiniteAssignmentAnalysis`) and the shape-symbolic
+    coverage analysis (see :class:`_ArrayCoverageAnalysis`) on each
+    function, emitting one diagnostic per violation so a single run
+    surfaces every problem.
 
     """
 
@@ -320,80 +704,158 @@ class DefiniteAssignmentValidator(CompilerPass[Module, None]):
             if isinstance(statement, Procedure | Operation):
                 self._validate_function(statement, liveness)
 
+    # Orchestration ------------------------------------------------------
+
     def _validate_function(
         self, function: _FunctionDefinition, liveness: LivenessResult
     ) -> None:
-        cfg = build_cfg(function)
-        result = _compute_definite_assignment(function, cfg, self._symbol_table)
-        self._check_output_arguments_assigned_at_exit(function, cfg, result)
-        self._check_reads_are_preceded_by_definite_assignment(
-            function, cfg, result, liveness
+        scalar_analysis = _ScalarDefiniteAssignmentAnalysis(
+            function, self._symbol_table
         )
+        scalar_result = scalar_analysis.run()
+        self._check_scalar_outputs_assigned_at_exit(function, scalar_result)
+        self._check_reads_are_preceded_by_definite_assignment(
+            function, scalar_analysis, scalar_result, liveness
+        )
+        self._check_output_arrays_fully_written(function)
 
-    def _check_output_arguments_assigned_at_exit(
+    # Individual checks --------------------------------------------------
+
+    def _check_scalar_outputs_assigned_at_exit(
         self,
         function: _FunctionDefinition,
-        cfg: ControlFlowGraph,
-        result: _FunctionDefiniteAssignment,
+        scalar_result: _ScalarDefiniteAssignmentResult,
     ) -> None:
-        """Every OUTPUT argument must be definitely assigned at the exit."""
-        assigned_at_exit = result.live_in.get(cfg.exit.id, frozenset())
+        """Every scalar OUTPUT argument must be definitely assigned at the exit.
+
+        Array OUTPUT arguments are validated by
+        :meth:`_check_output_arrays_fully_written` instead; its
+        shape-sensitive coverage check subsumes the scalar-identifier
+        check for them.
+
+        """
+        assigned_at_exit = scalar_result.definitely_assigned_in.get(
+            scalar_result.cfg.exit.id, frozenset()
+        )
         for argument in function.args:
             if argument.qualified_type.type_qualifier != TypeQualifier.OUTPUT:
                 continue
+            if _is_array_output_argument(argument):
+                continue
             if argument.name in assigned_at_exit:
                 continue
-            self.report(
-                DiagnosticLevel.ERROR,
-                format_diagnostic_message(
-                    "semantic error",
-                    f"OUTPUT argument {argument.name.name_hint!r} of "
-                    f"{function.name.name_hint!r} is not assigned on every "
-                    "control flow path.",
-                    argument.provenance,
-                ),
-            )
+            self._report_scalar_output_not_assigned(function, argument)
 
     def _check_reads_are_preceded_by_definite_assignment(
         self,
         function: _FunctionDefinition,
-        cfg: ControlFlowGraph,
-        result: _FunctionDefiniteAssignment,
+        scalar_analysis: _ScalarDefiniteAssignmentAnalysis,
+        scalar_result: _ScalarDefiniteAssignmentResult,
         liveness: LivenessResult,
     ) -> None:
-        """Reports use-before-definition for reads that are also live.
+        """Every read of a TEMP (or an OUTPUT being read) must be preceded by a write.
 
-        Every read of a TEMP (or an OUTPUT argument being read) must be
-        preceded by a definite assignment. The check is restricted to
-        identifiers that are also live at the point of the read -- unused
-        reads cannot cause observable use-before-def.
+        Restricted to identifiers that are also live at the point of
+        the read: unused reads cannot cause observable use-before-def.
 
         """
-        for node in cfg.nodes:
+        for node in scalar_result.cfg.nodes:
             if node.kind != CFGNodeKind.STATEMENT or node.statement is None:
                 continue
-            read_identifiers = _collect_read_identifiers(
-                node, self._symbol_table, function.name
-            )
+            read_identifiers = scalar_analysis.read_identifiers(node)
             if not read_identifiers:
                 continue
-            assigned_in = result.live_in.get(node.id, frozenset())
+            assigned_in = scalar_result.definitely_assigned_in.get(node.id, frozenset())
             live_in = liveness.live_in.get(id(node.statement), frozenset())
             for identifier in read_identifiers:
                 if identifier in assigned_in:
                     continue
                 if identifier not in live_in:
                     continue
-                if not _is_qualifier_requiring_definite_assignment(
+                if not _qualifier_requires_definite_assignment(
                     identifier, self._symbol_table, function.name
                 ):
                     continue
-                self.report(
-                    DiagnosticLevel.ERROR,
-                    format_diagnostic_message(
-                        "semantic error",
-                        f"Variable {identifier.name_hint!r} may be read "
-                        "before it is assigned.",
-                        node.statement.provenance,
-                    ),
-                )
+                self._report_use_before_def(node.statement, identifier)
+
+    def _check_output_arrays_fully_written(self, function: _FunctionDefinition) -> None:
+        """Every OUTPUT array argument must have every element written.
+
+        Builds a shape-symbolic must-coverage predicate over fresh point
+        variables and checks that the predicate covers the array's
+        declared shape on every control-flow path.
+
+        """
+        for argument in function.args:
+            if not _is_array_output_argument(argument):
+                continue
+            result = _ArrayCoverageAnalysis(
+                function, self._symbol_table, argument
+            ).run()
+            if result.complete is True:
+                continue
+            self._report_array_coverage_failure(function, argument, result)
+
+    # Diagnostics --------------------------------------------------------
+
+    def _report_scalar_output_not_assigned(
+        self, function: _FunctionDefinition, argument: Argument
+    ) -> None:
+        self.report(
+            DiagnosticLevel.ERROR,
+            format_diagnostic_message(
+                "semantic error",
+                f"OUTPUT argument {argument.name.name_hint!r} of "
+                f"{function.name.name_hint!r} is not assigned on every "
+                "control flow path.",
+                argument.provenance,
+            ),
+        )
+
+    def _report_use_before_def(
+        self, statement: Statement, identifier: Identifier
+    ) -> None:
+        self.report(
+            DiagnosticLevel.ERROR,
+            format_diagnostic_message(
+                "semantic error",
+                f"Variable {identifier.name_hint!r} may be read before it is assigned.",
+                statement.provenance,
+            ),
+        )
+
+    def _report_array_coverage_failure(
+        self,
+        function: _FunctionDefinition,
+        argument: Argument,
+        result: _ArrayCoverageResult,
+    ) -> None:
+        provenance = (
+            result.uncharacterisable_writes[0].provenance
+            if result.uncharacterisable_writes
+            else argument.provenance
+        )
+        if result.uncharacterisable_writes:
+            message = (
+                f"OUTPUT array argument {argument.name.name_hint!r} of "
+                f"{function.name.name_hint!r} contains a write whose covered "
+                "region the analysis could not represent symbolically; "
+                "every element may not be written."
+            )
+        elif result.complete is None:
+            message = (
+                f"OUTPUT array argument {argument.name.name_hint!r} of "
+                f"{function.name.name_hint!r} could not be proven fully "
+                "written: the SMT solver returned unknown for the "
+                "coverage query."
+            )
+        else:
+            message = (
+                f"OUTPUT array argument {argument.name.name_hint!r} of "
+                f"{function.name.name_hint!r} is not fully written on every "
+                "control-flow path; some element may remain undefined."
+            )
+        self.report(
+            DiagnosticLevel.ERROR,
+            format_diagnostic_message("semantic error", message, provenance),
+        )
