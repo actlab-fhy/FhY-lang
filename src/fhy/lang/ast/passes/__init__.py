@@ -21,6 +21,7 @@ __all__ = [
     "TupleAccessValidator",
     "TypeChecker",
     "TypeQualifierValidator",
+    "UnreachableCodeEliminationPass",
     "build_symbol_table",
     "collect_identifiers",
     "collect_indices",
@@ -52,3 +53,4 @@ from .symbol_table_builder import FhYSymbolTableBuilderError, build_symbol_table
 from .tuple_access_validator import TupleAccessValidator
 from .type_checker import TypeChecker
 from .type_qualifier_validator import TypeQualifierValidator
+from .unreachable_code_elimination import UnreachableCodeEliminationPass

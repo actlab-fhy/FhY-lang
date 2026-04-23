@@ -39,6 +39,7 @@ from .passes import (
     TupleAccessValidator,
     TypeChecker,
     TypeQualifierValidator,
+    UnreachableCodeEliminationPass,
     build_symbol_table,
 )
 
@@ -190,6 +191,12 @@ def validate_ast(
             cast(
                 CompilerPass[Module, Module],
                 AlgebraicSimplificationPass(),
+            )
+        )
+        fixpoint_group.add_pass(
+            cast(
+                CompilerPass[Module, Module],
+                UnreachableCodeEliminationPass(),
             )
         )
         fixpoint_group.add_pass(
