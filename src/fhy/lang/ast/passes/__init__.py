@@ -15,6 +15,7 @@ __all__ = [
     "OperationValidator",
     "ReductionValidator",
     "ReturnValidator",
+    "TupleAccessValidator",
     "TypeChecker",
     "TypeQualifierValidator",
     "build_symbol_table",
@@ -42,5 +43,6 @@ from .operation_validator import OperationValidator
 from .reduction_validator import ReductionValidator
 from .return_validator import ReturnValidator
 from .symbol_table_builder import FhYSymbolTableBuilderError, build_symbol_table
+from .tuple_access_validator import TupleAccessValidator
 from .type_checker import TypeChecker
 from .type_qualifier_validator import TypeQualifierValidator

@@ -34,6 +34,7 @@ from .passes import (
     OperationValidator,
     ReductionValidator,
     ReturnValidator,
+    TupleAccessValidator,
     TypeChecker,
     TypeQualifierValidator,
     build_symbol_table,
@@ -109,6 +110,7 @@ def build_semantic_validation_manager(
     manager = ValidationManager[Module](Identifier("fhy_ast_semantic_validation"))
     manager.add(_as_module_validator(TypeQualifierValidator(symbol_table)))
     manager.add(_as_module_validator(TypeChecker(symbol_table)))
+    manager.add(_as_module_validator(TupleAccessValidator()))
     manager.add(_as_module_validator(IndexDomainValidator(symbol_table)))
     manager.add(_as_module_validator(DefiniteAssignmentValidator(symbol_table)))
     manager.add(_as_module_validator(ConstantSafetyValidator()))
