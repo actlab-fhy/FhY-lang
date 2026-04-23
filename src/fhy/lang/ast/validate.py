@@ -32,6 +32,7 @@ from .passes import (
     ForAllStatementValidator,
     IndexDomainValidator,
     OperationValidator,
+    RecursionValidator,
     ReductionValidator,
     ReturnValidator,
     TupleAccessValidator,
@@ -84,6 +85,7 @@ def build_structural_validation_manager(
     manager.add(_as_module_validator(CallSiteValidator(symbol_table)))
     manager.add(_as_module_validator(OperationValidator()))
     manager.add(_as_module_validator(ReturnValidator()))
+    manager.add(_as_module_validator(RecursionValidator()))
     return manager
 
 
@@ -110,7 +112,7 @@ def build_semantic_validation_manager(
     manager = ValidationManager[Module](Identifier("fhy_ast_semantic_validation"))
     manager.add(_as_module_validator(TypeQualifierValidator(symbol_table)))
     manager.add(_as_module_validator(TypeChecker(symbol_table)))
-    manager.add(_as_module_validator(TupleAccessValidator()))
+    manager.add(_as_module_validator(TupleAccessValidator(symbol_table)))
     manager.add(_as_module_validator(IndexDomainValidator(symbol_table)))
     manager.add(_as_module_validator(DefiniteAssignmentValidator(symbol_table)))
     manager.add(_as_module_validator(ConstantSafetyValidator()))

@@ -13,6 +13,7 @@ __all__ = [
     "LivenessAnalysis",
     "LivenessResult",
     "OperationValidator",
+    "RecursionValidator",
     "ReductionValidator",
     "ReturnValidator",
     "TupleAccessValidator",
@@ -40,6 +41,7 @@ from .index_collector import collect_indices, collect_reduced_indices
 from .index_domain_validator import IndexDomainValidator
 from .liveness_analysis import LivenessAnalysis, LivenessResult
 from .operation_validator import OperationValidator
+from .recursion_validator import RecursionValidator
 from .reduction_validator import ReductionValidator
 from .return_validator import ReturnValidator
 from .symbol_table_builder import FhYSymbolTableBuilderError, build_symbol_table
