@@ -95,8 +95,9 @@ def _is_array_output_argument(argument: Argument) -> bool:
     """True when ``argument`` is an OUTPUT with non-scalar numerical shape."""
     if argument.qualified_type.type_qualifier != TypeQualifier.OUTPUT:
         return False
-    base_type = argument.qualified_type.base_type
-    return isinstance(base_type, NumericalType) and not base_type.is_scalar()
+    else:
+        base_type = argument.qualified_type.base_type
+        return isinstance(base_type, NumericalType) and not base_type.is_scalar()
 
 
 def _try_get_callee_frame(
@@ -113,9 +114,10 @@ def _try_get_callee_frame(
         )
     except SymbolTableError:
         return None
-    if not isinstance(frame, FunctionSymbolTableFrame):
+    if isinstance(frame, FunctionSymbolTableFrame):
+        return frame
+    else:
         return None
-    return frame
 
 
 def _qualifier_requires_definite_assignment(
@@ -137,14 +139,15 @@ def _qualifier_requires_definite_assignment(
         return False
     if not isinstance(frame, VariableSymbolTableFrame):
         return False
-    if frame.type_qualifier not in {TypeQualifier.TEMP, TypeQualifier.OUTPUT}:
+    elif frame.type_qualifier not in {TypeQualifier.TEMP, TypeQualifier.OUTPUT}:
         return False
-    if isinstance(frame.type, IndexType):
+    elif isinstance(frame.type, IndexType):
         return False
-    return True
+    else:
+        return True
 
 
-def _and_over(clauses: Iterable[CoreExpression]) -> CoreExpression:
+def _conjoin_all(clauses: Iterable[CoreExpression]) -> CoreExpression:
     """Left-fold ``LOGICAL_AND`` over ``clauses``; empty ⇒ ``TRUE``."""
     iterator = iter(clauses)
     try:
@@ -201,8 +204,8 @@ class _ScalarDefiniteAssignmentAnalysis:
 
     def run(self) -> _ScalarDefiniteAssignmentResult:
         universe = self._get_universe()
-        entry_assigned = self._entry_assigned()
-        gen_sets = {node.id: self._gen_set(node) for node in self._cfg.nodes}
+        entry_assigned = self._get_entry_assigned_identifiers()
+        gen_sets = {node.id: self._compute_gen_set(node) for node in self._cfg.nodes}
 
         in_sets: dict[int, frozenset[Identifier]] = {}
         out_sets: dict[int, frozenset[Identifier]] = {}
@@ -240,7 +243,7 @@ class _ScalarDefiniteAssignmentAnalysis:
             definitely_assigned_out=frozendict(out_sets),
         )
 
-    def read_identifiers(self, node: CFGNode) -> frozenset[Identifier]:
+    def get_read_identifiers(self, node: CFGNode) -> frozenset[Identifier]:
         """Return the identifiers read by the statement wrapped by ``node``.
 
         Public for the validator's use-before-def check, which shares
@@ -251,8 +254,8 @@ class _ScalarDefiniteAssignmentAnalysis:
         for an array-indexed write ``b[i] = rhs`` the index identifiers
         and the RHS are read but ``b`` itself is not. In a bare
         procedure-call statement, OUTPUT arguments bound to an
-        identifier actual are writes (tracked by :meth:`_gen_set`) and
-        are excluded from reads.
+        identifier actual are writes (tracked by :meth:`_compute_gen_set`)
+        and are excluded from reads.
 
         """
         statement = node.statement
@@ -264,7 +267,7 @@ class _ScalarDefiniteAssignmentAnalysis:
             else:
                 return collect_identifiers(statement.expression)
         elif isinstance(statement, ExpressionStatement):
-            return self._expression_statement_reads(statement)
+            return self._compute_expression_statement_reads(statement)
         elif isinstance(statement, ReturnStatement):
             return collect_identifiers(statement.expression)
         elif isinstance(statement, ForAllStatement):
@@ -281,32 +284,34 @@ class _ScalarDefiniteAssignmentAnalysis:
                 universe.add(node.statement.variable_name)
         return frozenset(universe)
 
-    def _entry_assigned(self) -> frozenset[Identifier]:
+    def _get_entry_assigned_identifiers(self) -> frozenset[Identifier]:
         return frozenset(
             argument.name
             for argument in self._function.args
             if argument.qualified_type.type_qualifier != TypeQualifier.OUTPUT
         )
 
-    def _gen_set(self, node: CFGNode) -> frozenset[Identifier]:
+    def _compute_gen_set(self, node: CFGNode) -> frozenset[Identifier]:
         statement = node.statement
         if statement is None:
             return frozenset()
-        if isinstance(statement, DeclarationStatement):
+        elif isinstance(statement, DeclarationStatement):
             if statement.expression is None:
                 return frozenset()
-            return frozenset({statement.variable_name})
-        if isinstance(statement, ExpressionStatement):
-            return self._expression_statement_gen_set(statement)
-        return frozenset()
+            else:
+                return frozenset({statement.variable_name})
+        elif isinstance(statement, ExpressionStatement):
+            return self._compute_expression_statement_gen_set(statement)
+        else:
+            return frozenset()
 
-    def _expression_statement_gen_set(
+    def _compute_expression_statement_gen_set(
         self, statement: ExpressionStatement
     ) -> frozenset[Identifier]:
         if statement.left is not None:
             if isinstance(statement.left, IdentifierExpression):
                 return frozenset({statement.left.identifier})
-            if isinstance(statement.left, ArrayAccessExpression) and isinstance(
+            elif isinstance(statement.left, ArrayAccessExpression) and isinstance(
                 statement.left.array_expression, IdentifierExpression
             ):
                 # An array-access write partially defines the array.
@@ -315,12 +320,16 @@ class _ScalarDefiniteAssignmentAnalysis:
                 # flagged; shape-sensitive coverage is handled by
                 # _ArrayCoverageAnalysis.
                 return frozenset({statement.left.array_expression.identifier})
+            else:
+                return frozenset()
+        elif isinstance(statement.right, FunctionExpression):
+            return self._collect_call_output_writes(statement.right)
+        else:
             return frozenset()
-        if isinstance(statement.right, FunctionExpression):
-            return self._call_output_writes(statement.right)
-        return frozenset()
 
-    def _call_output_writes(self, call: FunctionExpression) -> frozenset[Identifier]:
+    def _collect_call_output_writes(
+        self, call: FunctionExpression
+    ) -> frozenset[Identifier]:
         frame = _try_get_callee_frame(call, self._symbol_table, self._function.name)
         if frame is None:
             return frozenset()
@@ -336,20 +345,22 @@ class _ScalarDefiniteAssignmentAnalysis:
                 definitions.add(argument_expression.array_expression.identifier)
         return frozenset(definitions)
 
-    def _expression_statement_reads(
+    def _compute_expression_statement_reads(
         self, statement: ExpressionStatement
     ) -> frozenset[Identifier]:
-        if statement.left is None and isinstance(statement.right, FunctionExpression):
-            return self._call_reads(statement.right)
-        reads: set[Identifier] = set(collect_identifiers(statement.right))
         if statement.left is None:
+            if isinstance(statement.right, FunctionExpression):
+                return self._collect_call_reads(statement.right)
+            else:
+                return collect_identifiers(statement.right)
+        else:
+            reads: set[Identifier] = set(collect_identifiers(statement.right))
+            if isinstance(statement.left, ArrayAccessExpression):
+                for index in statement.left.indices:
+                    reads.update(collect_identifiers(index))
             return frozenset(reads)
-        if isinstance(statement.left, ArrayAccessExpression):
-            for index in statement.left.indices:
-                reads.update(collect_identifiers(index))
-        return frozenset(reads)
 
-    def _call_reads(self, call: FunctionExpression) -> frozenset[Identifier]:
+    def _collect_call_reads(self, call: FunctionExpression) -> frozenset[Identifier]:
         frame = _try_get_callee_frame(call, self._symbol_table, self._function.name)
         if frame is None:
             return collect_identifiers(call)
@@ -378,10 +389,10 @@ class _WriteRegion:
     lower_bounds: tuple[CoreExpression, ...]
     upper_bounds: tuple[CoreExpression, ...]
 
-    def covers_predicate(
+    def build_covers_predicate(
         self, point_expressions: tuple[CoreExpression, ...]
     ) -> CoreExpression:
-        return _and_over(
+        return _conjoin_all(
             CoreExpression.logical_and(lower <= point, point <= upper)
             for point, lower, upper in zip(
                 point_expressions, self.lower_bounds, self.upper_bounds
@@ -405,28 +416,30 @@ class _Coverage:
     uncharacterisable_writes: tuple[Statement, ...] = ()
 
     @staticmethod
-    def empty() -> "_Coverage":
-        """The bottom of the lattice: nothing covered."""
+    def create_empty() -> "_Coverage":
+        """Return the bottom of the lattice: nothing covered."""
         return _Coverage(predicate=CoreLiteralExpression(False))
 
-    def with_region(
+    def add_region(
         self,
         region: _WriteRegion,
         point_expressions: tuple[CoreExpression, ...],
     ) -> "_Coverage":
         if self.fully_written:
             return self
-        return replace(
-            self,
-            predicate=CoreExpression.logical_or(
-                self.predicate, region.covers_predicate(point_expressions)
-            ),
-        )
+        else:
+            return replace(
+                self,
+                predicate=CoreExpression.logical_or(
+                    self.predicate,
+                    region.build_covers_predicate(point_expressions),
+                ),
+            )
 
-    def marked_fully_written(self) -> "_Coverage":
+    def mark_fully_written(self) -> "_Coverage":
         return replace(self, fully_written=True)
 
-    def with_uncharacterisable(self, statement: Statement) -> "_Coverage":
+    def add_uncharacterisable(self, statement: Statement) -> "_Coverage":
         return replace(
             self,
             uncharacterisable_writes=(*self.uncharacterisable_writes, statement),
@@ -501,23 +514,21 @@ class _ArrayCoverageAnalysis:
         self._argument = argument
         self._target = argument.name
         self._shape = base_type.shape
-        self._points = self._fresh_points(argument.name, len(base_type.shape))
+        self._points = self._make_fresh_points(argument.name, len(base_type.shape))
 
     def run(self) -> _ArrayCoverageResult:
-        coverage = self._analyze_block(self._function.body, _Coverage.empty())
+        coverage = self._analyze_block(self._function.body, _Coverage.create_empty())
         complete = self._is_coverage_complete(coverage)
         return _ArrayCoverageResult(
             complete=complete,
             uncharacterisable_writes=coverage.uncharacterisable_writes,
         )
 
-    # Symbolic completeness check ----------------------------------------
-
     def _is_coverage_complete(self, coverage: _Coverage) -> bool | None:
         if coverage.fully_written:
             return True
         one = CoreLiteralExpression(1)
-        in_domain = _and_over(
+        in_domain = _conjoin_all(
             CoreExpression.logical_and(point >= one, point <= dim_size)
             for point, dim_size in zip(self._points, self._shape)
         )
@@ -529,18 +540,19 @@ class _ArrayCoverageAnalysis:
         sat = is_satisfiable(identifiers, uncovered, symbol_types)
         if sat is None:
             return None
-        return not sat
+        else:
+            return not sat
 
     @staticmethod
-    def _fresh_points(array_name: Identifier, rank: int) -> tuple[CoreExpression, ...]:
+    def _make_fresh_points(
+        array_name: Identifier, rank: int
+    ) -> tuple[CoreExpression, ...]:
         return tuple(
             CoreIdentifierExpression(
                 Identifier(f"__coverage_point__{array_name.name_hint}__{j}")
             )
             for j in range(rank)
         )
-
-    # Recursive walk -----------------------------------------------------
 
     def _analyze_block(
         self, body: Sequence[Statement], coverage: _Coverage
@@ -556,42 +568,46 @@ class _ArrayCoverageAnalysis:
     ) -> _Coverage:
         if isinstance(statement, ExpressionStatement):
             return self._analyze_expression_statement(statement, coverage)
-        if isinstance(statement, ForAllStatement):
+        elif isinstance(statement, ForAllStatement):
             return self._analyze_block(statement.body, coverage)
-        if isinstance(statement, SelectionStatement):
+        elif isinstance(statement, SelectionStatement):
             true_coverage = self._analyze_block(statement.true_body, coverage)
             false_coverage = self._analyze_block(statement.false_body, coverage)
             return true_coverage.intersect(false_coverage)
-        # DeclarationStatement / ReturnStatement contribute no writes.
-        return coverage
+        else:
+            # DeclarationStatement / ReturnStatement contribute no writes.
+            return coverage
 
     def _analyze_expression_statement(
         self, statement: ExpressionStatement, coverage: _Coverage
     ) -> _Coverage:
         if statement.left is not None:
             return self._analyze_direct_write(statement, coverage)
-        if isinstance(statement.right, FunctionExpression):
+        elif isinstance(statement.right, FunctionExpression):
             return self._analyze_call_output_writes(
                 statement, statement.right, coverage
             )
-        return coverage
+        else:
+            return coverage
 
     def _analyze_direct_write(
         self, statement: ExpressionStatement, coverage: _Coverage
     ) -> _Coverage:
         left = statement.left
         if isinstance(left, IdentifierExpression) and left.identifier == self._target:
-            return coverage.marked_fully_written()
-        if not isinstance(left, ArrayAccessExpression):
+            return coverage.mark_fully_written()
+        elif (
+            isinstance(left, ArrayAccessExpression)
+            and isinstance(left.array_expression, IdentifierExpression)
+            and left.array_expression.identifier == self._target
+        ):
+            region = self._build_region_for_access(left)
+            if region is None:
+                return coverage.add_uncharacterisable(statement)
+            else:
+                return coverage.add_region(region, self._points)
+        else:
             return coverage
-        if not isinstance(left.array_expression, IdentifierExpression):
-            return coverage
-        if left.array_expression.identifier != self._target:
-            return coverage
-        region = self._region_for_access(left)
-        if region is None:
-            return coverage.with_uncharacterisable(statement)
-        return coverage.with_region(region, self._points)
 
     def _analyze_call_output_writes(
         self,
@@ -609,30 +625,28 @@ class _ArrayCoverageAnalysis:
                 isinstance(argument_expression, IdentifierExpression)
                 and argument_expression.identifier == self._target
             ):
-                return coverage.marked_fully_written()
-            if (
+                return coverage.mark_fully_written()
+            elif (
                 isinstance(argument_expression, ArrayAccessExpression)
                 and isinstance(
                     argument_expression.array_expression, IdentifierExpression
                 )
                 and argument_expression.array_expression.identifier == self._target
             ):
-                region = self._region_for_access(argument_expression)
+                region = self._build_region_for_access(argument_expression)
                 if region is None:
-                    coverage = coverage.with_uncharacterisable(statement)
+                    coverage = coverage.add_uncharacterisable(statement)
                 else:
-                    coverage = coverage.with_region(region, self._points)
+                    coverage = coverage.add_region(region, self._points)
         return coverage
 
-    # Write-region derivation --------------------------------------------
-
-    def _region_for_access(
+    def _build_region_for_access(
         self, array_access: ArrayAccessExpression
     ) -> _WriteRegion | None:
         lower_bounds: list[CoreExpression] = []
         upper_bounds: list[CoreExpression] = []
         for index_expression in array_access.indices:
-            bounds = self._index_range(index_expression)
+            bounds = self._get_index_range(index_expression)
             if bounds is None:
                 return None
             lower, upper = bounds
@@ -643,7 +657,7 @@ class _ArrayCoverageAnalysis:
             upper_bounds=tuple(upper_bounds),
         )
 
-    def _index_range(
+    def _get_index_range(
         self, index_expression: Expression
     ) -> tuple[CoreExpression, CoreExpression] | None:
         if isinstance(index_expression, IdentifierExpression):
@@ -658,7 +672,8 @@ class _ArrayCoverageAnalysis:
             )
         except NotImplementedError:
             return None
-        return core_expression, core_expression
+        else:
+            return core_expression, core_expression
 
     def _try_get_frame(self, identifier: Identifier) -> SymbolTableFrame | None:
         try:
@@ -667,11 +682,6 @@ class _ArrayCoverageAnalysis:
             )
         except SymbolTableError:
             return None
-
-
-# ---------------------------------------------------------------------------
-# Validator
-# ---------------------------------------------------------------------------
 
 
 @register_pass(
@@ -704,8 +714,6 @@ class DefiniteAssignmentValidator(CompilerPass[Module, None]):
             if isinstance(statement, Procedure | Operation):
                 self._validate_function(statement, liveness)
 
-    # Orchestration ------------------------------------------------------
-
     def _validate_function(
         self, function: _FunctionDefinition, liveness: LivenessResult
     ) -> None:
@@ -718,8 +726,6 @@ class DefiniteAssignmentValidator(CompilerPass[Module, None]):
             function, scalar_analysis, scalar_result, liveness
         )
         self._check_output_arrays_fully_written(function)
-
-    # Individual checks --------------------------------------------------
 
     def _check_scalar_outputs_assigned_at_exit(
         self,
@@ -762,7 +768,7 @@ class DefiniteAssignmentValidator(CompilerPass[Module, None]):
         for node in scalar_result.cfg.nodes:
             if node.kind != CFGNodeKind.STATEMENT or node.statement is None:
                 continue
-            read_identifiers = scalar_analysis.read_identifiers(node)
+            read_identifiers = scalar_analysis.get_read_identifiers(node)
             if not read_identifiers:
                 continue
             assigned_in = scalar_result.definitely_assigned_in.get(node.id, frozenset())
@@ -795,8 +801,6 @@ class DefiniteAssignmentValidator(CompilerPass[Module, None]):
             if result.complete is True:
                 continue
             self._report_array_coverage_failure(function, argument, result)
-
-    # Diagnostics --------------------------------------------------------
 
     def _report_scalar_output_not_assigned(
         self, function: _FunctionDefinition, argument: Argument
