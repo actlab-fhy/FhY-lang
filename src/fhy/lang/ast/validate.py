@@ -23,6 +23,7 @@ from fhy_core import (
 
 from .node import Module
 from .passes import (
+    AlgebraicSimplificationPass,
     CallSiteValidator,
     ConstantFoldingPass,
     ConstantSafetyValidator,
@@ -183,6 +184,12 @@ def validate_ast(
             cast(
                 CompilerPass[Module, Module],
                 ConstantFoldingPass(),
+            )
+        )
+        fixpoint_group.add_pass(
+            cast(
+                CompilerPass[Module, Module],
+                AlgebraicSimplificationPass(),
             )
         )
         fixpoint_group.add_pass(

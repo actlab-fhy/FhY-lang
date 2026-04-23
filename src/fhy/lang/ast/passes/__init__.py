@@ -1,11 +1,13 @@
 """Passes for the FhY AST."""
 
 __all__ = [
+    "AlgebraicSimplificationPass",
     "CallSiteValidator",
     "ConstantFoldingPass",
     "ConstantSafetyValidator",
     "DeadCodeEliminationPass",
     "DefiniteAssignmentValidator",
+    "ExpressionSideEffectAnalysis",
     "ExpressionStatementLHSValidator",
     "FhYSymbolTableBuilderError",
     "ForAllStatementValidator",
@@ -27,12 +29,14 @@ __all__ = [
     "replace_identifiers",
 ]
 
+from .algebraic_simplification import AlgebraicSimplificationPass
 from .ast_to_core_expression_converter import convert_ast_expression_to_core_expression
 from .call_site_validator import CallSiteValidator
 from .constant_folding import ConstantFoldingPass
 from .constant_safety_validator import ConstantSafetyValidator
 from .dead_code_elimination import DeadCodeEliminationPass
 from .definite_assignment import DefiniteAssignmentValidator
+from .expression_side_effect_analysis import ExpressionSideEffectAnalysis
 from .expression_statement_lhs_validator import ExpressionStatementLHSValidator
 from .for_all_statement_validator import ForAllStatementValidator
 from .identifier_collector import collect_identifiers

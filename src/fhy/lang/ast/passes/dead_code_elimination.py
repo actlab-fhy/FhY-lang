@@ -7,7 +7,6 @@ __all__ = [
 from collections import Counter
 
 from fhy_core import (
-    AnalysisVisitablePass,
     Identifier,
     Stack,
     SymbolTable,
@@ -22,7 +21,6 @@ from fhy.lang.ast.node import (
     Expression,
     ExpressionStatement,
     ForAllStatement,
-    FunctionExpression,
     IdentifierExpression,
     Module,
     Node,
@@ -32,8 +30,8 @@ from fhy.lang.ast.node import (
     SelectionStatement,
     Statement,
 )
-from fhy.lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
 
+from .expression_side_effect_analysis import ExpressionSideEffectAnalysis
 from .identifier_collector import collect_identifiers
 from .liveness_analysis import LivenessAnalysis, LivenessResult
 from .transformer import Statements, Transformer
@@ -75,35 +73,6 @@ def _count_identifier_occurrences(module: Module) -> Counter[Identifier]:
         if isinstance(top_level, Procedure | Operation):
             _count_identifier_occurrences_in_body(top_level.body, counts)
     return counts
-
-
-class _FunctionCallFinder(AnalysisVisitablePass[Node]):
-    """Visitor that reports whether any non-reduction call is present."""
-
-    _found_non_reduction_call: bool
-
-    def __init__(self) -> None:
-        super().__init__()
-        self._found_non_reduction_call = False
-
-    @property
-    def found_non_reduction_call(self) -> bool:
-        return self._found_non_reduction_call
-
-    def visit_function_expression(self, node: FunctionExpression) -> None:
-        if (
-            isinstance(node.function, IdentifierExpression)
-            and node.function.identifier
-            in BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS.values()
-        ):
-            return
-        self._found_non_reduction_call = True
-
-
-def _expression_may_have_side_effects(expression: Expression) -> bool:
-    finder = _FunctionCallFinder()
-    finder(expression)
-    return finder.found_non_reduction_call
 
 
 def _get_assignment_target_identifier(
@@ -188,7 +157,7 @@ class DeadCodeEliminationPass(Transformer):
             return False
         if not self._is_temp_variable(target):
             return False
-        if _expression_may_have_side_effects(node.right):
+        if self.get_analysis(ExpressionSideEffectAnalysis, node.right):
             return False
         return target not in self._live_out.get(id(node), frozenset())
 
@@ -197,7 +166,7 @@ class DeadCodeEliminationPass(Transformer):
             return False
         if node.expression is None:
             return self._identifier_use_counts.get(node.variable_name, 0) <= 1
-        if _expression_may_have_side_effects(node.expression):
+        if self.get_analysis(ExpressionSideEffectAnalysis, node.expression):
             return False
         return node.variable_name not in self._live_out.get(id(node), frozenset())
 
