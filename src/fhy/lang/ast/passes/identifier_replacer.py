@@ -1,11 +1,14 @@
 """Identifier replacement transformer."""
 
+__all__ = ["replace_identifiers"]
+
 from fhy_core import (
     Identifier,
     IndexType,
     NumericalType,
     TemplateDataType,
     TupleType,
+    Type,
     register_pass,
 )
 from fhy_core import replace_identifiers as replace_core_identifiers
@@ -16,50 +19,38 @@ from .transformer import Transformer
 
 
 @register_pass("fhy_ast_identifier_replacer", "Replaces identifiers in the FhY AST.")
-class IdentifierReplacer(Transformer):
-    """Replace identifiers.
-
-    Args:
-        identifier_map: mapping describing
-            identifiers to change from and to.
-
-    """
+class _IdentifierReplacer(Transformer):
+    """Replace identifiers according to a given mapping."""
 
     _identifier_map: dict[Identifier, Identifier]
 
-    def __init__(self, identifier_map: dict[Identifier, Identifier]):
+    def __init__(self, identifier_map: dict[Identifier, Identifier]) -> None:
         super().__init__()
         self._identifier_map = identifier_map
 
-    def visit_numerical_type(self, numerical_type: NumericalType) -> NumericalType:
+    def visit_numerical_type(self, node: NumericalType) -> Type:
         return NumericalType(
-            self.visit_data_type(numerical_type.data_type),
+            self.visit_data_type(node.data_type),
             shape=[
-                replace_core_identifiers(dim, self._identifier_map)
-                for dim in numerical_type.shape
+                replace_core_identifiers(dimension, self._identifier_map)
+                for dimension in node.shape
             ],
         )
 
-    Transformer.visit_type.register(NumericalType)(visit_numerical_type)  # type: ignore[attr-defined]
-
-    def visit_index_type(self, index_type: IndexType) -> IndexType:
+    def visit_index_type(self, node: IndexType) -> Type:
         new_stride = (
-            replace_core_identifiers(index_type.stride, self._identifier_map)
-            if index_type.stride is not None
+            replace_core_identifiers(node.stride, self._identifier_map)
+            if node.stride is not None
             else None
         )
         return IndexType(
-            replace_core_identifiers(index_type.lower_bound, self._identifier_map),
-            replace_core_identifiers(index_type.upper_bound, self._identifier_map),
+            replace_core_identifiers(node.lower_bound, self._identifier_map),
+            replace_core_identifiers(node.upper_bound, self._identifier_map),
             stride=new_stride,
         )
 
-    Transformer.visit_type.register(IndexType)(visit_index_type)  # type: ignore[attr-defined]
-
-    def visit_tuple_type(self, tuple_type: TupleType) -> TupleType:
-        return TupleType([self.visit_type(type) for type in tuple_type.types])
-
-    Transformer.visit_type.register(TupleType)(visit_tuple_type)  # type: ignore[attr-defined]
+    def visit_tuple_type(self, node: TupleType) -> Type:
+        return TupleType([self.visit_type(inner_type) for inner_type in node.types])
 
     def visit_template_data_type(
         self, template_data_type: TemplateDataType
@@ -76,14 +67,14 @@ class IdentifierReplacer(Transformer):
 def replace_identifiers(
     node: Node, identifier_map: dict[Identifier, Identifier]
 ) -> Node:
-    """Replace identifiers within AST.
+    """Replace identifiers within the AST according to the given mapping.
 
     Args:
         node: AST node.
-        identifier_map: mapping describing identifiers to change from and to.
+        identifier_map: Mapping describing the identifiers to replace.
 
     Returns:
-        Node with identifiers replaced as prescribed by mapping.
+        A node with identifiers replaced as prescribed by the mapping.
 
     """
-    return IdentifierReplacer(identifier_map)(node)
+    return _IdentifierReplacer(identifier_map)(node)

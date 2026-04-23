@@ -1,8 +1,8 @@
 """Construct a symbol table from a FhY AST module."""
 
 __all__ = [
-    "build_symbol_table",
     "FhYSymbolTableBuilderError",
+    "build_symbol_table",
 ]
 
 from fhy_core import (
@@ -18,6 +18,7 @@ from fhy_core import (
     Stack,
     SymbolTable,
     SymbolTableFrame,
+    Type,
     TypeQualifier,
     VariableSymbolTableFrame,
     register_error,
@@ -40,6 +41,17 @@ from fhy.lang.ast.node import (
 from fhy.lang.builtins import BUILTIN_LANG_IDENTIFIERS, BUILTINS_NAMESPACE_NAME
 
 
+def _format_provenance_location(provenance: Provenance | None) -> str | None:
+    if provenance is None:
+        return None
+    elif provenance.span is not None:
+        return str(provenance.span)
+    elif provenance.origins:
+        return str(provenance.origins[0])
+    else:
+        return None
+
+
 @register_error
 class FhYSymbolTableBuilderError(RuntimeError):
     """Raised when a symbol table builder error is detected."""
@@ -50,12 +62,7 @@ class FhYSymbolTableBuilderError(RuntimeError):
         self, error_message: str, provenance: "Provenance | None" = None
     ) -> None:
         self.provenance = provenance
-        location = None
-        if provenance is not None:
-            if provenance.span is not None:
-                location = str(provenance.span)
-            elif provenance.origins:
-                location = str(provenance.origins[0])
+        location = _format_provenance_location(provenance)
         full_message = (
             f"An error occurred while building the symbol table: {error_message}"
         )
@@ -64,15 +71,23 @@ class FhYSymbolTableBuilderError(RuntimeError):
         super().__init__(full_message)
 
 
+def _build_function_signature(
+    function: Procedure | Operation,
+) -> tuple[tuple[TypeQualifier, Type], ...]:
+    return tuple(
+        (argument.qualified_type.type_qualifier, argument.qualified_type.base_type)
+        for argument in function.args
+    )
+
+
 @register_pass(
     "fhy_ast_symbol_table_builder",
     "Builds a symbol table for the given AST module node.",
 )
 class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
-    """Builds a symbol table for the given AST module node."""
+    """Build a symbol table for the given AST module node."""
 
     _symbol_table: SymbolTable
-
     _namespace_stack: Stack[Identifier]
 
     def __init__(self) -> None:
@@ -91,9 +106,7 @@ class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
         self._namespace_stack.push(BUILTINS_NAMESPACE_NAME)
 
     @property
-    def symbol_table(
-        self,
-    ) -> SymbolTable:
+    def symbol_table(self) -> SymbolTable:
         return self._symbol_table
 
     def get_noop_output(self, ir: Node) -> None:
@@ -123,6 +136,15 @@ class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
             )
         self._symbol_table.add_symbol(self._namespace_stack.peek(), symbol, frame)
 
+    def _check_symbol_not_defined(
+        self, symbol: Identifier, provenance: Provenance | None
+    ) -> None:
+        if self._is_symbol_defined(symbol):
+            raise FhYSymbolTableBuilderError(
+                f"Symbol {symbol.name_hint} is already defined.",
+                provenance,
+            )
+
     def before_visit_module(self, node: Module) -> None:
         self._push_namespace(node.name)
 
@@ -135,88 +157,69 @@ class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
             )
 
     def visit_import(self, node: Import) -> None:
-        if self._is_symbol_defined(node.name):
-            raise FhYSymbolTableBuilderError(
-                f"Symbol {node.name.name_hint} is already defined.",
-                node.provenance,
-            )
-        import_frame = ImportSymbolTableFrame(name=node.name)
-        self._add_symbol(node.name, import_frame)
+        self._check_symbol_not_defined(node.name, node.provenance)
+        self._add_symbol(node.name, ImportSymbolTableFrame(name=node.name))
 
     def before_visit_procedure(self, node: Procedure) -> None:
-        if self._is_symbol_defined(node.name):
-            raise FhYSymbolTableBuilderError(
-                f"Symbol {node.name.name_hint} is already defined.",
-                node.provenance,
-            )
-        proc_frame = FunctionSymbolTableFrame(
+        self._check_symbol_not_defined(node.name, node.provenance)
+        procedure_frame = FunctionSymbolTableFrame(
             name=node.name,
             keyword=FunctionKeyword.PROCEDURE,
-            signature=tuple(
-                (arg.qualified_type.type_qualifier, arg.qualified_type.base_type)
-                for arg in node.args
-            ),
+            signature=_build_function_signature(node),
         )
-        self._add_symbol(node.name, proc_frame)
+        self._add_symbol(node.name, procedure_frame)
         self._push_namespace(node.name)
 
     def after_visit_procedure(self, node: Procedure) -> None:
         self._pop_namespace()
 
     def before_visit_operation(self, node: Operation) -> None:
-        if self._is_symbol_defined(node.name):
-            raise FhYSymbolTableBuilderError(
-                f"Symbol {node.name.name_hint} is already defined.",
-                node.provenance,
-            )
-        op_frame = FunctionSymbolTableFrame(
+        self._check_symbol_not_defined(node.name, node.provenance)
+        operation_frame = FunctionSymbolTableFrame(
             name=node.name,
             keyword=FunctionKeyword.OPERATION,
-            signature=tuple(
-                (arg.qualified_type.type_qualifier, arg.qualified_type.base_type)
-                for arg in node.args
-            ),
+            signature=_build_function_signature(node),
         )
-        self._add_symbol(node.name, op_frame)
+        self._add_symbol(node.name, operation_frame)
         self._push_namespace(node.name)
 
     def after_visit_operation(self, node: Operation) -> None:
         self._pop_namespace()
 
     def visit_argument(self, node: Argument) -> None:
-        arg_frame = VariableSymbolTableFrame(
+        argument_frame = VariableSymbolTableFrame(
             name=node.name,
             type=node.qualified_type.base_type,
             type_qualifier=node.qualified_type.type_qualifier,
         )
-        self._add_symbol(node.name, arg_frame)
+        self._add_symbol(node.name, argument_frame)
 
         if isinstance(node.qualified_type.base_type, NumericalType):
-            shape_dimension_identifiers: set[Identifier] = set()
-            for shape in node.qualified_type.base_type.shape:
-                shape_dimension_identifiers.update(collect_core_identifiers(shape))
+            self._add_implicit_shape_parameters(node.qualified_type.base_type)
 
-            for dimension in shape_dimension_identifiers:
-                if not self._is_symbol_defined(dimension):
-                    var_frame = VariableSymbolTableFrame(
-                        name=dimension,
-                        type=NumericalType(PrimitiveDataType(CoreDataType.UINT32)),
-                        type_qualifier=TypeQualifier.PARAM,
-                    )
-                    self._add_symbol(dimension, var_frame)
+    def _add_implicit_shape_parameters(self, numerical_type: NumericalType) -> None:
+        shape_dimension_identifiers: set[Identifier] = set()
+        for shape in numerical_type.shape:
+            shape_dimension_identifiers.update(collect_core_identifiers(shape))
+
+        for dimension in shape_dimension_identifiers:
+            if self._is_symbol_defined(dimension):
+                continue
+            dimension_frame = VariableSymbolTableFrame(
+                name=dimension,
+                type=NumericalType(PrimitiveDataType(CoreDataType.UINT32)),
+                type_qualifier=TypeQualifier.PARAM,
+            )
+            self._add_symbol(dimension, dimension_frame)
 
     def visit_declaration_statement(self, node: DeclarationStatement) -> None:
-        if self._is_symbol_defined(node.variable_name):
-            raise FhYSymbolTableBuilderError(
-                f"Symbol {node.variable_name.name_hint} is already defined.",
-                node.provenance,
-            )
-        var_frame = VariableSymbolTableFrame(
+        self._check_symbol_not_defined(node.variable_name, node.provenance)
+        variable_frame = VariableSymbolTableFrame(
             name=node.variable_name,
             type=node.variable_type.base_type,
             type_qualifier=node.variable_type.type_qualifier,
         )
-        self._add_symbol(node.variable_name, var_frame)
+        self._add_symbol(node.variable_name, variable_frame)
 
     def before_visit_for_all_statement(self, node: ForAllStatement) -> None:
         self._push_namespace(node.name)
@@ -228,18 +231,18 @@ class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
 def build_symbol_table(node: Module) -> SymbolTable:
     """Build a symbol table from a module AST node.
 
-    Argument:
-        node: FhY module AST node
+    Args:
+        node: FhY module AST node.
 
     Returns:
-         Symbol table cataloging all variables from the provided module,
-            by appropriate frame.
+        Symbol table cataloging all variables from the provided module, by
+        appropriate frame.
 
     Raises:
-        FhYSymbolTableBuilderError: An error occurred while building the symbol table.
+        FhYSymbolTableBuilderError: An error occurred while building the
+            symbol table.
 
     """
     builder = _SymbolTableBuilder()
     builder(node)
-
     return builder.symbol_table

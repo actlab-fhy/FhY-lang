@@ -8,13 +8,16 @@ body follows a common shape: ``"<kind>: [<location>: ]<message>"`` where
 carrying a bespoke exception-class hierarchy.
 
 This module is intentionally not re-exported from :mod:`fhy.lang.ast.passes`
-— each validator imports :func:`format_diagnostic_message` locally. That
-keeps diagnostic formatting an implementation detail of the passes package
-rather than part of the public surface.
+-- each validator imports its helpers locally. That keeps diagnostic
+formatting an implementation detail of the passes package rather than part
+of the public surface.
 
 """
 
-__all__ = ["format_diagnostic_message"]
+__all__ = [
+    "format_diagnostic_message",
+    "format_location_prefix",
+]
 
 from fhy_core import Provenance
 
@@ -22,11 +25,12 @@ from fhy_core import Provenance
 def _format_location(provenance: Provenance | None) -> str | None:
     if provenance is None:
         return None
-    if provenance.span is not None:
+    elif provenance.span is not None:
         return str(provenance.span)
-    if provenance.origins:
+    elif provenance.origins:
         return str(provenance.origins[0])
-    return None
+    else:
+        return None
 
 
 def format_diagnostic_message(
@@ -54,3 +58,15 @@ def format_diagnostic_message(
     if location is None:
         return f"{kind}: {message}"
     return f"{kind}: {location}: {message}"
+
+
+def format_location_prefix(provenance: Provenance | None) -> str:
+    """Return ``"<span>: "`` when a span is known and ``""`` otherwise.
+
+    Used for WARNING diagnostics that do not need a category tag but still
+    benefit from a visible source location.
+
+    """
+    if provenance is None or provenance.span is None:
+        return ""
+    return f"{provenance.span}: "

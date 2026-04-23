@@ -4,6 +4,9 @@ __all__ = [
     "IndexDomainValidator",
 ]
 
+from collections.abc import Sequence
+from dataclasses import dataclass
+
 from fhy_core import (
     BinaryExpression as CoreBinaryExpression,
 )
@@ -47,7 +50,7 @@ from .ast_to_core_expression_converter import (
 )
 from .utils import format_diagnostic_message
 
-_UNSIGNED_INTEGER_CORE_DATA_TYPES = frozenset(
+_UNSIGNED_INTEGER_CORE_DATA_TYPES: frozenset[CoreDataType] = frozenset(
     {
         CoreDataType.UINT,
         CoreDataType.UINT8,
@@ -55,6 +58,29 @@ _UNSIGNED_INTEGER_CORE_DATA_TYPES = frozenset(
         CoreDataType.UINT32,
     }
 )
+
+
+@dataclass(frozen=True)
+class _DomainCheckInput:
+    """Inputs needed to check that an index falls within an array dimension."""
+
+    array_name: Identifier
+    ast_index: Expression
+    lower_bound: CoreExpression
+    upper_bound: CoreExpression
+    dimension_size: CoreExpression
+
+
+def _is_unsigned_integer_param(
+    index_type: Type, index_qualifier: TypeQualifier
+) -> bool:
+    return (
+        isinstance(index_type, NumericalType)
+        and index_type.is_scalar()
+        and isinstance(index_type.data_type, PrimitiveDataType)
+        and index_type.data_type.core_data_type in _UNSIGNED_INTEGER_CORE_DATA_TYPES
+        and index_qualifier == TypeQualifier.PARAM
+    )
 
 
 @register_pass(
@@ -70,8 +96,8 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
     - Checks that the identifier resolves to a numerical (array) variable.
     - Checks that the rank of the access matches the rank of the array.
     - Synthesizes the type of each index expression and derives its
-      ``[lower_bound, upper_bound]`` either from an ``IndexType`` or from a
-      scalar unsigned-integer ``PARAM`` expression.
+      ``[lower_bound, upper_bound]`` either from an :class:`IndexType` or
+      from a scalar unsigned-integer ``PARAM`` expression.
     - Uses z3 satisfiability to verify
       ``lower_bound >= 1 AND upper_bound <= dim_size``.
 
@@ -82,15 +108,7 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
 
     def visit_array_access_expression(self, node: ArrayAccessExpression) -> None:
         if not isinstance(node.array_expression, IdentifierExpression):
-            self.report(
-                DiagnosticLevel.ERROR,
-                format_diagnostic_message(
-                    "structural error",
-                    "Non-identifier array access expressions are not yet "
-                    f"supported; got {type(node.array_expression).__name__}.",
-                    node.provenance,
-                ),
-            )
+            self._report_non_identifier_array_expression(node)
             return
         array_name = node.array_expression.identifier
         try:
@@ -100,68 +118,49 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
         if not isinstance(frame, VariableSymbolTableFrame) or not isinstance(
             frame.type, NumericalType
         ):
-            self.report(
-                DiagnosticLevel.ERROR,
-                format_diagnostic_message(
-                    "type error",
-                    f"Array access on {array_name.name_hint!r} is not a "
-                    f"vector; got {frame}.",
-                    node.provenance,
-                ),
-            )
+            self._report_non_vector_access(node, array_name, frame)
             return
         shape = frame.type.shape
         if len(node.indices) != len(shape):
-            self.report(
-                DiagnosticLevel.ERROR,
-                format_diagnostic_message(
-                    "structural error",
-                    f"Array access on {array_name.name_hint!r} has "
-                    f"{len(node.indices)} indices but {len(shape)} "
-                    f"dimensions; got shape {shape}.",
-                    node.provenance,
-                ),
-            )
+            self._report_rank_mismatch(node, array_name, shape)
             return
 
-        for ast_index, dim_size in zip(node.indices, shape):
-            try:
-                core_index = convert_ast_expression_to_core_expression(ast_index)
-            except NotImplementedError:
-                self.report(
-                    DiagnosticLevel.ERROR,
-                    format_diagnostic_message(
-                        "type error",
-                        f"Array-access index {ast_index} is not a supported "
-                        f"type; got type {type(ast_index).__name__}.",
-                        ast_index.provenance,
-                    ),
-                )
-                continue
-            try:
-                index_type, index_qualifier = synthesize_expression_type(
-                    core_index, self._get_identifier_type
-                )
-            except FhYCoreTypeError as exc:
-                self.report(
-                    DiagnosticLevel.ERROR,
-                    format_diagnostic_message(
-                        "type error",
-                        f"Failed to synthesize a type for array-access "
-                        f"index {ast_index}: {exc}",
-                        ast_index.provenance,
-                    ),
-                )
-                continue
-            bounds = self._get_index_bounds(
-                ast_index, core_index, index_type, index_qualifier
+        for ast_index, dimension_size in zip(node.indices, shape):
+            self._check_single_index(array_name, ast_index, dimension_size)
+
+    def _check_single_index(
+        self,
+        array_name: Identifier,
+        ast_index: Expression,
+        dimension_size: CoreExpression,
+    ) -> None:
+        try:
+            core_index = convert_ast_expression_to_core_expression(ast_index)
+        except NotImplementedError:
+            self._report_unsupported_index_type(ast_index)
+            return
+        try:
+            index_type, index_qualifier = synthesize_expression_type(
+                core_index, self._get_identifier_type
             )
-            if bounds is None:
-                continue
-            lower_bound, upper_bound = bounds
-            self._check_index_in_domain(
-                array_name, ast_index, lower_bound, upper_bound, dim_size
+        except FhYCoreTypeError as exc:
+            self._report_failed_type_synthesis(ast_index, exc)
+            return
+        bounds = self._get_index_bounds(
+            ast_index, core_index, index_type, index_qualifier
+        )
+        if bounds is None:
+            return
+        lower_bound, upper_bound = bounds
+        self._check_index_in_domain(
+            _DomainCheckInput(
+                array_name=array_name,
+                ast_index=ast_index,
+                lower_bound=lower_bound,
+                upper_bound=upper_bound,
+                dimension_size=dimension_size,
             )
+        )
 
     def _get_index_bounds(
         self,
@@ -172,13 +171,7 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
     ) -> tuple[CoreExpression, CoreExpression] | None:
         if isinstance(index_type, IndexType):
             return index_type.lower_bound, index_type.upper_bound
-        if (
-            isinstance(index_type, NumericalType)
-            and index_type.is_scalar()
-            and isinstance(index_type.data_type, PrimitiveDataType)
-            and index_type.data_type.core_data_type in _UNSIGNED_INTEGER_CORE_DATA_TYPES
-            and index_qualifier == TypeQualifier.PARAM
-        ):
+        if _is_unsigned_integer_param(index_type, index_qualifier):
             return core_index, core_index
         self.report(
             DiagnosticLevel.ERROR,
@@ -203,16 +196,9 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
             )
         return frame.type, frame.type_qualifier
 
-    def _check_index_in_domain(
-        self,
-        array_name: Identifier,
-        ast_index: Expression,
-        lower_bound: CoreExpression,
-        upper_bound: CoreExpression,
-        dim_size: CoreExpression,
-    ) -> None:
-        lower_bound_constraint = lower_bound >= CoreLiteralExpression(1)
-        upper_bound_constraint = upper_bound <= dim_size
+    def _check_index_in_domain(self, check_input: _DomainCheckInput) -> None:
+        lower_bound_constraint = check_input.lower_bound >= CoreLiteralExpression(1)
+        upper_bound_constraint = check_input.upper_bound <= check_input.dimension_size
         constraint = CoreBinaryExpression(
             CoreBinaryOperation.LOGICAL_AND,
             lower_bound_constraint,
@@ -220,15 +206,87 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
         )
         violation = constraint.logical_not()
         identifiers = collect_identifiers(violation)
-        symbol_types = {identifier: SymbolType.INT for identifier in identifiers}
-        if is_satisfiable(identifiers, violation, symbol_types):
-            self.report(
-                DiagnosticLevel.ERROR,
-                format_diagnostic_message(
-                    "semantic error",
-                    f"Array access on {array_name.name_hint!r} is out of "
-                    f"bounds: index range [{lower_bound}, {upper_bound}] is "
-                    f"not contained in [1, {dim_size}].",
-                    ast_index.provenance,
-                ),
-            )
+        symbol_types = dict.fromkeys(identifiers, SymbolType.INT)
+        if not is_satisfiable(identifiers, violation, symbol_types):
+            return
+        self.report(
+            DiagnosticLevel.ERROR,
+            format_diagnostic_message(
+                "semantic error",
+                f"Array access on {check_input.array_name.name_hint!r} is out "
+                f"of bounds: index range [{check_input.lower_bound}, "
+                f"{check_input.upper_bound}] is not contained in "
+                f"[1, {check_input.dimension_size}].",
+                check_input.ast_index.provenance,
+            ),
+        )
+
+    def _report_non_identifier_array_expression(
+        self, node: ArrayAccessExpression
+    ) -> None:
+        self.report(
+            DiagnosticLevel.ERROR,
+            format_diagnostic_message(
+                "structural error",
+                "Non-identifier array access expressions are not yet "
+                f"supported; got {type(node.array_expression).__name__}.",
+                node.provenance,
+            ),
+        )
+
+    def _report_non_vector_access(
+        self,
+        node: ArrayAccessExpression,
+        array_name: Identifier,
+        frame: object,
+    ) -> None:
+        self.report(
+            DiagnosticLevel.ERROR,
+            format_diagnostic_message(
+                "type error",
+                f"Array access on {array_name.name_hint!r} is not a vector; "
+                f"got {frame}.",
+                node.provenance,
+            ),
+        )
+
+    def _report_rank_mismatch(
+        self,
+        node: ArrayAccessExpression,
+        array_name: Identifier,
+        shape: Sequence[CoreExpression],
+    ) -> None:
+        self.report(
+            DiagnosticLevel.ERROR,
+            format_diagnostic_message(
+                "structural error",
+                f"Array access on {array_name.name_hint!r} has "
+                f"{len(node.indices)} indices but {len(shape)} dimensions; "
+                f"got shape {shape}.",
+                node.provenance,
+            ),
+        )
+
+    def _report_unsupported_index_type(self, ast_index: Expression) -> None:
+        self.report(
+            DiagnosticLevel.ERROR,
+            format_diagnostic_message(
+                "type error",
+                f"Array-access index {ast_index} is not a supported type; "
+                f"got type {type(ast_index).__name__}.",
+                ast_index.provenance,
+            ),
+        )
+
+    def _report_failed_type_synthesis(
+        self, ast_index: Expression, exc: FhYCoreTypeError
+    ) -> None:
+        self.report(
+            DiagnosticLevel.ERROR,
+            format_diagnostic_message(
+                "type error",
+                f"Failed to synthesize a type for array-access index "
+                f"{ast_index}: {exc}",
+                ast_index.provenance,
+            ),
+        )

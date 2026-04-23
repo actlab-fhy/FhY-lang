@@ -19,7 +19,7 @@ from fhy.lang.builtins import BUILTINS_NAMESPACE_NAME
 
 
 class AnalysisPassWithSymbolTable(AnalysisVisitablePass[Node], ABC):
-    """Analysis pass with symbol table."""
+    """Analysis pass with an attached symbol table and namespace stack."""
 
     _symbol_table: SymbolTable
     _namespace_stack: Stack[Identifier]
@@ -52,8 +52,8 @@ class AnalysisPassWithSymbolTable(AnalysisVisitablePass[Node], ABC):
         """
         return self._symbol_table.get_frame_from_namespace(namespace, name)
 
-    def _push_namespace(self, namespace_name: Identifier) -> None:
-        self._namespace_stack.push(namespace_name)
+    def _push_namespace(self, namespace: Identifier) -> None:
+        self._namespace_stack.push(namespace)
 
     def _pop_namespace(self) -> None:
         self._namespace_stack.pop()

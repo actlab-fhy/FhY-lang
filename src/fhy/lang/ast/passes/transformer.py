@@ -3,7 +3,6 @@
 __all__ = ["Transformer"]
 
 from collections.abc import Callable, Sequence
-from functools import singledispatchmethod
 from typing import TypeVar, cast
 
 from fhy_core import (
@@ -53,10 +52,6 @@ Statements = Statement | list[Statement]
 _T = TypeVar("_T", bound=Node)
 
 
-# TODO: do not create new objects when not necessary;
-#       test this behavior too!
-
-
 class Transformer(VisitablePass[Node, Node]):
     """AST node transformer."""
 
@@ -100,8 +95,7 @@ class Transformer(VisitablePass[Node, Node]):
                     raise RuntimeError(
                         "visit_fn returned a sequence, but is_length_same is True."
                     )
-                else:
-                    new_nodes.extend(new_node)
+                new_nodes.extend(new_node)
             else:
                 new_nodes.append(new_node)
         return tuple(new_nodes)
@@ -269,7 +263,6 @@ class Transformer(VisitablePass[Node, Node]):
             node: Selection statement node to transform.
 
         """
-        # TODO: handle namespace stack
         return SelectionStatement(
             condition=self.visit_expression(node.condition),
             true_body=self.visit_sequence(
@@ -495,45 +488,65 @@ class Transformer(VisitablePass[Node, Node]):
             provenance=node.provenance,
         )
 
-    @singledispatchmethod
     def visit_type(self, node: Type) -> Type:
-        """Transform a type.
+        """Transform a type node.
+
+        Dispatches on the concrete type so subclasses can override a specific
+        ``visit_*_type`` without having to reimplement the base dispatch.
 
         Args:
-            node: Type to transform.
+            node: Type node to transform.
 
         """
-        raise NotImplementedError(f'Type "{type(node)}" is not supported.')
+        if isinstance(node, NumericalType):
+            return self.visit_numerical_type(node)
+        elif isinstance(node, IndexType):
+            return self.visit_index_type(node)
+        elif isinstance(node, TupleType):
+            return self.visit_tuple_type(node)
+        else:
+            raise NotImplementedError(f'Type "{type(node)}" is not supported.')
 
-    @visit_type.register(NumericalType)
-    def _(self, numerical_type: NumericalType) -> NumericalType:
-        return numerical_type
+    def visit_numerical_type(self, node: NumericalType) -> Type:
+        """Transform a numerical type node.
 
-    @visit_type.register(TupleType)
-    def _(self, tuple_type: TupleType) -> TupleType:
-        return tuple_type
+        Args:
+            node: Numerical type node to transform.
 
-    @visit_type.register(IndexType)
-    def _(self, index_type: IndexType) -> IndexType:
-        return index_type
+        """
+        return node
 
-    @singledispatchmethod
-    def visit_data_type(self, data_type: DataType) -> DataType:
+    def visit_index_type(self, node: IndexType) -> Type:
+        """Transform an index type node.
+
+        Args:
+            node: Index type node to transform.
+
+        """
+        return node
+
+    def visit_tuple_type(self, node: TupleType) -> Type:
+        """Transform a tuple type node.
+
+        Args:
+            node: Tuple type node to transform.
+
+        """
+        return node
+
+    def visit_data_type(self, node: DataType) -> DataType:
         """Transform a data type.
 
         Args:
-            data_type: Data type to transform.
+            node: Data type to transform.
 
         """
-        raise NotImplementedError(f'Data type "{type(data_type)}" is not supported.')
-
-    @visit_data_type.register(PrimitiveDataType)
-    def _(self, primitive_data_type: PrimitiveDataType) -> PrimitiveDataType:
-        return primitive_data_type
-
-    @visit_data_type.register(TemplateDataType)
-    def _(self, template_data_type: TemplateDataType) -> TemplateDataType:
-        return self.visit_template_data_type(template_data_type)
+        if isinstance(node, PrimitiveDataType):
+            return node
+        elif isinstance(node, TemplateDataType):
+            return self.visit_template_data_type(node)
+        else:
+            raise NotImplementedError(f'Data type "{type(node)}" is not supported.')
 
     def visit_template_data_type(
         self, template_data_type: TemplateDataType

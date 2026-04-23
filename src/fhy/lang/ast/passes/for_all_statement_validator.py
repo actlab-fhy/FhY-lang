@@ -35,15 +35,7 @@ class ForAllStatementValidator(AnalysisPassWithSymbolTable):
 
     def visit_for_all_statement(self, node: ForAllStatement) -> None:
         if not isinstance(node.index, IdentifierExpression):
-            self.report(
-                DiagnosticLevel.ERROR,
-                format_diagnostic_message(
-                    "structural error",
-                    "The index expression of a for-all statement must be an "
-                    f"identifier expression; got {type(node.index).__name__}.",
-                    node.index.provenance,
-                ),
-            )
+            self._report_non_identifier_index(node)
             return
         identifier = node.index.identifier
         try:
@@ -55,13 +47,28 @@ class ForAllStatementValidator(AnalysisPassWithSymbolTable):
         if not isinstance(frame, VariableSymbolTableFrame) or not isinstance(
             frame.type, IndexType
         ):
-            self.report(
-                DiagnosticLevel.ERROR,
-                format_diagnostic_message(
-                    "type error",
-                    f'The identifier "{identifier.name_hint!r}" used as the '
-                    "index of a for-all statement must refer to an index "
-                    "variable.",
-                    node.index.provenance,
-                ),
-            )
+            self._report_non_index_typed_identifier(node, identifier.name_hint)
+
+    def _report_non_identifier_index(self, node: ForAllStatement) -> None:
+        self.report(
+            DiagnosticLevel.ERROR,
+            format_diagnostic_message(
+                "structural error",
+                "The index expression of a for-all statement must be an "
+                f"identifier expression; got {type(node.index).__name__}.",
+                node.index.provenance,
+            ),
+        )
+
+    def _report_non_index_typed_identifier(
+        self, node: ForAllStatement, name_hint: str
+    ) -> None:
+        self.report(
+            DiagnosticLevel.ERROR,
+            format_diagnostic_message(
+                "type error",
+                f'The identifier "{name_hint!r}" used as the index of a '
+                "for-all statement must refer to an index variable.",
+                node.index.provenance,
+            ),
+        )

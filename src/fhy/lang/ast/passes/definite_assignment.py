@@ -11,9 +11,11 @@ from fhy_core import (
     DiagnosticLevel,
     FunctionSymbolTableFrame,
     Identifier,
+    IndexType,
     SymbolTable,
     SymbolTableError,
     TypeQualifier,
+    VariableSymbolTableFrame,
     register_pass,
 )
 
@@ -46,7 +48,7 @@ _FunctionDefinition = Procedure | Operation
 
 @dataclass(frozen=True)
 class _FunctionDefiniteAssignment:
-    """Per-CFG dataflow result: definite-assignment sets at entry/exit of each node."""
+    """Per-CFG dataflow result: definitely-assigned sets at each node's boundary."""
 
     cfg: ControlFlowGraph
     live_in: dict[int, frozenset[Identifier]] = field(default_factory=dict)
@@ -56,29 +58,27 @@ class _FunctionDefiniteAssignment:
 def _get_function_universe(
     function: _FunctionDefinition, cfg: ControlFlowGraph
 ) -> frozenset[Identifier]:
-    universe: set[Identifier] = {arg.name for arg in function.args}
+    universe: set[Identifier] = {argument.name for argument in function.args}
     for node in cfg.nodes:
-        if node.statement is None:
-            continue
         if isinstance(node.statement, DeclarationStatement):
             universe.add(node.statement.variable_name)
     return frozenset(universe)
 
 
-def _get_identifiers_definitely_assigned_on_func_entry(
+def _get_identifiers_definitely_assigned_on_function_entry(
     function: _FunctionDefinition,
 ) -> frozenset[Identifier]:
     return frozenset(
-        arg.name
-        for arg in function.args
-        if arg.qualified_type.type_qualifier != TypeQualifier.OUTPUT
+        argument.name
+        for argument in function.args
+        if argument.qualified_type.type_qualifier != TypeQualifier.OUTPUT
     )
 
 
 def _get_procedure_call_output_writes(
     call: FunctionExpression, symbol_table: SymbolTable, namespace: Identifier
 ) -> frozenset[Identifier]:
-    """Identifiers assigned by a procedure call via its OUTPUT arguments.
+    """Return the identifiers assigned by a procedure call via OUTPUT arguments.
 
     Array-access arguments are skipped (they would partially write into an
     existing aggregate, which we do not model here).
@@ -94,48 +94,56 @@ def _get_procedure_call_output_writes(
         return frozenset()
     if not isinstance(frame, FunctionSymbolTableFrame):
         return frozenset()
-    defs: set[Identifier] = set()
-    for arg_expression, (qualifier, _) in zip(call.args, frame.signature):
+    definitions: set[Identifier] = set()
+    for argument_expression, (qualifier, _) in zip(call.args, frame.signature):
         if qualifier != TypeQualifier.OUTPUT:
             continue
-        if isinstance(arg_expression, IdentifierExpression):
-            defs.add(arg_expression.identifier)
-        elif isinstance(arg_expression, ArrayAccessExpression) and isinstance(
-            arg_expression.array_expression, IdentifierExpression
+        if isinstance(argument_expression, IdentifierExpression):
+            definitions.add(argument_expression.identifier)
+        elif isinstance(argument_expression, ArrayAccessExpression) and isinstance(
+            argument_expression.array_expression, IdentifierExpression
         ):
-            defs.add(arg_expression.array_expression.identifier)
-    return frozenset(defs)
+            definitions.add(argument_expression.array_expression.identifier)
+    return frozenset(definitions)
 
 
-def _statement_gen(
+def _get_expression_statement_gen_set(
+    statement: ExpressionStatement,
+    symbol_table: SymbolTable,
+    namespace: Identifier,
+) -> frozenset[Identifier]:
+    if statement.left is not None:
+        if isinstance(statement.left, IdentifierExpression):
+            return frozenset({statement.left.identifier})
+        if isinstance(statement.left, ArrayAccessExpression) and isinstance(
+            statement.left.array_expression, IdentifierExpression
+        ):
+            # An array-access write partially defines the array. We treat it
+            # as a full definition so idiomatic per-element initialization
+            # inside a ForAll is accepted.
+            return frozenset({statement.left.array_expression.identifier})
+        return frozenset()
+    # Bare ``procedure(...);`` statements: OUTPUT arguments bound to
+    # identifier actuals are written through to the caller's scope.
+    if isinstance(statement.right, FunctionExpression):
+        return _get_procedure_call_output_writes(
+            statement.right, symbol_table, namespace
+        )
+    return frozenset()
+
+
+def _get_statement_gen_set(
     node: CFGNode, symbol_table: SymbolTable, namespace: Identifier
 ) -> frozenset[Identifier]:
-    if node.statement is None:
-        return frozenset()
     statement = node.statement
-    if isinstance(statement, DeclarationStatement):
+    if statement is None:
+        return frozenset()
+    elif isinstance(statement, DeclarationStatement):
         if statement.expression is None:
             return frozenset()
         return frozenset({statement.variable_name})
     elif isinstance(statement, ExpressionStatement):
-        if statement.left is not None:
-            if isinstance(statement.left, IdentifierExpression):
-                return frozenset({statement.left.identifier})
-            if isinstance(statement.left, ArrayAccessExpression) and isinstance(
-                statement.left.array_expression, IdentifierExpression
-            ):
-                # An array-access write partially defines the array. We treat
-                # it as a full definition so idiomatic per-element
-                # initialization inside a ForAll is accepted.
-                return frozenset({statement.left.array_expression.identifier})
-            return frozenset()
-        # Bare `procedure(...);` statements: OUTPUT arguments bound to
-        # identifier actuals are written through to the caller's scope.
-        if isinstance(statement.right, FunctionExpression):
-            return _get_procedure_call_output_writes(
-                statement.right, symbol_table, namespace
-            )
-        return frozenset()
+        return _get_expression_statement_gen_set(statement, symbol_table, namespace)
     else:
         return frozenset()
 
@@ -145,12 +153,13 @@ def _compute_definite_assignment(
     cfg: ControlFlowGraph,
     symbol_table: SymbolTable,
 ) -> _FunctionDefiniteAssignment:
-    """Forward MUST dataflow: definitely-assigned identifiers at every node."""
+    """Run the forward MUST dataflow for definite assignment."""
     universe = _get_function_universe(function, cfg)
-    entry_assigned = _get_identifiers_definitely_assigned_on_func_entry(function)
+    entry_assigned = _get_identifiers_definitely_assigned_on_function_entry(function)
 
-    gen: dict[int, frozenset[Identifier]] = {
-        node.id: _statement_gen(node, symbol_table, function.name) for node in cfg.nodes
+    gen_sets: dict[int, frozenset[Identifier]] = {
+        node.id: _get_statement_gen_set(node, symbol_table, function.name)
+        for node in cfg.nodes
     }
 
     in_sets: dict[int, frozenset[Identifier]] = {}
@@ -173,11 +182,11 @@ def _compute_definite_assignment(
             if not predecessors:
                 new_in: frozenset[Identifier] = frozenset()
             else:
-                iterator = iter(predecessors)
-                new_in = out_sets[next(iterator).id]
-                for predecessor in iterator:
+                predecessor_iterator = iter(predecessors)
+                new_in = out_sets[next(predecessor_iterator).id]
+                for predecessor in predecessor_iterator:
                     new_in = new_in & out_sets[predecessor.id]
-            new_out = new_in | gen[node.id]
+            new_out = new_in | gen_sets[node.id]
             if new_in != in_sets[node.id] or new_out != out_sets[node.id]:
                 in_sets[node.id] = new_in
                 out_sets[node.id] = new_out
@@ -186,52 +195,10 @@ def _compute_definite_assignment(
     return _FunctionDefiniteAssignment(cfg=cfg, live_in=in_sets, live_out=out_sets)
 
 
-def _collect_read_identifiers(  # noqa: C901, PLR0912
-    node: CFGNode, symbol_table: SymbolTable, namespace: Identifier
-) -> frozenset[Identifier]:
-    """Identifiers read by the statement at `node` (excluding pure writes).
-
-    For an assignment `x = rhs`, the RHS is read and `x` is not. For an
-    array-indexed write `b[i] = rhs`, the index identifiers (`i`) and the
-    RHS are read; `b` itself is not read. For a bare procedure call, OUTPUT
-    arguments bound to an identifier actual are writes (handled by
-    `_statement_gen`) and so are excluded from reads.
-
-    """
-    statement = node.statement
-    if statement is None:
-        return frozenset()
-    elif isinstance(statement, DeclarationStatement):
-        if statement.expression is None:
-            return frozenset()
-        else:
-            return collect_identifiers(statement.expression)
-    elif isinstance(statement, ExpressionStatement):
-        if statement.left is None and isinstance(statement.right, FunctionExpression):
-            return _collect_procedure_call_reads(
-                statement.right, symbol_table, namespace
-            )
-        reads: set[Identifier] = set(collect_identifiers(statement.right))
-        if statement.left is None:
-            return frozenset(reads)
-        if isinstance(statement.left, ArrayAccessExpression):
-            for index in statement.left.indices:
-                reads.update(collect_identifiers(index))
-        return frozenset(reads)
-    elif isinstance(statement, ReturnStatement):
-        return collect_identifiers(statement.expression)
-    elif isinstance(statement, ForAllStatement):
-        return collect_identifiers(statement.index)
-    elif isinstance(statement, SelectionStatement):
-        return collect_identifiers(statement.condition)
-    else:
-        return frozenset()
-
-
 def _collect_procedure_call_reads(
     call: FunctionExpression, symbol_table: SymbolTable, namespace: Identifier
 ) -> frozenset[Identifier]:
-    """Identifier reads inside a bare procedure-call statement.
+    """Return the identifier reads inside a bare procedure-call statement.
 
     OUTPUT identifier arguments are writes, not reads. Non-OUTPUT arguments
     contribute their full identifier set as reads (indices, shape, etc).
@@ -245,23 +212,68 @@ def _collect_procedure_call_reads(
         )
     except SymbolTableError:
         return collect_identifiers(call)
-    reads: set[Identifier] = set()
     if not isinstance(frame, FunctionSymbolTableFrame):
         return collect_identifiers(call)
-    for arg_expression, (qualifier, _) in zip(call.args, frame.signature):
+    reads: set[Identifier] = set()
+    for argument_expression, (qualifier, _) in zip(call.args, frame.signature):
         if qualifier == TypeQualifier.OUTPUT and isinstance(
-            arg_expression, IdentifierExpression
+            argument_expression, IdentifierExpression
         ):
             continue
-        reads.update(collect_identifiers(arg_expression))
+        reads.update(collect_identifiers(argument_expression))
     return frozenset(reads)
+
+
+def _collect_expression_statement_reads(
+    statement: ExpressionStatement,
+    symbol_table: SymbolTable,
+    namespace: Identifier,
+) -> frozenset[Identifier]:
+    if statement.left is None and isinstance(statement.right, FunctionExpression):
+        return _collect_procedure_call_reads(statement.right, symbol_table, namespace)
+    reads: set[Identifier] = set(collect_identifiers(statement.right))
+    if statement.left is None:
+        return frozenset(reads)
+    if isinstance(statement.left, ArrayAccessExpression):
+        for index in statement.left.indices:
+            reads.update(collect_identifiers(index))
+    return frozenset(reads)
+
+
+def _collect_read_identifiers(
+    node: CFGNode, symbol_table: SymbolTable, namespace: Identifier
+) -> frozenset[Identifier]:
+    """Return the identifiers read by the statement at the given CFG node.
+
+    For an assignment ``x = rhs``, the RHS is read and ``x`` is not. For an
+    array-indexed write ``b[i] = rhs``, the index identifiers (``i``) and
+    the RHS are read; ``b`` itself is not read. For a bare procedure call,
+    OUTPUT arguments bound to an identifier actual are writes (handled by
+    :func:`_get_statement_gen_set`) and so are excluded from reads.
+
+    """
+    statement = node.statement
+    if statement is None:
+        return frozenset()
+    elif isinstance(statement, DeclarationStatement):
+        if statement.expression is None:
+            return frozenset()
+        return collect_identifiers(statement.expression)
+    elif isinstance(statement, ExpressionStatement):
+        return _collect_expression_statement_reads(statement, symbol_table, namespace)
+    elif isinstance(statement, ReturnStatement):
+        return collect_identifiers(statement.expression)
+    elif isinstance(statement, ForAllStatement):
+        return collect_identifiers(statement.index)
+    elif isinstance(statement, SelectionStatement):
+        return collect_identifiers(statement.condition)
+    else:
+        return frozenset()
 
 
 def _is_qualifier_requiring_definite_assignment(
     identifier: Identifier, symbol_table: SymbolTable, namespace: Identifier
 ) -> bool:
-    from fhy_core import IndexType, VariableSymbolTableFrame
-
     try:
         frame = symbol_table.get_frame_from_namespace(namespace, identifier)
     except SymbolTableError:
@@ -308,33 +320,55 @@ class DefiniteAssignmentValidator(CompilerPass[Module, None]):
             if isinstance(statement, Procedure | Operation):
                 self._validate_function(statement, liveness)
 
-    def _validate_function(  # noqa: C901
+    def _validate_function(
         self, function: _FunctionDefinition, liveness: LivenessResult
     ) -> None:
         cfg = build_cfg(function)
         result = _compute_definite_assignment(function, cfg, self._symbol_table)
+        self._check_output_arguments_assigned_at_exit(function, cfg, result)
+        self._check_reads_are_preceded_by_definite_assignment(
+            function, cfg, result, liveness
+        )
 
-        # 1. Every OUTPUT argument must be definitely assigned at the exit.
+    def _check_output_arguments_assigned_at_exit(
+        self,
+        function: _FunctionDefinition,
+        cfg: ControlFlowGraph,
+        result: _FunctionDefiniteAssignment,
+    ) -> None:
+        """Every OUTPUT argument must be definitely assigned at the exit."""
         assigned_at_exit = result.live_in.get(cfg.exit.id, frozenset())
         for argument in function.args:
             if argument.qualified_type.type_qualifier != TypeQualifier.OUTPUT:
                 continue
-            if argument.name not in assigned_at_exit:
-                self.report(
-                    DiagnosticLevel.ERROR,
-                    format_diagnostic_message(
-                        "semantic error",
-                        f"OUTPUT argument {argument.name.name_hint!r} of "
-                        f"{function.name.name_hint!r} is not assigned on "
-                        "every control flow path.",
-                        argument.provenance,
-                    ),
-                )
+            if argument.name in assigned_at_exit:
+                continue
+            self.report(
+                DiagnosticLevel.ERROR,
+                format_diagnostic_message(
+                    "semantic error",
+                    f"OUTPUT argument {argument.name.name_hint!r} of "
+                    f"{function.name.name_hint!r} is not assigned on every "
+                    "control flow path.",
+                    argument.provenance,
+                ),
+            )
 
-        # 2. Every read of a TEMP (or OUTPUT-arg-being-read) must be preceded
-        # by a definite assignment. Restrict the check to identifiers that
-        # are also live at the point of the read — unused reads cannot cause
-        # observable use-before-def.
+    def _check_reads_are_preceded_by_definite_assignment(
+        self,
+        function: _FunctionDefinition,
+        cfg: ControlFlowGraph,
+        result: _FunctionDefiniteAssignment,
+        liveness: LivenessResult,
+    ) -> None:
+        """Reports use-before-definition for reads that are also live.
+
+        Every read of a TEMP (or an OUTPUT argument being read) must be
+        preceded by a definite assignment. The check is restricted to
+        identifiers that are also live at the point of the read -- unused
+        reads cannot cause observable use-before-def.
+
+        """
         for node in cfg.nodes:
             if node.kind != CFGNodeKind.STATEMENT or node.statement is None:
                 continue

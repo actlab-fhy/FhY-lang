@@ -2,16 +2,17 @@
 
 Folds two kinds of constants:
 
-1. AST-level literals: a `UnaryExpression`, `BinaryExpression`, or
-   `TernaryExpression` whose operands are fully literal is evaluated at
-   compile time and replaced by a single `IntLiteral` / `FloatLiteral` /
-   `ComplexLiteral`.
+1. AST-level literals: a :class:`UnaryExpression`, :class:`BinaryExpression`,
+   or :class:`TernaryExpression` whose operands are fully literal is
+   evaluated at compile time and replaced by a single :class:`IntLiteral`,
+   :class:`FloatLiteral`, or :class:`ComplexLiteral`.
 
 2. Core expressions embedded in types: shape expressions on
-   `NumericalType` and bound / stride expressions on `IndexType` are
-   simplified via :func:`fhy_core.simplify_expression`.
+   :class:`NumericalType` and bound / stride expressions on
+   :class:`IndexType` are simplified via
+   :func:`fhy_core.simplify_expression`.
 
-Unsafe folds (e.g., division / modulo by zero) are intentionally left in
+Unsafe folds (e.g., division or modulo by zero) are intentionally left in
 place so the constant-safety validator can diagnose them.
 
 """
@@ -74,16 +75,18 @@ _REAL_ONLY_BINARY_OPERATIONS: frozenset[BinaryOperation] = frozenset(
     }
 )
 
+_NUMERIC_FOLDABLE_EXCEPTIONS = (TypeError, ValueError, ZeroDivisionError, OverflowError)
 
-def _is_literal(expression: Expression) -> TypeGuard[_AstLiteral]:
+
+def _is_literal_expression(expression: Expression) -> TypeGuard[_AstLiteral]:
     return isinstance(expression, IntLiteral | FloatLiteral | ComplexLiteral)
 
 
-def _literal_from_value(
+def _build_literal_from_value(
     value: int | float | complex,  # noqa: PYI041
     provenance: Provenance,
 ) -> _AstLiteral | None:
-    # `bool` is a subclass of `int`; normalize to a plain IntLiteral.
+    # `bool` is a subclass of `int`; normalize to a plain `IntLiteral`.
     if isinstance(value, bool):
         return IntLiteral(value=int(value), provenance=provenance)
     elif isinstance(value, int):
@@ -127,11 +130,11 @@ def _fold_real_only_binary_operation(
     if operation == BinaryOperation.FLOORDIV:
         if right_value == 0:
             return None
-        return _literal_from_value(left_value // right_value, provenance)
+        return _build_literal_from_value(left_value // right_value, provenance)
     elif operation == BinaryOperation.MODULO:
         if right_value == 0:
             return None
-        return _literal_from_value(left_value % right_value, provenance)
+        return _build_literal_from_value(left_value % right_value, provenance)
     elif operation == BinaryOperation.LESS_THAN:
         return IntLiteral(value=int(left_value < right_value), provenance=provenance)
     elif operation == BinaryOperation.LESS_THAN_OR_EQUAL:
@@ -141,6 +144,143 @@ def _fold_real_only_binary_operation(
     elif operation == BinaryOperation.GREATER_THAN_OR_EQUAL:
         return IntLiteral(value=int(left_value >= right_value), provenance=provenance)
     else:
+        return None
+
+
+def _fold_arithmetic_binary_operation(
+    operation: BinaryOperation,
+    left: _AstLiteral,
+    right: _AstLiteral,
+    provenance: Provenance,
+) -> Expression | None:
+    if operation == BinaryOperation.ADDITION:
+        return _build_literal_from_value(left.value + right.value, provenance)
+    elif operation == BinaryOperation.SUBTRACTION:
+        return _build_literal_from_value(left.value - right.value, provenance)
+    elif operation == BinaryOperation.MULTIPLICATION:
+        return _build_literal_from_value(left.value * right.value, provenance)
+    elif operation == BinaryOperation.DIVISION:
+        if right.value == 0:
+            # Diagnosed by the constant-safety validator; leave unfolded.
+            return None
+        return _build_literal_from_value(left.value / right.value, provenance)
+    elif operation == BinaryOperation.POWER:
+        return _build_literal_from_value(left.value**right.value, provenance)
+    else:
+        return None
+
+
+def _fold_equality_binary_operation(
+    operation: BinaryOperation,
+    left: _AstLiteral,
+    right: _AstLiteral,
+    provenance: Provenance,
+) -> IntLiteral | None:
+    if operation == BinaryOperation.EQUAL_TO:
+        return IntLiteral(value=int(left.value == right.value), provenance=provenance)
+    elif operation == BinaryOperation.NOT_EQUAL_TO:
+        return IntLiteral(value=int(left.value != right.value), provenance=provenance)
+    else:
+        return None
+
+
+def _fold_logical_binary_operation(
+    operation: BinaryOperation,
+    left: _AstLiteral,
+    right: _AstLiteral,
+    provenance: Provenance,
+) -> IntLiteral | None:
+    if operation == BinaryOperation.LOGICAL_AND:
+        folded = bool(left.value) and bool(right.value)
+        return IntLiteral(value=int(folded), provenance=provenance)
+    elif operation == BinaryOperation.LOGICAL_OR:
+        folded = bool(left.value) or bool(right.value)
+        return IntLiteral(value=int(folded), provenance=provenance)
+    else:
+        return None
+
+
+def _fold_unary_operation(
+    operation: UnaryOperation,
+    operand: _AstLiteral,
+    provenance: Provenance,
+) -> Expression | None:
+    try:
+        if operation == UnaryOperation.NEGATION:
+            return _build_literal_from_value(-operand.value, provenance)
+        elif operation == UnaryOperation.BITWISE_NOT:
+            # Bitwise-not is only defined for integers; leave the rest alone.
+            if not isinstance(operand, IntLiteral):
+                return None
+            return IntLiteral(value=~operand.value, provenance=provenance)
+        elif operation == UnaryOperation.LOGICAL_NOT:
+            return IntLiteral(
+                value=0 if bool(operand.value) else 1, provenance=provenance
+            )
+        else:
+            return None
+    except _NUMERIC_FOLDABLE_EXCEPTIONS:
+        return None
+
+
+def _fold_binary_operation(
+    operation: BinaryOperation,
+    left: _AstLiteral,
+    right: _AstLiteral,
+    provenance: Provenance,
+) -> Expression | None:
+    try:
+        if operation in _INTEGER_BITWISE_BINARY_OPERATIONS:
+            if not isinstance(left, IntLiteral) or not isinstance(right, IntLiteral):
+                return None
+            return _fold_integer_bitwise_operation(
+                operation, left.value, right.value, provenance
+            )
+        elif operation in _REAL_ONLY_BINARY_OPERATIONS:
+            if isinstance(left, ComplexLiteral) or isinstance(right, ComplexLiteral):
+                return None
+            return _fold_real_only_binary_operation(operation, left, right, provenance)
+        arithmetic = _fold_arithmetic_binary_operation(
+            operation, left, right, provenance
+        )
+        if arithmetic is not None:
+            return arithmetic
+        equality = _fold_equality_binary_operation(operation, left, right, provenance)
+        if equality is not None:
+            return equality
+        return _fold_logical_binary_operation(operation, left, right, provenance)
+    except _NUMERIC_FOLDABLE_EXCEPTIONS:
+        return None
+
+
+def _core_expressions_equal(
+    left: CoreExpression | None, right: CoreExpression | None
+) -> bool:
+    if left is None and right is None:
+        return True
+    if left is None or right is None:
+        return False
+    try:
+        return left.is_structurally_equivalent(right)
+    except Exception:
+        return repr(left) == repr(right)
+
+
+def _core_expression_tuples_equal(
+    left: tuple[CoreExpression, ...], right: tuple[CoreExpression, ...]
+) -> bool:
+    if len(left) != len(right):
+        return False
+    return all(
+        _core_expressions_equal(left_item, right_item)
+        for left_item, right_item in zip(left, right)
+    )
+
+
+def _try_evaluate_condition_as_boolean(condition: _AstLiteral) -> bool | None:
+    try:
+        return bool(condition.value)
+    except _NUMERIC_FOLDABLE_EXCEPTIONS:
         return None
 
 
@@ -175,8 +315,8 @@ class ConstantFoldingPass(Transformer):
         # constant). The visitor dispatcher in `Transformer.visit_expression`
         # treats the result as `Expression`, so the widening is safe.
         inner = self.visit_expression(node.expression)
-        if _is_literal(inner):
-            folded = self._try_fold_unary(node.operation, inner, node.provenance)
+        if _is_literal_expression(inner):
+            folded = _fold_unary_operation(node.operation, inner, node.provenance)
             if folded is not None:
                 self._folded_count += 1
                 return folded
@@ -189,8 +329,10 @@ class ConstantFoldingPass(Transformer):
     def visit_binary_expression(self, node: BinaryExpression) -> Expression:
         left = self.visit_expression(node.left)
         right = self.visit_expression(node.right)
-        if _is_literal(left) and _is_literal(right):
-            folded = self._try_fold_binary(node.operation, left, right, node.provenance)
+        if _is_literal_expression(left) and _is_literal_expression(right):
+            folded = _fold_binary_operation(
+                node.operation, left, right, node.provenance
+            )
             if folded is not None:
                 self._folded_count += 1
                 return folded
@@ -205,15 +347,12 @@ class ConstantFoldingPass(Transformer):
         condition = self.visit_expression(node.condition)
         true_branch = self.visit_expression(node.true)
         false_branch = self.visit_expression(node.false)
-        if _is_literal(condition):
-            try:
-                is_truthy = bool(condition.value)
-            except (TypeError, ValueError):
-                is_truthy = None
+        if _is_literal_expression(condition):
+            is_truthy = _try_evaluate_condition_as_boolean(condition)
             if is_truthy is True:
                 self._folded_count += 1
                 return true_branch
-            elif is_truthy is False:
+            if is_truthy is False:
                 self._folded_count += 1
                 return false_branch
         return TernaryExpression(
@@ -246,7 +385,7 @@ class ConstantFoldingPass(Transformer):
     def _simplify_numerical_type(self, type_node: NumericalType) -> NumericalType:
         original_shape = tuple(type_node.shape)
         simplified_shape = tuple(simplify_expression(dim) for dim in original_shape)
-        if self._core_expressions_all_equal(original_shape, simplified_shape):
+        if _core_expression_tuples_equal(original_shape, simplified_shape):
             return type_node
         self._folded_count += 1
         return NumericalType(type_node.data_type, shape=simplified_shape)
@@ -259,9 +398,9 @@ class ConstantFoldingPass(Transformer):
             if type_node.stride is not None
             else None
         )
-        lower_unchanged = self._core_expression_equal(type_node.lower_bound, new_lower)
-        upper_unchanged = self._core_expression_equal(type_node.upper_bound, new_upper)
-        stride_unchanged = self._core_expression_equal(type_node.stride, new_stride)
+        lower_unchanged = _core_expressions_equal(type_node.lower_bound, new_lower)
+        upper_unchanged = _core_expressions_equal(type_node.upper_bound, new_upper)
+        stride_unchanged = _core_expressions_equal(type_node.stride, new_stride)
         if lower_unchanged and upper_unchanged and stride_unchanged:
             return type_node
         self._folded_count += 1
@@ -269,129 +408,10 @@ class ConstantFoldingPass(Transformer):
 
     def _simplify_tuple_type(self, type_node: TupleType) -> TupleType:
         new_types = [self._simplify_type(t) for t in type_node.types]
-        if all(
+        all_unchanged = all(
             new_type is original_type
             for new_type, original_type in zip(new_types, type_node.types)
-        ):
+        )
+        if all_unchanged:
             return type_node
         return TupleType(new_types)
-
-    @staticmethod
-    def _core_expression_equal(
-        a: CoreExpression | None, b: CoreExpression | None
-    ) -> bool:
-        if a is None and b is None:
-            return True
-        if a is None or b is None:
-            return False
-        try:
-            return a.is_structurally_equivalent(b)
-        except Exception:
-            return repr(a) == repr(b)
-
-    @classmethod
-    def _core_expressions_all_equal(
-        cls,
-        left_expressions: tuple[CoreExpression, ...],
-        right_expressions: tuple[CoreExpression, ...],
-    ) -> bool:
-        if len(left_expressions) != len(right_expressions):
-            return False
-        return all(
-            cls._core_expression_equal(left, right)
-            for left, right in zip(left_expressions, right_expressions)
-        )
-
-    @staticmethod
-    def _try_fold_unary(
-        operation: UnaryOperation,
-        operand: _AstLiteral,
-        provenance: Provenance,
-    ) -> Expression | None:
-        try:
-            if operation == UnaryOperation.NEGATION:
-                return _literal_from_value(-operand.value, provenance)
-            elif operation == UnaryOperation.BITWISE_NOT:
-                if isinstance(operand, IntLiteral):
-                    return IntLiteral(value=~operand.value, provenance=provenance)
-                # Bitwise-not is only defined for integers; leave others alone.
-                return None
-            elif operation == UnaryOperation.LOGICAL_NOT:
-                return IntLiteral(
-                    value=0 if bool(operand.value) else 1, provenance=provenance
-                )
-        except (TypeError, ValueError):
-            return None
-        return None
-
-    @staticmethod
-    def _try_fold_binary(  # noqa: C901, PLR0912
-        operation: BinaryOperation,
-        left: _AstLiteral,
-        right: _AstLiteral,
-        provenance: Provenance,
-    ) -> Expression | None:
-        try:
-            # Arithmetic operations defined on every numeric type, including
-            # `complex`.
-            if operation == BinaryOperation.ADDITION:
-                return _literal_from_value(left.value + right.value, provenance)
-            elif operation == BinaryOperation.SUBTRACTION:
-                return _literal_from_value(left.value - right.value, provenance)
-            elif operation == BinaryOperation.MULTIPLICATION:
-                return _literal_from_value(left.value * right.value, provenance)
-            elif operation == BinaryOperation.DIVISION:
-                if right.value == 0:
-                    return None  # diagnosed by the constant-safety validator
-                return _literal_from_value(left.value / right.value, provenance)
-            elif operation == BinaryOperation.POWER:
-                return _literal_from_value(left.value**right.value, provenance)
-
-            # Equality works on every numeric type.
-            elif operation == BinaryOperation.EQUAL_TO:
-                return IntLiteral(
-                    value=int(left.value == right.value),
-                    provenance=provenance,
-                )
-            elif operation == BinaryOperation.NOT_EQUAL_TO:
-                return IntLiteral(
-                    value=int(left.value != right.value),
-                    provenance=provenance,
-                )
-
-            # Logical operations only inspect truthiness; safe for every
-            # numeric type.
-            elif operation == BinaryOperation.LOGICAL_AND:
-                return IntLiteral(
-                    value=1 if bool(left.value) and bool(right.value) else 0,
-                    provenance=provenance,
-                )
-            elif operation == BinaryOperation.LOGICAL_OR:
-                return IntLiteral(
-                    value=1 if bool(left.value) or bool(right.value) else 0,
-                    provenance=provenance,
-                )
-
-            # Bitwise and shift operations only apply to integers.
-            elif operation in _INTEGER_BITWISE_BINARY_OPERATIONS:
-                if not isinstance(left, IntLiteral) or not isinstance(
-                    right, IntLiteral
-                ):
-                    return None
-                return _fold_integer_bitwise_operation(
-                    operation, left.value, right.value, provenance
-                )
-
-            # Floor-division, modulo, and ordered comparisons require real
-            # (non-complex) operands.
-            elif operation in _REAL_ONLY_BINARY_OPERATIONS:
-                if isinstance(left, ComplexLiteral) or isinstance(
-                    right, ComplexLiteral
-                ):
-                    return None
-                return _fold_real_only_binary_operation(
-                    operation, left, right, provenance
-                )
-        except (TypeError, ValueError, ZeroDivisionError, OverflowError):
-            return None
-        return None

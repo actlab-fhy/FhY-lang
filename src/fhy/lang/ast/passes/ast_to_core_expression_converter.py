@@ -24,25 +24,17 @@ from fhy.lang.ast.node import IntLiteral as ASTIntLiteralExpression
 from fhy.lang.ast.node import UnaryExpression as ASTUnaryExpression
 from fhy.lang.ast.node import UnaryOperation as ASTUnaryOperation
 
-
-@register_pass(
-    "fhy_ast_to_core_expression_converter",
-    "Converts FhY AST expressions to FhY Core expressions.",
-)
-class ASTToCoreExpressionConverter(VisitablePass[ASTExpression, CoreExpression]):
-    """Convert AST expressions to core expressions."""
-
-    _AST_TO_CORE_UNARY_OPERATIONS: ClassVar[
-        frozendict[ASTUnaryOperation, CoreUnaryOperation]
-    ] = frozendict(
+_AST_TO_CORE_UNARY_OPERATIONS: frozendict[ASTUnaryOperation, CoreUnaryOperation] = (
+    frozendict(
         {
             ASTUnaryOperation.NEGATION: CoreUnaryOperation.NEGATE,
             ASTUnaryOperation.LOGICAL_NOT: CoreUnaryOperation.LOGICAL_NOT,
         }
     )
-    _AST_TO_CORE_BINARY_OPERATIONS: ClassVar[
-        frozendict[ASTBinaryOperation, CoreBinaryOperation]
-    ] = frozendict(
+)
+
+_AST_TO_CORE_BINARY_OPERATIONS: frozendict[ASTBinaryOperation, CoreBinaryOperation] = (
+    frozendict(
         {
             ASTBinaryOperation.ADDITION: CoreBinaryOperation.ADD,
             ASTBinaryOperation.SUBTRACTION: CoreBinaryOperation.SUBTRACT,
@@ -61,13 +53,29 @@ class ASTToCoreExpressionConverter(VisitablePass[ASTExpression, CoreExpression])
             ASTBinaryOperation.LOGICAL_OR: CoreBinaryOperation.LOGICAL_OR,
         }
     )
+)
+
+
+@register_pass(
+    "fhy_ast_to_core_expression_converter",
+    "Converts FhY AST expressions to FhY Core expressions.",
+)
+class ASTToCoreExpressionConverter(VisitablePass[ASTExpression, CoreExpression]):
+    """Convert AST expressions to core expressions."""
+
+    _ast_to_core_unary_operations: ClassVar[
+        frozendict[ASTUnaryOperation, CoreUnaryOperation]
+    ] = _AST_TO_CORE_UNARY_OPERATIONS
+    _ast_to_core_binary_operations: ClassVar[
+        frozendict[ASTBinaryOperation, CoreBinaryOperation]
+    ] = _AST_TO_CORE_BINARY_OPERATIONS
 
     def get_noop_output(self, ir: ASTExpression) -> CoreExpression:
         raise RuntimeError("This pass does not support a noop output.")
 
     def visit_unary_expression(self, node: ASTUnaryExpression) -> CoreUnaryExpression:
         return CoreUnaryExpression(
-            self._AST_TO_CORE_UNARY_OPERATIONS[node.operation],
+            self._ast_to_core_unary_operations[node.operation],
             self.visit(node.expression),
         )
 
@@ -75,7 +83,7 @@ class ASTToCoreExpressionConverter(VisitablePass[ASTExpression, CoreExpression])
         self, node: ASTBinaryExpression
     ) -> CoreBinaryExpression:
         return CoreBinaryExpression(
-            self._AST_TO_CORE_BINARY_OPERATIONS[node.operation],
+            self._ast_to_core_binary_operations[node.operation],
             self.visit(node.left),
             self.visit(node.right),
         )

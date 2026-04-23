@@ -78,50 +78,73 @@ def _get_simple_assignment_target(expression: Expression) -> Identifier | None:
     return None
 
 
+def _get_expression_statement_live_input(
+    statement: ExpressionStatement, live_out: frozenset[Identifier]
+) -> frozenset[Identifier]:
+    uses = _collect_uses(statement.right)
+    defs: frozenset[Identifier] = frozenset()
+    if statement.left is not None:
+        target = _get_simple_assignment_target(statement.left)
+        if target is not None:
+            defs = frozenset({target})
+        else:
+            uses = uses | _collect_uses(statement.left)
+    return (live_out - defs) | uses
+
+
+def _get_selection_statement_live_input(
+    statement: SelectionStatement,
+    live_out: frozenset[Identifier],
+    live_in_map: dict[int, frozenset[Identifier]],
+    live_out_map: dict[int, frozenset[Identifier]],
+) -> frozenset[Identifier]:
+    condition_uses = _collect_uses(statement.condition)
+    true_in = _analyze_block(statement.true_body, live_out, live_in_map, live_out_map)
+    false_in = _analyze_block(statement.false_body, live_out, live_in_map, live_out_map)
+    return condition_uses | true_in | false_in
+
+
+def _get_for_all_statement_live_input(
+    statement: ForAllStatement,
+    live_out: frozenset[Identifier],
+    live_in_map: dict[int, frozenset[Identifier]],
+    live_out_map: dict[int, frozenset[Identifier]],
+) -> frozenset[Identifier]:
+    index_uses = _collect_uses(statement.index)
+    body_in: frozenset[Identifier] = frozenset()
+    while True:
+        body_out = live_out | body_in
+        new_body_in = _analyze_block(
+            statement.body, body_out, live_in_map, live_out_map
+        )
+        if new_body_in == body_in:
+            break
+        body_in = new_body_in
+    return index_uses | body_in
+
+
 def _get_statement_live_input_identifiers(
     statement: Statement,
     live_out: frozenset[Identifier],
     live_in_map: dict[int, frozenset[Identifier]],
     live_out_map: dict[int, frozenset[Identifier]],
 ) -> frozenset[Identifier]:
-    uses: frozenset[Identifier]
     if isinstance(statement, DeclarationStatement):
         uses = _collect_uses(statement.expression)
         defs = frozenset({statement.variable_name})
         return (live_out - defs) | uses
     elif isinstance(statement, ExpressionStatement):
-        uses = _collect_uses(statement.right)
-        defs = frozenset()
-        if statement.left is not None:
-            target = _get_simple_assignment_target(statement.left)
-            if target is not None:
-                defs = frozenset({target})
-            else:
-                uses = uses | _collect_uses(statement.left)
-        return (live_out - defs) | uses
+        return _get_expression_statement_live_input(statement, live_out)
     elif isinstance(statement, ReturnStatement):
         return _collect_uses(statement.expression)
     elif isinstance(statement, SelectionStatement):
-        cond_uses = _collect_uses(statement.condition)
-        true_in = _analyze_block(
-            statement.true_body, live_out, live_in_map, live_out_map
+        return _get_selection_statement_live_input(
+            statement, live_out, live_in_map, live_out_map
         )
-        false_in = _analyze_block(
-            statement.false_body, live_out, live_in_map, live_out_map
-        )
-        return cond_uses | true_in | false_in
     elif isinstance(statement, ForAllStatement):
-        index_uses = _collect_uses(statement.index)
-        body_in: frozenset[Identifier] = frozenset()
-        while True:
-            body_out = live_out | body_in
-            new_body_in = _analyze_block(
-                statement.body, body_out, live_in_map, live_out_map
-            )
-            if new_body_in == body_in:
-                break
-            body_in = new_body_in
-        return index_uses | body_in
+        return _get_for_all_statement_live_input(
+            statement, live_out, live_in_map, live_out_map
+        )
     else:
         return live_out
 

@@ -65,21 +65,23 @@ class ReturnValidator(AnalysisVisitablePass[Node]):
     def visit_operation(self, node: Operation) -> None:
         cfg = build_cfg(node)
         predecessors = cfg.get_predecessors(cfg.exit)
-        if not all(
+        all_predecessors_are_returns = all(
             predecessor.kind == CFGNodeKind.STATEMENT
             and isinstance(predecessor.statement, ReturnStatement)
             for predecessor in predecessors
-        ):
-            self.report(
-                DiagnosticLevel.ERROR,
-                format_diagnostic_message(
-                    "structural error",
-                    f"Operation {node.name.name_hint!r} does not return on "
-                    "every control-flow path; every path through its body "
-                    "must reach a return statement.",
-                    node.provenance,
-                ),
-            )
+        )
+        if all_predecessors_are_returns:
+            return
+        self.report(
+            DiagnosticLevel.ERROR,
+            format_diagnostic_message(
+                "structural error",
+                f"Operation {node.name.name_hint!r} does not return on every "
+                "control-flow path; every path through its body must reach a "
+                "return statement.",
+                node.provenance,
+            ),
+        )
 
     def visit_procedure(self, node: Procedure) -> None:
         cfg = build_cfg(node)

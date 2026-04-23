@@ -32,9 +32,7 @@ from fhy.lang.ast.node import (
     SelectionStatement,
     Statement,
 )
-from fhy.lang.builtins import (
-    BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS,
-)
+from fhy.lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
 
 from .identifier_collector import collect_identifiers
 from .liveness_analysis import LivenessAnalysis, LivenessResult
@@ -63,31 +61,34 @@ def _count_identifier_occurrences(module: Module) -> Counter[Identifier]:
     """Count identifier occurrences across atomic statements of every function.
 
     An identifier's count reflects how many atomic statements mention it:
-    `ExpressionStatement`, `DeclarationStatement`, and `ReturnStatement`
-    contribute one count per identifier they mention; `ForAllStatement` and
-    `SelectionStatement` contribute via their `index` / `condition`, with their
-    nested bodies walked recursively. An uninitialized TEMP declaration is
-    dead when its variable's count is exactly 1 (it only appears in its own
-    declaration).
+    :class:`ExpressionStatement`, :class:`DeclarationStatement`, and
+    :class:`ReturnStatement` contribute one count per identifier they
+    mention. :class:`ForAllStatement` and :class:`SelectionStatement`
+    contribute via their ``index`` / ``condition``, with their nested
+    bodies walked recursively. An uninitialized ``TEMP`` declaration is
+    dead when its variable's count is exactly 1 (it only appears in its
+    own declaration).
 
     """
     counts: Counter[Identifier] = Counter()
-    for top in module.statements:
-        if isinstance(top, Procedure | Operation):
-            _count_identifier_occurrences_in_body(top.body, counts)
+    for top_level in module.statements:
+        if isinstance(top_level, Procedure | Operation):
+            _count_identifier_occurrences_in_body(top_level.body, counts)
     return counts
 
 
 class _FunctionCallFinder(AnalysisVisitablePass[Node]):
-    _found: bool
+    """Visitor that reports whether any non-reduction call is present."""
+
+    _found_non_reduction_call: bool
 
     def __init__(self) -> None:
         super().__init__()
-        self._found = False
+        self._found_non_reduction_call = False
 
     @property
-    def found(self) -> bool:
-        return self._found
+    def found_non_reduction_call(self) -> bool:
+        return self._found_non_reduction_call
 
     def visit_function_expression(self, node: FunctionExpression) -> None:
         if (
@@ -96,14 +97,26 @@ class _FunctionCallFinder(AnalysisVisitablePass[Node]):
             in BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS.values()
         ):
             return
-        else:
-            self._found = True
+        self._found_non_reduction_call = True
 
 
-def _is_expression_may_have_side_effects(expression: Expression) -> bool:
+def _expression_may_have_side_effects(expression: Expression) -> bool:
     finder = _FunctionCallFinder()
     finder(expression)
-    return finder.found
+    return finder.found_non_reduction_call
+
+
+def _get_assignment_target_identifier(
+    left_hand_side: Expression,
+) -> Identifier | None:
+    """Return the identifier written by a simple assignment LHS, if any."""
+    if isinstance(left_hand_side, IdentifierExpression):
+        return left_hand_side.identifier
+    if isinstance(left_hand_side, ArrayAccessExpression) and isinstance(
+        left_hand_side.array_expression, IdentifierExpression
+    ):
+        return left_hand_side.array_expression.identifier
+    return None
 
 
 @register_pass(
@@ -111,7 +124,7 @@ def _is_expression_may_have_side_effects(expression: Expression) -> bool:
     "Removes assignments and declarations whose value is not live.",
 )
 class DeadCodeEliminationPass(Transformer):
-    """Remove dead writes to TEMP variables using liveness analysis.
+    """Remove dead writes to ``TEMP`` variables using liveness analysis.
 
     Depends on :class:`LivenessAnalysis` via an injected
     :class:`AnalysisManager` so that the pass can participate in a fixpoint
@@ -168,27 +181,23 @@ class DeadCodeEliminationPass(Transformer):
         return node
 
     def _is_dead_assignment(self, node: ExpressionStatement) -> bool:
-        if isinstance(node.left, IdentifierExpression):
-            target = node.left.identifier
-        elif isinstance(node.left, ArrayAccessExpression) and isinstance(
-            node.left.array_expression, IdentifierExpression
-        ):
-            target = node.left.array_expression.identifier
-        else:
+        if node.left is None:
+            return False
+        target = _get_assignment_target_identifier(node.left)
+        if target is None:
             return False
         if not self._is_temp_variable(target):
             return False
-        elif _is_expression_may_have_side_effects(node.right):
+        if _expression_may_have_side_effects(node.right):
             return False
-        else:
-            return target not in self._live_out.get(id(node), frozenset())
+        return target not in self._live_out.get(id(node), frozenset())
 
     def _is_dead_declaration(self, node: DeclarationStatement) -> bool:
         if node.variable_type.type_qualifier != TypeQualifier.TEMP:
             return False
         if node.expression is None:
             return self._identifier_use_counts.get(node.variable_name, 0) <= 1
-        if _is_expression_may_have_side_effects(node.expression):
+        if _expression_may_have_side_effects(node.expression):
             return False
         return node.variable_name not in self._live_out.get(id(node), frozenset())
 

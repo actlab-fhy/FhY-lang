@@ -43,11 +43,11 @@ _ZERO_DIVISOR_OPERATIONS: frozenset[BinaryOperation] = frozenset(
 
 
 def _is_literal_zero(expression: Expression) -> bool:
-    """Return True if `expression` is a compile-time literal zero.
+    """Return True if the given expression is a compile-time literal zero.
 
-    Recognizes `IntLiteral(0)`, `FloatLiteral(0.0)`, `ComplexLiteral(0+0j)`,
-    and any chain of unary negations of the above (so `-0`, `--0`, etc. all
-    qualify).
+    Recognizes ``IntLiteral(0)``, ``FloatLiteral(0.0)``,
+    ``ComplexLiteral(0+0j)``, and any chain of unary negations of the above
+    (so ``-0``, ``--0``, etc. all qualify).
 
     """
     if isinstance(expression, IntLiteral):

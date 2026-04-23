@@ -1,6 +1,6 @@
-"""Simple visitor AST Pass to collect symbol identifiers."""
+"""Collect symbol identifiers from an AST node."""
 
-from functools import singledispatchmethod
+__all__ = ["collect_identifiers"]
 
 from fhy_core import (
     AnalysisVisitablePass,
@@ -29,11 +29,58 @@ from fhy.lang.ast.node import (
 )
 
 
+def _collect_identifiers_from_numerical_type(
+    numerical_type: NumericalType,
+) -> set[Identifier]:
+    identifiers: set[Identifier] = set()
+    for dimension in numerical_type.shape:
+        identifiers.update(collect_core_identifiers(dimension))
+    return identifiers
+
+
+def _collect_identifiers_from_index_type(
+    index_type: IndexType,
+) -> set[Identifier]:
+    identifiers: set[Identifier] = set()
+    identifiers.update(collect_core_identifiers(index_type.lower_bound))
+    identifiers.update(collect_core_identifiers(index_type.upper_bound))
+    if index_type.stride is not None:
+        identifiers.update(collect_core_identifiers(index_type.stride))
+    return identifiers
+
+
+def _collect_identifiers_from_type(node_type: Type) -> set[Identifier]:
+    if isinstance(node_type, NumericalType):
+        return _collect_identifiers_from_numerical_type(node_type)
+    elif isinstance(node_type, IndexType):
+        return _collect_identifiers_from_index_type(node_type)
+    elif isinstance(node_type, TupleType):
+        identifiers: set[Identifier] = set()
+        for inner_type in node_type.types:
+            identifiers.update(_collect_identifiers_from_type(inner_type))
+        return identifiers
+    else:
+        raise NotImplementedError(
+            f"Collecting identifiers from type {node_type} is not supported."
+        )
+
+
+def _collect_identifiers_from_data_type(data_type: DataType) -> set[Identifier]:
+    if isinstance(data_type, TemplateDataType):
+        return {data_type.data_type}
+    elif isinstance(data_type, PrimitiveDataType):
+        return set()
+    else:
+        raise NotImplementedError(
+            f"Collecting identifiers from data type {data_type} is not supported."
+        )
+
+
 @register_pass(
     "fhy_ast_identifier_collector",
     "Collects all identifiers in the FhY AST for any given node.",
 )
-class IdentifierCollector(AnalysisVisitablePass[Node]):
+class _IdentifierCollector(AnalysisVisitablePass[Node]):
     """Collect all identifiers in the AST for any given node."""
 
     _identifiers: set[Identifier]
@@ -52,12 +99,12 @@ class IdentifierCollector(AnalysisVisitablePass[Node]):
     def visit_procedure(self, procedure: Procedure) -> None:
         self._identifiers.add(procedure.name)
         for template in procedure.templates:
-            self._collect_identifiers_from_data_type(template)
+            self._identifiers.update(_collect_identifiers_from_data_type(template))
 
     def visit_operation(self, operation: Operation) -> None:
         self._identifiers.add(operation.name)
         for template in operation.templates:
-            self._collect_identifiers_from_data_type(template)
+            self._identifiers.update(_collect_identifiers_from_data_type(template))
 
     def visit_argument(self, argument: Argument) -> None:
         self._identifiers.add(argument.name)
@@ -73,7 +120,7 @@ class IdentifierCollector(AnalysisVisitablePass[Node]):
         if isinstance(function_expression.function, IdentifierExpression):
             self._identifiers.add(function_expression.function.identifier)
         for template in function_expression.template_types:
-            self._collect_identifiers_from_data_type(template)
+            self._identifiers.update(_collect_identifiers_from_data_type(template))
 
     def visit_identifier_expression(
         self, identifier_expression: IdentifierExpression
@@ -81,48 +128,13 @@ class IdentifierCollector(AnalysisVisitablePass[Node]):
         self._identifiers.add(identifier_expression.identifier)
 
     def visit_qualified_type(self, qualified_type: QualifiedType) -> None:
-        self._collect_identifiers_from_type(qualified_type.base_type)
-
-    @singledispatchmethod
-    def _collect_identifiers_from_type(self, type: Type) -> None:
-        raise NotImplementedError(
-            f"Collecting identifiers from type {type} is not supported."
+        self._identifiers.update(
+            _collect_identifiers_from_type(qualified_type.base_type)
         )
-
-    @_collect_identifiers_from_type.register(NumericalType)
-    def _(self, numerical_type: NumericalType) -> None:
-        for dim in numerical_type.shape:
-            self._identifiers.update(collect_core_identifiers(dim))
-
-    @_collect_identifiers_from_type.register(TupleType)
-    def _(self, tuple_type: TupleType) -> None:
-        for type in tuple_type.types:
-            self._collect_identifiers_from_type(type)
-
-    @_collect_identifiers_from_type.register(IndexType)
-    def _(self, index_type: IndexType) -> None:
-        self._identifiers.update(collect_core_identifiers(index_type.lower_bound))
-        self._identifiers.update(collect_core_identifiers(index_type.upper_bound))
-        if index_type.stride is not None:
-            self._identifiers.update(collect_core_identifiers(index_type.stride))
-
-    @singledispatchmethod
-    def _collect_identifiers_from_data_type(self, data_type: DataType) -> None:
-        raise NotImplementedError(
-            f"Collecting identifiers from data type {data_type} is not supported."
-        )
-
-    @_collect_identifiers_from_data_type.register(TemplateDataType)
-    def _(self, template_data_type: TemplateDataType) -> None:
-        self._identifiers.add(template_data_type.data_type)
-
-    @_collect_identifiers_from_data_type.register(PrimitiveDataType)
-    def _(self, primitive_data_type: PrimitiveDataType) -> None:
-        return
 
 
 def collect_identifiers(node: Node) -> frozenset[Identifier]:
-    """Return a set of identifier objects from a given AST node object."""
-    collector = IdentifierCollector()
+    """Return the set of identifier objects referenced by the given AST node."""
+    collector = _IdentifierCollector()
     collector(node)
     return collector.identifiers
