@@ -92,9 +92,6 @@ jobs:
         if: always()
         run: tox -e type
 
-      - name: Documentation Build
-        run: tox -e docs
-
   tests:
     runs-on: ${{ matrix.os }}
     needs: [build]

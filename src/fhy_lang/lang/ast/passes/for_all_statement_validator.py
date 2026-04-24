@@ -67,7 +67,7 @@ class ForAllStatementValidator(AnalysisPassWithSymbolTable):
             DiagnosticLevel.ERROR,
             format_diagnostic_message(
                 "type error",
-                f'The identifier "{name_hint!r}" used as the index of a '
+                f"The identifier {name_hint!r} used as the index of a "
                 "for-all statement must refer to an index variable.",
                 node.index.provenance,
             ),

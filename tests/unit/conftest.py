@@ -147,15 +147,7 @@ def forall_vector_sum_module_ast(
         provenance=Provenance.unknown(),
     )
     b_assign_ast = ExpressionStatement(
-        left=ArrayAccessExpression(
-            array_expression=IdentifierExpression(
-                identifier=b, provenance=Provenance.unknown()
-            ),
-            indices=(
-                IdentifierExpression(identifier=i, provenance=Provenance.unknown()),
-            ),
-            provenance=Provenance.unknown(),
-        ),
+        left=IdentifierExpression(identifier=b, provenance=Provenance.unknown()),
         right=IdentifierExpression(identifier=acc, provenance=Provenance.unknown()),
         provenance=Provenance.unknown(),
     )
