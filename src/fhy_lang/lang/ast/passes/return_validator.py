@@ -76,7 +76,7 @@ class ReturnValidator(AnalysisVisitablePass[Node]):
             for predecessor in predecessors
         )
         _logger.debug(
-            "Return check: operation %s has %d exit predecessor(s); " "all-return=%s.",
+            "Return check: operation %s has %d exit predecessor(s); all-return=%s.",
             node.name,
             len(predecessors),
             all_predecessors_are_returns,
