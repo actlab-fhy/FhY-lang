@@ -68,8 +68,10 @@ class _NonReductionCallFinder(AnalysisVisitablePass[Node]):
             and node.function.identifier
             in BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS.values()
         ):
-            return
-        self._found = True
+            for arg in node.args:
+                self.visit(arg)
+        else:
+            self._found = True
 
 
 class ExpressionSideEffectAnalysis(Analysis[Expression, bool]):
