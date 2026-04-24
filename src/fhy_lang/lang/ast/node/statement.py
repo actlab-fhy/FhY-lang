@@ -521,6 +521,7 @@ class ExpressionStatement(Statement):
 
 
 class _ForAllStatementData(StatementData):
+    name: SerializedDict
     index: SerializedDict
     body: list[SerializedDict]
 
@@ -529,7 +530,9 @@ def _is_valid_forall_statement_data(
     data: SerializedDict,
 ) -> TypeGuard[_ForAllStatementData]:
     return (
-        "index" in data
+        "name" in data
+        and is_serialized_dict(data["name"])
+        and "index" in data
         and is_serialized_dict(data["index"])
         and "body" in data
         and isinstance(data["body"], list)
@@ -557,6 +560,7 @@ class ForAllStatement(Statement, HasIdentifierMixin):
         return (
             isinstance(other, ForAllStatement)
             and super().is_structurally_equivalent(other)
+            and self.name == other.name
             and self.index.is_structurally_equivalent(other.index)
             and len(self.body) == len(other.body)
             and all(
@@ -567,6 +571,7 @@ class ForAllStatement(Statement, HasIdentifierMixin):
 
     def serialize_data_to_dict(self) -> SerializedDict:
         data = super().serialize_data_to_dict()
+        data["name"] = self.name.serialize_to_dict()
         data["index"] = self.index.serialize_to_dict()
         data["body"] = [statement.serialize_to_dict() for statement in self.body]
         return data
@@ -578,6 +583,7 @@ class ForAllStatement(Statement, HasIdentifierMixin):
                 cls, _ForAllStatementData.__annotations__, data
             )
         return cls(
+            name=Identifier.deserialize_from_dict(data["name"]),
             index=Expression.deserialize_from_dict(data["index"]),
             body=tuple(
                 Statement.deserialize_from_dict(statement) for statement in data["body"]

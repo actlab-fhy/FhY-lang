@@ -76,14 +76,14 @@ def forall_vector_sum_module_ast(
     int32,
 ) -> tuple[Module, Identifier, Identifier, Identifier, Identifier, Identifier]:
     """
-    proc main(input int32[N] a, output int32[N] b) {
+    proc main(input int32[N] a, output int32 b) {
         temp index[1:N] i;
         temp int32 acc;
         acc = a[i];
         forall (i) {
             acc = acc + a[i];
         }
-        b[i] = acc;
+        b = acc;
     }
     """
     a, b, i, acc, N = (
@@ -132,7 +132,15 @@ def forall_vector_sum_module_ast(
         left=IdentifierExpression(identifier=acc, provenance=Provenance.unknown()),
         right=BinaryExpression(
             left=IdentifierExpression(identifier=acc, provenance=Provenance.unknown()),
-            right=IdentifierExpression(identifier=a, provenance=Provenance.unknown()),
+            right=ArrayAccessExpression(
+                array_expression=IdentifierExpression(
+                    identifier=a, provenance=Provenance.unknown()
+                ),
+                indices=(
+                    IdentifierExpression(identifier=i, provenance=Provenance.unknown()),
+                ),
+                provenance=Provenance.unknown(),
+            ),
             operation=BinaryOperation.ADDITION,
             provenance=Provenance.unknown(),
         ),
@@ -152,7 +160,7 @@ def forall_vector_sum_module_ast(
         provenance=Provenance.unknown(),
     )
     forall_ast = ForAllStatement(
-        index=index_declaration_ast,
+        index=IdentifierExpression(identifier=i, provenance=Provenance.unknown()),
         body=(acc_update_ast,),
         provenance=Provenance.unknown(),
     )

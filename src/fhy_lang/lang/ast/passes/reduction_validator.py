@@ -120,7 +120,7 @@ class ReductionValidator(AnalysisPassWithSymbolTable):
             DiagnosticLevel.ERROR,
             format_diagnostic_message(
                 "type error",
-                f'The identifier "{name_hint!r}" passed as an index to a '
+                f"The identifier {name_hint!r} passed as an index to a "
                 "reduction must refer to an index variable.",
                 index.provenance,
             ),
@@ -131,7 +131,7 @@ class ReductionValidator(AnalysisPassWithSymbolTable):
             DiagnosticLevel.ERROR,
             format_diagnostic_message(
                 "semantic error",
-                f'The identifier "{name_hint!r}" is passed more than once as '
+                f"The identifier {name_hint!r} is passed more than once as "
                 "an index to a reduction; reduction indices must be distinct.",
                 index.provenance,
             ),
@@ -142,7 +142,7 @@ class ReductionValidator(AnalysisPassWithSymbolTable):
             DiagnosticLevel.ERROR,
             format_diagnostic_message(
                 "semantic error",
-                f'The identifier "{name_hint!r}" is passed as an index to a '
+                f"The identifier {name_hint!r} is passed as an index to a "
                 "reduction but is not used within the reduction.",
                 node.provenance,
             ),
