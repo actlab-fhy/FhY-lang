@@ -546,7 +546,7 @@ def _is_valid_forall_statement_data(
 class ForAllStatement(Statement, HasIdentifierMixin):
     """FhY for-all statement AST node."""
 
-    name: Identifier = field(default=Identifier("forall"))
+    name: Identifier = field(default_factory=lambda: Identifier("forall"))
     index: Expression
     body: tuple[Statement, ...] = field(default_factory=tuple)
 
