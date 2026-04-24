@@ -291,6 +291,7 @@ class Transformer(VisitablePass[Node, Node]):
             self._namespace_stack.pop()
 
         return ForAllStatement(
+            name=node.name,
             index=new_index,
             body=new_body,
             provenance=node.provenance,
