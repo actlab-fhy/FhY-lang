@@ -60,6 +60,18 @@ def compile_fhy_source(
             log_file,
             level=logging.DEBUG if verbose else logging.INFO,
         )
+        _logger.debug(
+            "Log file handler attached: path=%s, level=%s",
+            log_file,
+            "DEBUG" if verbose else "INFO",
+        )
+
+    _logger.debug(
+        "CLI invocation: main_file=%s, verbose=%s, optimize=%s",
+        main_file,
+        verbose,
+        optimize,
+    )
 
     if main_file is None:
         _logger.error(
@@ -144,7 +156,8 @@ def serialize(
 
     if format is None:
         return
-    elif format == SerializationOptions.JSON:
+    _logger.debug("Serializing AST: format=%s, indent=%s", format.value, indent)
+    if format == SerializationOptions.JSON:
         serialized = module.serialize(CoreSerializationFormat.JSON)
         if isinstance(serialized, str):
             sys.stdout.write(serialized)

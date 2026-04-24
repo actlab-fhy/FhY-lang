@@ -19,7 +19,9 @@ __all__ = [
     "UnreachableCodeEliminationPass",
 ]
 
-from fhy_core import register_pass
+import logging
+
+from fhy_core import get_logger, register_pass
 
 from fhy_lang.lang.ast.cfg import build_cfg
 from fhy_lang.lang.ast.node import (
@@ -31,6 +33,8 @@ from fhy_lang.lang.ast.node import (
 )
 
 from .transformer import Statements, Transformer
+
+_logger: logging.Logger = get_logger(__name__)
 
 
 def _collect_reachable_statement_ids(module: Module) -> frozenset[int]:
@@ -73,9 +77,19 @@ class UnreachableCodeEliminationPass(Transformer):
                 f"{type(self).__name__} requires a Module input; "
                 f"got {type(ir).__name__}."
             )
+        _logger.info("Starting unreachable code elimination pass...")
         self._reachable_statement_ids = _collect_reachable_statement_ids(ir)
         self._removed_count = 0
-        return super().run_pass(ir)
+        _logger.debug(
+            "Reachable statement set contains %d statement(s).",
+            len(self._reachable_statement_ids),
+        )
+        result = super().run_pass(ir)
+        _logger.info(
+            "Unreachable code elimination complete: %d statement(s) removed.",
+            self._removed_count,
+        )
+        return result
 
     def did_change(self, input_ir: Node, output: Node) -> bool:
         _ = (input_ir, output)
@@ -84,5 +98,6 @@ class UnreachableCodeEliminationPass(Transformer):
     def visit_statement(self, node: Statement) -> Statements:
         if id(node) not in self._reachable_statement_ids:
             self._removed_count += 1
+            _logger.debug("Removed unreachable %s statement.", type(node).__name__)
             return []
         return super().visit_statement(node)

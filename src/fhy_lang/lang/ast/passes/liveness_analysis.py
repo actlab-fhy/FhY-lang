@@ -5,6 +5,7 @@ __all__ = [
     "LivenessResult",
 ]
 
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 
@@ -14,6 +15,7 @@ from fhy_core import (
     FrozenMixin,
     Identifier,
     TypeQualifier,
+    get_logger,
     register_pass,
 )
 from frozendict import frozendict
@@ -34,6 +36,8 @@ from fhy_lang.lang.ast.node import (
 )
 
 from .identifier_collector import collect_identifiers
+
+_logger: logging.Logger = get_logger(__name__)
 
 
 @dataclass(frozen=True)
@@ -199,6 +203,7 @@ class _LivenessAnalysisPass(AnalysisVisitablePass[Node]):
         )
 
     def visit_procedure(self, node: Procedure) -> None:
+        _logger.debug("Liveness: analyzing procedure %s.", node.name)
         _analyze_block(
             node.body,
             _get_procedure_exit_live_output_identifiers(node),
@@ -207,6 +212,7 @@ class _LivenessAnalysisPass(AnalysisVisitablePass[Node]):
         )
 
     def visit_operation(self, node: Operation) -> None:
+        _logger.debug("Liveness: analyzing operation %s.", node.name)
         _analyze_block(node.body, frozenset(), self._live_in, self._live_out)
 
     def get_visit_children(self, node: Node) -> Sequence[Node]:
@@ -219,6 +225,12 @@ class LivenessAnalysis(Analysis[Module, LivenessResult]):
     """Cached liveness analysis for a FhY AST module."""
 
     def run(self, ir: Module) -> LivenessResult:
+        _logger.info("Starting liveness analysis...")
         walker = _LivenessAnalysisPass()
         walker(ir)
-        return walker.result
+        result = walker.result
+        _logger.info(
+            "Liveness analysis complete: %d statement(s) analyzed.",
+            len(result.live_in),
+        )
+        return result

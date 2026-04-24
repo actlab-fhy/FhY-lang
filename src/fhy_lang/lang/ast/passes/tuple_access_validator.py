@@ -4,12 +4,15 @@ __all__ = [
     "TupleAccessValidator",
 ]
 
+import logging
+
 from fhy_core import (
     DiagnosticLevel,
     SymbolTableError,
     SymbolTableFrame,
     TupleType,
     VariableSymbolTableFrame,
+    get_logger,
     register_pass,
 )
 
@@ -23,6 +26,8 @@ from fhy_lang.lang.ast.node import (
 
 from .analysis_pass_with_symbol_table import AnalysisPassWithSymbolTable
 from .utils import format_diagnostic_message
+
+_logger: logging.Logger = get_logger(__name__)
 
 
 def _get_tuple_type_from_frame(frame: SymbolTableFrame) -> TupleType | None:
@@ -72,6 +77,11 @@ class TupleAccessValidator(AnalysisPassWithSymbolTable):
 
     def visit_tuple_access_expression(self, node: TupleAccessExpression) -> None:
         arity = self._resolve_tuple_arity(node.tuple_expression)
+        _logger.debug(
+            "TupleAccess check: index=%d, resolved_arity=%s.",
+            node.element_index.value,
+            arity,
+        )
         if arity is None:
             return
         self._check_element_index_in_range(node, arity)

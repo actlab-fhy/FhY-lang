@@ -21,6 +21,7 @@ __all__ = [
     "ConstantFoldingPass",
 ]
 
+import logging
 from typing import TypeGuard
 
 from fhy_core import (
@@ -32,6 +33,7 @@ from fhy_core import (
     Provenance,
     TupleType,
     Type,
+    get_logger,
     register_pass,
     simplify_expression,
 )
@@ -51,6 +53,8 @@ from fhy_lang.lang.ast.node import (
 )
 
 from .transformer import Transformer
+
+_logger: logging.Logger = get_logger(__name__)
 
 _AstLiteral = IntLiteral | FloatLiteral | ComplexLiteral
 _RealLiteral = IntLiteral | FloatLiteral
@@ -300,7 +304,13 @@ class ConstantFoldingPass(Transformer):
 
     def run_pass(self, ir: Node) -> Node:
         self._folded_count = 0
-        return super().run_pass(ir)
+        _logger.info("Starting constant folding pass...")
+        result = super().run_pass(ir)
+        _logger.info(
+            "Constant folding complete: %d expression(s) folded.",
+            self._folded_count,
+        )
+        return result
 
     def did_change(self, input_ir: Node, output: Node) -> bool:
         _ = (input_ir, output)
@@ -319,6 +329,12 @@ class ConstantFoldingPass(Transformer):
             folded = _fold_unary_operation(node.operation, inner, node.provenance)
             if folded is not None:
                 self._folded_count += 1
+                _logger.debug(
+                    "Folded unary %s(%r) -> %r.",
+                    node.operation.value,
+                    inner.value,
+                    getattr(folded, "value", folded),
+                )
                 return folded
         return UnaryExpression(
             operation=node.operation,
@@ -335,6 +351,13 @@ class ConstantFoldingPass(Transformer):
             )
             if folded is not None:
                 self._folded_count += 1
+                _logger.debug(
+                    "Folded binary %r %s %r -> %r.",
+                    left.value,
+                    node.operation.value,
+                    right.value,
+                    getattr(folded, "value", folded),
+                )
                 return folded
         return BinaryExpression(
             operation=node.operation,
@@ -351,9 +374,11 @@ class ConstantFoldingPass(Transformer):
             is_truthy = _try_evaluate_condition_as_boolean(condition)
             if is_truthy is True:
                 self._folded_count += 1
+                _logger.debug("Folded ternary with truthy literal condition.")
                 return true_branch
             if is_truthy is False:
                 self._folded_count += 1
+                _logger.debug("Folded ternary with falsy literal condition.")
                 return false_branch
         return TernaryExpression(
             condition=condition,

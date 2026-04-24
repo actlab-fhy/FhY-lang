@@ -4,6 +4,8 @@ __all__ = [
     "ReductionValidator",
 ]
 
+import logging
+
 from fhy_core import (
     DiagnosticLevel,
     Identifier,
@@ -11,6 +13,7 @@ from fhy_core import (
     SymbolTableError,
     SymbolTableFrame,
     VariableSymbolTableFrame,
+    get_logger,
     register_pass,
 )
 
@@ -23,6 +26,8 @@ from fhy_lang.lang.ast.node import (
 from .analysis_pass_with_symbol_table import AnalysisPassWithSymbolTable
 from .identifier_collector import collect_identifiers
 from .utils import format_diagnostic_message
+
+_logger: logging.Logger = get_logger(__name__)
 
 
 def _is_index_variable_frame(frame: SymbolTableFrame) -> bool:
@@ -46,6 +51,11 @@ class ReductionValidator(AnalysisPassWithSymbolTable):
     """
 
     def visit_function_expression(self, node: FunctionExpression) -> None:
+        _logger.debug(
+            "Reduction check: %d index/indices, %d arg(s).",
+            len(node.indices),
+            len(node.args),
+        )
         if len(node.indices) > 0 and len(node.args) != 1:
             self._report_incorrect_argument_count(node)
         seen_indices = self._collect_and_validate_indices(node)

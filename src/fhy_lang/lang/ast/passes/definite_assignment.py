@@ -25,6 +25,7 @@ __all__ = [
     "DefiniteAssignmentValidator",
 ]
 
+import logging
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass, replace
 
@@ -41,6 +42,7 @@ from fhy_core import (
     SymbolType,
     TypeQualifier,
     VariableSymbolTableFrame,
+    get_logger,
     is_satisfiable,
     register_pass,
 )
@@ -87,6 +89,8 @@ from .ast_to_core_expression_converter import (
 from .identifier_collector import collect_identifiers
 from .liveness_analysis import LivenessAnalysis, LivenessResult
 from .utils import format_diagnostic_message
+
+_logger: logging.Logger = get_logger(__name__)
 
 _FunctionDefinition = Procedure | Operation
 
@@ -538,6 +542,11 @@ class _ArrayCoverageAnalysis:
         identifiers = set(core_collect_identifiers(uncovered))
         symbol_types = dict.fromkeys(identifiers, SymbolType.INT)
         sat = is_satisfiable(identifiers, uncovered, symbol_types)
+        _logger.debug(
+            "Array coverage SMT check: %d symbolic var(s), satisfiable=%s.",
+            len(identifiers),
+            sat,
+        )
         if sat is None:
             return None
         else:
@@ -710,9 +719,18 @@ class DefiniteAssignmentValidator(CompilerPass[Module, None]):
 
     def run_pass(self, ir: Module) -> None:
         liveness = LivenessAnalysis().run(ir)
+        function_count = 0
         for statement in ir.statements:
             if isinstance(statement, Procedure | Operation):
+                _logger.debug(
+                    "Definite assignment: validating function %s.", statement.name
+                )
                 self._validate_function(statement, liveness)
+                function_count += 1
+        _logger.info(
+            "Definite assignment validation complete: %d function(s) checked.",
+            function_count,
+        )
 
     def _validate_function(
         self, function: _FunctionDefinition, liveness: LivenessResult

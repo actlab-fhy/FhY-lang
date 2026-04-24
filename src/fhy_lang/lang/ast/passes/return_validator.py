@@ -23,9 +23,12 @@ __all__ = [
     "ReturnValidator",
 ]
 
+import logging
+
 from fhy_core import (
     AnalysisVisitablePass,
     DiagnosticLevel,
+    get_logger,
     register_pass,
 )
 
@@ -38,6 +41,8 @@ from fhy_lang.lang.ast.node import (
 )
 
 from .utils import format_diagnostic_message
+
+_logger: logging.Logger = get_logger(__name__)
 
 
 @register_pass(
@@ -70,6 +75,12 @@ class ReturnValidator(AnalysisVisitablePass[Node]):
             and isinstance(predecessor.statement, ReturnStatement)
             for predecessor in predecessors
         )
+        _logger.debug(
+            "Return check: operation %s has %d exit predecessor(s); " "all-return=%s.",
+            node.name,
+            len(predecessors),
+            all_predecessors_are_returns,
+        )
         if all_predecessors_are_returns:
             return
         self.report(
@@ -85,6 +96,7 @@ class ReturnValidator(AnalysisVisitablePass[Node]):
 
     def visit_procedure(self, node: Procedure) -> None:
         cfg = build_cfg(node)
+        _logger.debug("Return check: scanning procedure %s for returns.", node.name)
         for cfg_node in cfg.iter_nodes():
             if cfg_node.kind != CFGNodeKind.STATEMENT:
                 continue

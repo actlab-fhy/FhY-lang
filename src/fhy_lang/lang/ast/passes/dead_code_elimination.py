@@ -4,6 +4,7 @@ __all__ = [
     "DeadCodeEliminationPass",
 ]
 
+import logging
 from collections import Counter
 
 from fhy_core import (
@@ -12,6 +13,7 @@ from fhy_core import (
     SymbolTable,
     TypeQualifier,
     VariableSymbolTableFrame,
+    get_logger,
     register_pass,
 )
 
@@ -35,6 +37,8 @@ from .expression_side_effect_analysis import ExpressionSideEffectAnalysis
 from .identifier_collector import collect_identifiers
 from .liveness_analysis import LivenessAnalysis, LivenessResult
 from .transformer import Statements, Transformer
+
+_logger: logging.Logger = get_logger(__name__)
 
 
 def _count_identifier_occurrences_in_body(
@@ -124,11 +128,22 @@ class DeadCodeEliminationPass(Transformer):
                 f"{type(self).__name__} requires a Module input; "
                 f"got {type(ir).__name__}."
             )
+        _logger.info("Starting dead code elimination pass...")
         liveness: LivenessResult = self.get_analysis(LivenessAnalysis, ir)
         self._live_out = dict(liveness.live_out)
         self._identifier_use_counts = _count_identifier_occurrences(ir)
         self._removed_count = 0
-        return super().run_pass(ir)
+        _logger.debug(
+            "DCE inputs: %d live-out entries, %d distinct identifier(s) counted.",
+            len(self._live_out),
+            len(self._identifier_use_counts),
+        )
+        result = super().run_pass(ir)
+        _logger.info(
+            "Dead code elimination complete: %d statement(s) removed.",
+            self._removed_count,
+        )
+        return result
 
     def did_change(self, input_ir: Node, output: Node) -> bool:
         _ = (input_ir, output)
@@ -137,12 +152,17 @@ class DeadCodeEliminationPass(Transformer):
     def visit_expression_statement(self, node: ExpressionStatement) -> Statements:
         if self._is_dead_assignment(node):
             self._removed_count += 1
+            _logger.debug("Removed dead assignment to TEMP variable.")
             return []
         return super().visit_expression_statement(node)
 
     def visit_declaration_statement(self, node: DeclarationStatement) -> Statements:
         if self._is_dead_declaration(node):
             self._removed_count += 1
+            _logger.debug(
+                "Removed dead declaration of TEMP variable %s.",
+                node.variable_name,
+            )
             return []
         return super().visit_declaration_statement(node)
 

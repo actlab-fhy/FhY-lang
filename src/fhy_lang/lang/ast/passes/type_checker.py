@@ -16,6 +16,7 @@ __all__ = [
     "TypeChecker",
 ]
 
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -35,6 +36,7 @@ from fhy_core import (
     SymbolTableError,
     Type,
     VariableSymbolTableFrame,
+    get_logger,
     promote_primitive_data_types,
     register_pass,
     resolve_literal_core_data_type,
@@ -70,6 +72,8 @@ from fhy_lang.lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
 from .analysis_pass_with_symbol_table import AnalysisPassWithSymbolTable
 from .index_collector import collect_indices, collect_reduced_indices
 from .utils import format_diagnostic_message
+
+_logger: logging.Logger = get_logger(__name__)
 
 
 class _TypeCheckError(Exception):
@@ -245,12 +249,14 @@ class TypeChecker(AnalysisPassWithSymbolTable):
     _bound_forall_indices: set[Identifier]
     _operation_return_types: dict[Identifier, Type]
     _current_return_type: Type | None
+    _error_count: int
 
     def __init__(self, symbol_table: SymbolTable) -> None:
         super().__init__(symbol_table)
         self._bound_forall_indices = set()
         self._operation_return_types = {}
         self._current_return_type = None
+        self._error_count = 0
 
     def before_visit_module(self, node: Module) -> None:
         super().before_visit_module(node)
@@ -259,6 +265,14 @@ class TypeChecker(AnalysisPassWithSymbolTable):
                 self._operation_return_types[statement.name] = (
                     statement.return_type.base_type
                 )
+        _logger.debug(
+            "Type checker pre-registered %d operation return type(s).",
+            len(self._operation_return_types),
+        )
+
+    def after_visit_module(self, node: Module) -> None:
+        super().after_visit_module(node)
+        _logger.info("Type checking complete: %d error(s) reported.", self._error_count)
 
     def before_visit_operation(self, node: Operation) -> None:
         super().before_visit_operation(node)
@@ -337,6 +351,8 @@ class TypeChecker(AnalysisPassWithSymbolTable):
 
     def _report_type_error(self, error: _TypeCheckError) -> None:
         """Convert a raised :class:`_TypeCheckError` into an ERROR diagnostic."""
+        self._error_count += 1
+        _logger.debug("Type check error: %s", error.message)
         self.report(
             DiagnosticLevel.ERROR,
             format_diagnostic_message("type error", error.message, error.provenance),

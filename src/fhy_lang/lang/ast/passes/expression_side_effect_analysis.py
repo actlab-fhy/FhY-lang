@@ -23,9 +23,12 @@ __all__ = [
     "ExpressionSideEffectAnalysis",
 ]
 
+import logging
+
 from fhy_core import (
     Analysis,
     AnalysisVisitablePass,
+    get_logger,
     register_pass,
 )
 
@@ -38,6 +41,8 @@ from fhy_lang.lang.ast.node import (
 from fhy_lang.lang.builtins import (
     BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS,
 )
+
+_logger: logging.Logger = get_logger(__name__)
 
 
 @register_pass(
@@ -78,4 +83,9 @@ class ExpressionSideEffectAnalysis(Analysis[Expression, bool]):
     def run(self, ir: Expression) -> bool:
         finder = _NonReductionCallFinder()
         finder(ir)
+        _logger.debug(
+            "Side-effect analysis: %s -> may_have_side_effects=%s.",
+            type(ir).__name__,
+            finder.found,
+        )
         return finder.found

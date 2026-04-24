@@ -4,11 +4,14 @@ __all__ = [
     "ForAllStatementValidator",
 ]
 
+import logging
+
 from fhy_core import (
     DiagnosticLevel,
     IndexType,
     SymbolTableError,
     VariableSymbolTableFrame,
+    get_logger,
     register_pass,
 )
 
@@ -19,6 +22,8 @@ from fhy_lang.lang.ast.node import (
 
 from .analysis_pass_with_symbol_table import AnalysisPassWithSymbolTable
 from .utils import format_diagnostic_message
+
+_logger: logging.Logger = get_logger(__name__)
 
 
 @register_pass(
@@ -34,6 +39,7 @@ class ForAllStatementValidator(AnalysisPassWithSymbolTable):
     """
 
     def visit_for_all_statement(self, node: ForAllStatement) -> None:
+        _logger.debug("ForAll check: index=%s.", type(node.index).__name__)
         if not isinstance(node.index, IdentifierExpression):
             self._report_non_identifier_index(node)
             return

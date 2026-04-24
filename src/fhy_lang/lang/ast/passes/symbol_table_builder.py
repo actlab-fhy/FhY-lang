@@ -5,6 +5,8 @@ __all__ = [
     "build_symbol_table",
 ]
 
+import logging
+
 from fhy_core import (
     AnalysisVisitablePass,
     CoreDataType,
@@ -21,6 +23,7 @@ from fhy_core import (
     Type,
     TypeQualifier,
     VariableSymbolTableFrame,
+    get_logger,
     register_error,
     register_pass,
 )
@@ -39,6 +42,8 @@ from fhy_lang.lang.ast.node import (
     Procedure,
 )
 from fhy_lang.lang.builtins import BUILTIN_LANG_IDENTIFIERS, BUILTINS_NAMESPACE_NAME
+
+_logger: logging.Logger = get_logger(__name__)
 
 
 def _format_provenance_location(provenance: Provenance | None) -> str | None:
@@ -134,7 +139,14 @@ class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
             raise RuntimeError(
                 "Expected current namespace to be set before adding a symbol to it."
             )
-        self._symbol_table.add_symbol(self._namespace_stack.peek(), symbol, frame)
+        namespace = self._namespace_stack.peek()
+        self._symbol_table.add_symbol(namespace, symbol, frame)
+        _logger.debug(
+            "Registered symbol %s in namespace %s (frame=%s).",
+            symbol,
+            namespace,
+            type(frame).__name__,
+        )
 
     def _check_symbol_not_defined(
         self, symbol: Identifier, provenance: Provenance | None
@@ -245,4 +257,8 @@ def build_symbol_table(node: Module) -> SymbolTable:
     """
     builder = _SymbolTableBuilder()
     builder(node)
+    _logger.info(
+        "Symbol table built successfully (%d namespace(s)).",
+        builder.symbol_table.get_number_of_namespaces(),
+    )
     return builder.symbol_table

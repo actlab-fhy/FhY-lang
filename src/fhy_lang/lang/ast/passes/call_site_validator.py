@@ -4,6 +4,8 @@ __all__ = [
     "CallSiteValidator",
 ]
 
+import logging
+
 from fhy_core import (
     DiagnosticLevel,
     FunctionKeyword,
@@ -12,6 +14,7 @@ from fhy_core import (
     SymbolTable,
     SymbolTableError,
     SymbolTableFrame,
+    get_logger,
     register_pass,
 )
 
@@ -24,6 +27,8 @@ from fhy_lang.lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
 
 from .analysis_pass_with_symbol_table import AnalysisPassWithSymbolTable
 from .utils import format_diagnostic_message, format_location_prefix
+
+_logger: logging.Logger = get_logger(__name__)
 
 
 def _is_reduction_frame(frame: SymbolTableFrame) -> bool:
@@ -85,8 +90,18 @@ class CallSiteValidator(AnalysisPassWithSymbolTable):
         try:
             frame = self.get_frame_from_namespace(self.current_namespace, identifier)
         except SymbolTableError:
+            _logger.debug(
+                "Call site: unresolved callee %s in namespace %s.",
+                identifier.name_hint,
+                self.current_namespace,
+            )
             self._report_unresolved_callee(node, identifier.name_hint)
             return
+        _logger.debug(
+            "Call site: %s resolved to %s.",
+            identifier.name_hint,
+            type(frame).__name__,
+        )
         if not isinstance(frame, FunctionSymbolTableFrame | ImportSymbolTableFrame):
             self._report_unresolved_callee(node, identifier.name_hint)
             return

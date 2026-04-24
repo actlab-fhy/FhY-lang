@@ -8,6 +8,7 @@ __all__ = [
     "validate_ast",
 ]
 
+import logging
 from typing import Any, cast
 
 from fhy_core import (
@@ -19,6 +20,7 @@ from fhy_core import (
     ValidationFailedError,
     ValidationManager,
     ValidationReport,
+    get_logger,
 )
 
 from .node import Module
@@ -42,6 +44,8 @@ from .passes import (
     UnreachableCodeEliminationPass,
     build_symbol_table,
 )
+
+_logger: logging.Logger = get_logger(__name__)
 
 
 def _as_module_validator(
@@ -88,6 +92,9 @@ def build_structural_validation_manager(
     manager.add(_as_module_validator(OperationValidator()))
     manager.add(_as_module_validator(ReturnValidator()))
     manager.add(_as_module_validator(RecursionValidator()))
+    _logger.info(
+        f"Structural validation pipeline built ({len(manager.validators)} validators)."
+    )
     return manager
 
 
@@ -118,6 +125,9 @@ def build_semantic_validation_manager(
     manager.add(_as_module_validator(IndexDomainValidator(symbol_table)))
     manager.add(_as_module_validator(DefiniteAssignmentValidator(symbol_table)))
     manager.add(_as_module_validator(ConstantSafetyValidator()))
+    _logger.info(
+        f"Semantic validation pipeline built ({len(manager.validators)} validators)."
+    )
     return manager
 
 
@@ -160,7 +170,9 @@ def validate_ast(
             either the structural or semantic validation pipeline.
 
     """
+    _logger.info("Validating AST...")
     symbol_table = build_symbol_table(ast)
+    _logger.info("Symbol table built successfully.")
 
     pre_constant_folding_pass_manager = PassManager[Module](
         Identifier("fhy_ast_pre_constant_folding_pass_manager")
@@ -168,15 +180,21 @@ def validate_ast(
     pre_constant_folding_pass_manager.add_pass(
         cast(CompilerPass[Module, Module], ConstantFoldingPass())
     )
+    _logger.info("Running pre-validation constant folding pass...")
     ast = pre_constant_folding_pass_manager.run(ast).output
 
+    _logger.info("Running structural validation pipeline...")
     structural_report = build_structural_validation_manager(symbol_table).validate(ast)
     structural_report.raise_if_failed()
+    _logger.info("Structural validation passed.")
 
+    _logger.info("Running semantic validation pipeline...")
     semantic_report = build_semantic_validation_manager(symbol_table).validate(ast)
     semantic_report.raise_if_failed()
+    _logger.info("Semantic validation passed.")
 
     if perform_optimizations:
+        _logger.info("Running fixpoint optimization group...")
         pass_manager = PassManager[Module](Identifier("fhy_ast_pass_manager"))
         fixpoint_group = FixpointPassGroup[Module](
             name=Identifier("fhy_ast_fixpoint"),
@@ -207,5 +225,9 @@ def validate_ast(
         )
         pass_manager.add_fixpoint_group(fixpoint_group)
         ast = pass_manager.run(ast).output
+        _logger.info("Fixpoint optimization group complete.")
+    else:
+        _logger.debug("Optimizations disabled; skipping fixpoint group.")
 
+    _logger.info("AST validation complete.")
     return ast, symbol_table

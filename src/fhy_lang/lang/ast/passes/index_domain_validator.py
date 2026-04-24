@@ -4,6 +4,7 @@ __all__ = [
     "IndexDomainValidator",
 ]
 
+import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
 
@@ -27,6 +28,7 @@ from fhy_core import (
     TypeQualifier,
     VariableSymbolTableFrame,
     collect_identifiers,
+    get_logger,
     is_satisfiable,
     register_pass,
     synthesize_expression_type,
@@ -49,6 +51,8 @@ from .ast_to_core_expression_converter import (
     convert_ast_expression_to_core_expression,
 )
 from .utils import format_diagnostic_message
+
+_logger: logging.Logger = get_logger(__name__)
 
 _UNSIGNED_INTEGER_CORE_DATA_TYPES: frozenset[CoreDataType] = frozenset(
     {
@@ -111,6 +115,11 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
             self._report_non_identifier_array_expression(node)
             return
         array_name = node.array_expression.identifier
+        _logger.debug(
+            "Index domain check: array=%s, index_count=%d.",
+            array_name.name_hint,
+            len(node.indices),
+        )
         try:
             frame = self.get_frame_from_namespace(self.current_namespace, array_name)
         except SymbolTableError:

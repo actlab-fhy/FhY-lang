@@ -205,7 +205,12 @@ def from_fhy_source(
         AST module representation of input source code.
 
     """
+    _logger.debug("Lexing and parsing FhY source (%d chars).", len(fhy_source_content))
     tree = _fhy_source_to_parse_tree(fhy_source_content)
+    _logger.debug("Parse tree constructed. Converting to AST...")
     _ast = from_parse_tree(tree, provenance)
+    _logger.debug(
+        "AST module constructed: %d top-level statement(s).", len(_ast.statements)
+    )
 
     return _ast

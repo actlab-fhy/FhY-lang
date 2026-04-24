@@ -1,5 +1,6 @@
 """Tools to construct an AST from a FhY concrete syntax tree using visitors."""
 
+import logging
 import re
 from collections import ChainMap
 from collections.abc import Sequence
@@ -20,6 +21,7 @@ from fhy_core import (
     TupleType,
     Type,
     TypeQualifier,
+    get_logger,
 )
 
 from fhy_lang.lang import ast
@@ -28,6 +30,8 @@ from fhy_lang.lang.builtins import BUILTIN_LANG_IDENTIFIERS
 from fhy_lang.lang.parser import FhYParser, FhYVisitor
 
 from .error import FhYSyntaxError
+
+_logger: logging.Logger = get_logger(__name__)
 
 
 def _get_source_info(
@@ -110,9 +114,11 @@ class ParseTreeConverter(FhYVisitor):
 
     def _open_scope(self) -> None:
         self._scopes = self._scopes.new_child()
+        _logger.debug("Opened parse-tree scope (depth=%d).", len(self._scopes.maps))
 
     def _close_scope(self) -> None:
         self._scopes = self._scopes.parents
+        _logger.debug("Closed parse-tree scope (depth=%d).", len(self._scopes.maps))
 
     def _get_identifier(self, name_hint: str) -> Identifier:
         return _grab_identifier(name_hint, self._scopes)
@@ -125,8 +131,13 @@ class ParseTreeConverter(FhYVisitor):
     # =====================
     def visitModule(self, ctx: FhYParser.ModuleContext) -> ast.Module:
         provenance: Provenance = self._get_provenance(ctx)
+        _logger.debug(
+            "Visiting module with %d pre-registered builtin identifier(s).",
+            len(self._scopes),
+        )
 
         statements: list[ast.Statement] = self.visitScope(ctx.scope())
+        _logger.debug("Module visit complete: %d statement(s).", len(statements))
 
         return ast.Module(statements=tuple(statements), provenance=provenance)
 

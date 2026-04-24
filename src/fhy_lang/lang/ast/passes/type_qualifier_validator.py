@@ -4,12 +4,15 @@ __all__ = [
     "TypeQualifierValidator",
 ]
 
+import logging
+
 from fhy_core import (
     DiagnosticLevel,
     Identifier,
     SymbolTableError,
     TypeQualifier,
     VariableSymbolTableFrame,
+    get_logger,
     register_pass,
 )
 
@@ -25,6 +28,8 @@ from fhy_lang.lang.ast.node import (
 
 from .analysis_pass_with_symbol_table import AnalysisPassWithSymbolTable
 from .utils import format_diagnostic_message
+
+_logger: logging.Logger = get_logger(__name__)
 
 _TYPE_QUALIFIER_ERROR_KIND = "type qualifier error"
 
@@ -57,6 +62,11 @@ class TypeQualifierValidator(AnalysisPassWithSymbolTable):
 
     def visit_argument(self, node: Argument) -> None:
         qualifier = node.qualified_type.type_qualifier
+        _logger.debug(
+            "TypeQualifier check (argument): %s qualifier=%s.",
+            node.name.name_hint,
+            qualifier.value,
+        )
         if qualifier != TypeQualifier.TEMP:
             return
         self.report(

@@ -6,6 +6,7 @@ from fhy_core import (
     Position,
     Provenance,
     Span,
+    get_logger,
 )
 
 from fhy_lang.lang import ASTModule, from_fhy_source
@@ -13,7 +14,7 @@ from fhy_lang.lang import ASTModule, from_fhy_source
 from ..compilation_options import CompilationOptions
 from ..workspace import Workspace
 
-_logger: logging.Logger = logging.getLogger(__name__)
+_logger: logging.Logger = get_logger(__name__)
 
 
 class _ASTProgramBuilder:
@@ -32,7 +33,14 @@ class _ASTProgramBuilder:
         with open(self._workspace.source_file) as f:
             source_text = f.read()
         lines = source_text.splitlines()
+        _logger.debug(
+            "Read source file %s: %d bytes, %d lines",
+            self._workspace.source_file,
+            len(source_text),
+            len(lines),
+        )
         if len(lines) == 0:
+            _logger.warning("Source file %s is empty.", self._workspace.source_file)
             span = Span(file_path=self._workspace.source_file)
         else:
             span = Span(

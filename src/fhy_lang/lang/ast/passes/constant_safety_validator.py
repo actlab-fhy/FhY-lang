@@ -13,9 +13,12 @@ __all__ = [
     "ConstantSafetyValidator",
 ]
 
+import logging
+
 from fhy_core import (
     AnalysisVisitablePass,
     DiagnosticLevel,
+    get_logger,
     register_pass,
 )
 
@@ -32,6 +35,8 @@ from fhy_lang.lang.ast.node import (
 )
 
 from .utils import format_diagnostic_message
+
+_logger: logging.Logger = get_logger(__name__)
 
 _ZERO_DIVISOR_OPERATIONS: frozenset[BinaryOperation] = frozenset(
     {
@@ -77,6 +82,10 @@ class ConstantSafetyValidator(AnalysisVisitablePass[Node]):
             return
         if not _is_literal_zero(node.right):
             return
+        _logger.debug(
+            "Constant safety: literal zero divisor in %s expression.",
+            node.operation.value,
+        )
         self.report(
             DiagnosticLevel.ERROR,
             format_diagnostic_message(

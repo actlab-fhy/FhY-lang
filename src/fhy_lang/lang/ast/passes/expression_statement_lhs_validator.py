@@ -4,9 +4,12 @@ __all__ = [
     "ExpressionStatementLHSValidator",
 ]
 
+import logging
+
 from fhy_core import (
     AnalysisVisitablePass,
     DiagnosticLevel,
+    get_logger,
     register_pass,
 )
 
@@ -19,6 +22,8 @@ from fhy_lang.lang.ast.node import (
 )
 
 from .utils import format_diagnostic_message, format_location_prefix
+
+_logger: logging.Logger = get_logger(__name__)
 
 
 @register_pass(
@@ -74,6 +79,10 @@ class ExpressionStatementLHSValidator(AnalysisVisitablePass[Node]):
 
     def _report_unsupported_lhs(self, node: ExpressionStatement) -> None:
         assert node.left is not None
+        _logger.debug(
+            "Unsupported LHS in expression statement: %s.",
+            type(node.left).__name__,
+        )
         self.report(
             DiagnosticLevel.ERROR,
             format_diagnostic_message(

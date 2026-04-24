@@ -4,12 +4,15 @@ __all__ = [
     "OperationValidator",
 ]
 
+import logging
+
 from fhy_core import (
     AnalysisVisitablePass,
     DiagnosticLevel,
     NumericalType,
     Type,
     TypeQualifier,
+    get_logger,
     register_pass,
 )
 
@@ -20,6 +23,8 @@ from fhy_lang.lang.ast.node import (
 )
 
 from .utils import format_diagnostic_message
+
+_logger: logging.Logger = get_logger(__name__)
 
 
 def _is_scalar_numerical_type(node_type: Type) -> bool:
@@ -43,6 +48,11 @@ class OperationValidator(AnalysisVisitablePass[Node]):
     """
 
     def visit_operation(self, node: Operation) -> None:
+        _logger.debug(
+            "Operation structural check: %s with %d arg(s).",
+            node.name,
+            len(node.args),
+        )
         for argument in node.args:
             self._check_scalar_argument(node, argument)
         self._check_return_type(node)

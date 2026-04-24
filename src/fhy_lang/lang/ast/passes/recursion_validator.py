@@ -13,12 +13,15 @@ __all__ = [
     "RecursionValidator",
 ]
 
+import logging
+
 import networkx as nx
 from fhy_core import (
     AnalysisVisitablePass,
     CompilerPass,
     DiagnosticLevel,
     Identifier,
+    get_logger,
     register_pass,
 )
 
@@ -32,6 +35,8 @@ from fhy_lang.lang.ast.node import (
 )
 
 from .utils import format_diagnostic_message
+
+_logger: logging.Logger = get_logger(__name__)
 
 _FunctionDefinition = Procedure | Operation
 
@@ -150,12 +155,23 @@ class RecursionValidator(CompilerPass[Module, None]):
     def run_pass(self, ir: Module) -> None:
         function_definitions = _get_function_definitions(ir)
         if not function_definitions:
+            _logger.debug("No user-defined functions; skipping recursion check.")
             return
         call_graph = _build_call_graph(function_definitions)
-        for component in _find_recursive_components(call_graph):
+        _logger.debug(
+            "Built call graph: %d node(s), %d edge(s).",
+            call_graph.number_of_nodes(),
+            call_graph.number_of_edges(),
+        )
+        recursive_components = _find_recursive_components(call_graph)
+        for component in recursive_components:
             self._report_recursive_component(
                 call_graph, function_definitions, component
             )
+        _logger.info(
+            "Recursion validation complete: %d recursive component(s) found.",
+            len(recursive_components),
+        )
 
     def _report_recursive_component(
         self,

@@ -4,9 +4,11 @@ __all__ = [
     "build_cfg",
 ]
 
+import logging
 from collections.abc import Sequence
 
 import networkx as nx
+from fhy_core import get_logger
 
 from fhy_lang.lang.ast.node import (
     ForAllStatement,
@@ -18,6 +20,8 @@ from fhy_lang.lang.ast.node import (
 )
 
 from .graph import CFGEdgeKind, CFGNode, CFGNodeKind, ControlFlowGraph
+
+_logger: logging.Logger = get_logger(__name__)
 
 _FunctionDefinition = Procedure | Operation
 
@@ -89,6 +93,9 @@ class _CFGBuilder:
             node = self._new_node(CFGNodeKind.STATEMENT, statement)
             self._connect(tail, node)
             self._add_edge(node, self._exit, CFGEdgeKind.UNCONDITIONAL)
+            _logger.debug(
+                "CFG: return statement encountered; control flow cannot fall through."
+            )
             return None
 
         if isinstance(statement, SelectionStatement):
@@ -105,11 +112,16 @@ class _CFGBuilder:
             )
 
             if true_tail is None and false_tail is None:
+                _logger.debug(
+                    "CFG: both branches of selection unconditionally return; "
+                    "control flow cannot fall through."
+                )
                 return None
 
             merge = self._new_node(CFGNodeKind.MERGE)
             self._connect(true_tail, merge)
             self._connect(false_tail, merge)
+            _logger.debug("CFG: inserted merge node after selection statement.")
             return (merge, CFGEdgeKind.UNCONDITIONAL)
 
         if isinstance(statement, ForAllStatement):
@@ -122,12 +134,17 @@ class _CFGBuilder:
             )
             if body_tail is None:
                 # Body always returns; nothing after the loop is reachable.
+                _logger.debug(
+                    "CFG: forall body unconditionally returns; nothing after "
+                    "the loop is reachable."
+                )
                 return None
             # The back-edge from the body tail to the header is always
             # labeled LOOP_BACK, irrespective of the pending edge kind the
             # body tail was going to emit into its (non-existent) successor.
             back_pred, _ = body_tail
             self._add_edge(back_pred, header, CFGEdgeKind.LOOP_BACK)
+            _logger.debug("CFG: added LOOP_BACK edge for forall statement.")
             # FhY forall is bounded and assumed to execute at least once, so
             # the LOOP_EXIT edge leaving the loop originates at the body
             # tail rather than the header. This preserves the body's
@@ -153,4 +170,7 @@ def build_cfg(function: _FunctionDefinition) -> ControlFlowGraph:
         nodes wrapping `function.body`'s statements.
 
     """
-    return _CFGBuilder(function).build()
+    _logger.debug("Building CFG for %s %s.", type(function).__name__, function.name)
+    cfg = _CFGBuilder(function).build()
+    _logger.debug("CFG for %s built: %d node(s).", function.name, len(cfg.nodes))
+    return cfg
