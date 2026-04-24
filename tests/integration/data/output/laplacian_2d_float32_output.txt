@@ -1,0 +1,5 @@
+proc laplacian_2d<>(input float32[(2 + h), (2 + w)] u, output float32[h, w] lap) {
+  temp index[1:h:1] i;
+  temp index[1:w:1] j;
+  lap[i, j] = ((((u[i, (j + 1)] + u[(i + 2), (j + 1)]) + u[(i + 1), j]) + u[(i + 1), (j + 2)]) - (4.0 * u[(i + 1), (j + 1)]));
+}

@@ -1,0 +1,4 @@
+proc dot_product<>(input float32[n] a, input float32[n] b, output float32 result) {
+  temp index[1:n:1] i;
+  result = sum<>[i]((a[i] * b[i]));
+}

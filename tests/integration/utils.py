@@ -28,7 +28,7 @@ def access_cli(*args: str, cwd: str | None = None) -> tuple[int, str, str]:
         A tuple containing the return code, stdout, and stderr.
 
     """
-    cli_executable = os.path.join(os.path.dirname(sys.executable), "fhy")
+    cli_executable = os.path.join(os.path.dirname(sys.executable), "compile-fhy-lang")
     result = subprocess.run(
         [cli_executable, *args],
         stdout=subprocess.PIPE,

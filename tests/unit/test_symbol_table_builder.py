@@ -1,15 +1,6 @@
 """Tests the symbol table builder AST pass."""
 
 import pytest
-from fhy.lang.ast import (
-    Argument,
-    DeclarationStatement,
-    Module,
-    Procedure,
-    QualifiedType,
-)
-from fhy.lang.ast.passes import build_symbol_table
-from fhy.lang.ast.passes.symbol_table_builder import FhYSymbolTableBuilderError
 from fhy_core import (
     CoreDataType,
     FunctionKeyword,
@@ -22,21 +13,28 @@ from fhy_core import (
     TypeQualifier,
     VariableSymbolTableFrame,
 )
+from fhy_lang.lang.ast import (
+    Argument,
+    DeclarationStatement,
+    Module,
+    Procedure,
+    QualifiedType,
+)
+from fhy_lang.lang.ast.passes import build_symbol_table
+from fhy_lang.lang.ast.passes.symbol_table_builder import FhYSymbolTableBuilderError
 
 
-def test_empty_program():
-    """Tests an empty program."""
-    program_ast = Module(provenance=Provenance.unknown())
-
-    symbol_table = build_symbol_table(program_ast)
+def test_empty_module(empty_module_ast):
+    """Test an empty module."""
+    symbol_table = build_symbol_table(empty_module_ast)
 
     assert symbol_table.get_number_of_namespaces() == 2
-    module_namespace = symbol_table.get_namespace(program_ast.name)
+    module_namespace = symbol_table.get_namespace(empty_module_ast.name)
     assert len(module_namespace) == 0
 
 
 def test_empty_procedure():
-    """Tests empty procedure body containing procedure name in symbol table."""
+    """Test empty procedure body containing procedure name in symbol table."""
     main = Identifier("main")
     program_ast = Module(
         statements=(

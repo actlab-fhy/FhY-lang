@@ -1,0 +1,10 @@
+proc transpose(
+    input int32[m, n] A,
+
+    output int32[n, m] B
+) {
+    temp index[1:m] i;
+    temp index[1:n] j;
+
+    B[j, i] = A[i, j];
+}

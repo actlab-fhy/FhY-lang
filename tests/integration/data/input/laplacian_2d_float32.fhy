@@ -1,0 +1,14 @@
+# Five-point discrete Laplacian on an h-by-w interior grid with one ghost
+# cell on every side. Appears in Poisson / diffusion solvers as the spatial
+# operator: (L u)_{i,j} = u_{i-1,j} + u_{i+1,j} + u_{i,j-1} + u_{i,j+1}
+#                         - 4 u_{i,j}.
+proc laplacian_2d(
+    input float32[h + 2, w + 2] u,
+
+    output float32[h, w] lap
+) {
+    temp index[1:h] i;
+    temp index[1:w] j;
+
+    lap[i, j] = u[i, j + 1] + u[i + 2, j + 1] + u[i + 1, j] + u[i + 1, j + 2] - 4.0 * u[i + 1, j + 1];
+}

@@ -18,7 +18,7 @@ examples = glob(_INPUT)
 
 def _grab_expected_output_file(filepath: str) -> str:
     basename: str = os.path.basename(filepath).split(".")[0]
-    name = f"{basename}_output.fhy"
+    name = f"{basename}_output.txt"
     path_out = os.path.join(_OUTPUT, name)
     if not os.path.exists(path_out):
         raise FileNotFoundError(f"Expected output file does not exist: {basename}")
@@ -37,7 +37,7 @@ def _clean_pretty_print_output(output: str) -> str:
 @pytest.mark.parametrize("file", examples)
 def test_single_file_examples_through_cli_pretty(file: str):
     """Test the FhY CLI using pretty print on a collection of example files."""
-    code, output, _ = access_cli("main", file, "-f", "pretty")
+    code, output, _ = access_cli("serialize", file, "-f", "pretty")
     assert code == 0
     result = _clean_pretty_print_output(output)
 

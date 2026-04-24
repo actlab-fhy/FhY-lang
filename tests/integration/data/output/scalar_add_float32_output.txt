@@ -1,0 +1,3 @@
+proc main<>(input float32 x, input float32 y, output float32 z) {
+  z = (x + y);
+}

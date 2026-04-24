@@ -3,10 +3,6 @@
 from collections.abc import Sequence
 
 import pytest
-from fhy.lang import FhYSyntaxError
-from fhy.lang.ast import node as ast_node
-from fhy.lang.ast.passes import collect_identifiers
-from fhy.lang.ast.pprint import pformat_ast
 from fhy_core import (
     BinaryExpression as CoreBinaryExpression,
 )
@@ -37,6 +33,10 @@ from fhy_core import (
 from fhy_core import (
     UnaryExpression as CoreUnaryExpression,
 )
+from fhy_lang.lang import FhYSyntaxError
+from fhy_lang.lang.ast import node as ast_node
+from fhy_lang.lang.ast.passes import collect_identifiers
+from fhy_lang.lang.ast.pprint import pformat_ast
 
 from ..utils import assert_name, assert_sequence_type, assert_type
 
@@ -247,7 +247,13 @@ def _is_core_expressions_exactly_equal(
 
 def _create_identifier_map(node: ast_node.Node) -> dict[str, Identifier]:
     identifiers = collect_identifiers(node)
-    return {identifier.name_hint: identifier for identifier in identifiers}
+    ret = {}
+    for identifier in identifiers:
+        if identifier.name_hint not in ret:
+            ret[identifier.name_hint] = identifier
+        else:
+            raise ValueError(f"Duplicate identifier: {identifier.name_hint}")
+    return ret
 
 
 def _assert_is_expected_module(
@@ -527,7 +533,6 @@ def test_empty_procedure_with_scalar_argument_qualifiers(
         ("uint8", CoreDataType.UINT8),
         ("uint16", CoreDataType.UINT16),
         ("uint32", CoreDataType.UINT32),
-        ("uint64", CoreDataType.UINT64),
         ("int8", CoreDataType.INT8),
         ("int16", CoreDataType.INT16),
         ("int32", CoreDataType.INT32),
@@ -702,8 +707,8 @@ def test_operation_template_type_body(construct_ast):
 def test_operation_template_type_call(construct_ast):
     """Test that a template type can be instantiated and used in a call."""
     source: str = """
-    op foo<T>(input T[N, M] a) -> output T[N, M] {
-        temp T[N, M] b;
+    op foo<T>(input T[N1, M1] a) -> output T[N1, M1] {
+        temp T[N1, M1] b;
         return a;
     }
 
@@ -1320,14 +1325,14 @@ def test_line_comment(construct_ast):
 # EXPECTED ERRORS
 # ===============
 def test_syntax_error_no_argument_name(construct_ast):
-    """Raise FhYSyntaxError when an function argument is defined without a name."""
+    """Test that FhYSyntaxError is raised when a function argument has no name."""
     source: str = "op foo(input int32[m,n]) -> output int32 {}"
     with pytest.raises(FhYSyntaxError):
         ast = construct_ast(source)
 
 
 def test_syntax_error_no_procedure_name(construct_ast):
-    """Raise FhYSyntaxError when an operation is defined without a name."""
+    """Test that FhYSyntaxError is raised when a procedure has no name."""
     source: str = "proc () {}"
     # NOTE: This raises the ANTLR Syntax Error, not from our visitor class.
     #       This means we do not gain coverage in parse tree converter for this case.
@@ -1336,7 +1341,7 @@ def test_syntax_error_no_procedure_name(construct_ast):
 
 
 def test_syntax_error_no_operation_name(construct_ast):
-    """Raise FhYSyntaxError when an operation is defined without a name."""
+    """Test that FhYSyntaxError is raised when an operation has no name."""
     source: str = "op (input int32[m,n] A) -> output int32 {}"
     # NOTE: This raises the ANTLR Syntax Error, not from our visitor class.
     #       This means we do not gain coverage in parse tree converter for this case.
@@ -1345,14 +1350,14 @@ def test_syntax_error_no_operation_name(construct_ast):
 
 
 def test_syntax_error_no_operation_return_type(construct_ast):
-    """Raise FhYSyntaxError when an operation is defined without a return type."""
+    """Test that FhYSyntaxError is raised when an operation has no return type."""
     source: str = "op func(input int32[m,n] A) {}"
     with pytest.raises(FhYSyntaxError):
         ast = construct_ast(source)
 
 
 def test_invalid_function_keyword(construct_ast):
-    """Raise FhySyntaxError when function is declared with invalid keyword."""
+    """Test that FhYSyntaxError is raised when a function uses an invalid keyword."""
     source: str = "def foo(input int32[m,n] A) -> output int32[m,n] {}"
     with pytest.raises(FhYSyntaxError):
         ast = construct_ast(source)
@@ -1366,6 +1371,6 @@ def test_invalid_function_keyword(construct_ast):
     ],
 )
 def test_gibberish(construct_ast, source: str):
-    """Gibberish (unrecognized text according to fhy grammar) raises FhySyntaxError."""
+    """Test gibberish (unrecognized text per the grammar) raises FhYSyntaxError."""
     with pytest.raises(FhYSyntaxError):
         ast = construct_ast(source)

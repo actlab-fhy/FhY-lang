@@ -1,0 +1,6 @@
+proc xor_mix_cipher<>(input uint32[n] plaintext, input uint32[n] key, output uint32[n] ciphertext) {
+  temp index[1:n:1] i;
+  temp uint32[n] mixed;
+  mixed[i] = (plaintext[i] ^ key[i]);
+  ciphertext[i] = ((mixed[i] ^ (mixed[i] << 7)) ^ (mixed[i] >> 3));
+}

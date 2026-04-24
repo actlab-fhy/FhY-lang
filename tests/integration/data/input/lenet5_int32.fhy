@@ -1,0 +1,118 @@
+# See FhY examples repository (v0.1.0 directory) for explanation.
+
+proc main(
+    input int32[1, 32, 32, 16] X,
+
+    input int32[5, 5, 16, 16] W1,
+    input int32[16] B1,
+
+    input int32[5, 5, 16, 16] W3,
+    input int32[16] B3,
+
+    input int32[5, 5, 16, 128] W5,
+    input int32[128] B5,
+
+    input int32[128, 96] W6,
+    input int32[96] B6,
+
+    input int32[96, 16] W7,
+    input int32[16] B7,
+
+    output int32[1, 16] Y
+) {
+    temp index[1:1] n;
+
+    temp index[1:28] h28;
+    temp index[1:28] w28;
+
+    temp index[1:14] h14;
+    temp index[1:14] w14;
+
+    temp index[1:10] h10;
+    temp index[1:10] w10;
+
+    temp index[1:5] h5;
+    temp index[1:5] w5;
+
+    temp index[1:16] ic16;
+    temp index[1:16] oc16;
+    temp index[1:128] oc128;
+    temp index[1:96] oc96;
+
+    temp index[1:5] kh5;
+    temp index[1:5] kw5;
+    temp index[1:2] kh2;
+    temp index[1:2] kw2;
+
+    temp int32[1, 28, 28, 16] C1;
+    temp int32[1, 28, 28, 16] A1;
+    temp int32[1, 14, 14, 16] S2;
+    temp int32[1, 10, 10, 16] C3;
+    temp int32[1, 10, 10, 16] A3;
+    temp int32[1, 5, 5, 16] S4;
+    temp int32[1, 1, 1, 128] C5;
+    temp int32[1, 1, 1, 128] A5;
+    temp int32[1, 96] F6;
+    temp int32[1, 96] A6;
+
+    # C1: 5x5 valid conv, 16 -> 16 (only input channel 1 needs to be nonzero logically)
+    C1[n, h28, w28, oc16] =
+        sum[kh5, kw5, ic16](
+            X[n, h28 + kh5 - 1, w28 + kw5 - 1, ic16] *
+            W1[kh5, kw5, ic16, oc16]
+        ) + B1[oc16];
+
+    # ReLU
+    A1[n, h28, w28, oc16] =
+        C1[n, h28, w28, oc16] > 0 ? C1[n, h28, w28, oc16] : 0;
+
+    # S2: 2x2 max-pool, stride 2
+    S2[n, h14, w14, oc16] =
+        max[kh2, kw2](
+            A1[n, 2 * (h14 - 1) + kh2, 2 * (w14 - 1) + kw2, oc16]
+        );
+
+    # C3: 5x5 valid dense conv, 16 -> 16
+    C3[n, h10, w10, oc16] =
+        sum[kh5, kw5, ic16](
+            S2[n, h10 + kh5 - 1, w10 + kw5 - 1, ic16] *
+            W3[kh5, kw5, ic16, oc16]
+        ) + B3[oc16];
+
+    # ReLU
+    A3[n, h10, w10, oc16] =
+        C3[n, h10, w10, oc16] > 0 ? C3[n, h10, w10, oc16] : 0;
+
+    # S4: 2x2 max-pool, stride 2
+    S4[n, h5, w5, oc16] =
+        max[kh2, kw2](
+            A3[n, 2 * (h5 - 1) + kh2, 2 * (w5 - 1) + kw2, oc16]
+        );
+
+    # C5: 5x5 valid dense conv, 16 -> 128, producing 1x1x128
+    C5[n, 1, 1, oc128] =
+        sum[kh5, kw5, ic16](
+            S4[n, kh5, kw5, ic16] *
+            W5[kh5, kw5, ic16, oc128]
+        ) + B5[oc128];
+
+    # ReLU
+    A5[n, 1, 1, oc128] =
+        C5[n, 1, 1, oc128] > 0 ? C5[n, 1, 1, oc128] : 0;
+
+    # F6: fully connected 128 -> 96
+    F6[n, oc96] =
+        sum[oc128](
+            A5[n, 1, 1, oc128] * W6[oc128, oc96]
+        ) + B6[oc96];
+
+    # ReLU
+    A6[n, oc96] =
+        F6[n, oc96] > 0 ? F6[n, oc96] : 0;
+
+    # Output: linear logits, 96 -> 16
+    Y[n, oc16] =
+        sum[oc96](
+            A6[n, oc96] * W7[oc96, oc16]
+        ) + B7[oc16];
+}
