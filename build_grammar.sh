@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 JAVA_VERSION=$(java -version 2>&1 | awk -F '"' '/version/ {print $2}')
 ANTLR_VERSION=$(antlr4 | awk '/Version /{print $NF}')
