@@ -1,6 +1,13 @@
 # FhY Language and Frontend
 
-`fhy_lang` is the language and frontend package for the [FhY](https://github.com/actlab-fhy) compiler infrastructure - a cross-domain compiler framework for multi-target code generation.
+[![PyPI version](https://img.shields.io/pypi/v/fhy_lang.svg)](https://pypi.org/project/fhy_lang/)
+[![Python versions](https://img.shields.io/pypi/pyversions/fhy_lang.svg)](https://pypi.org/project/fhy_lang/)
+[![CI](https://github.com/actlab-fhy/FhY-lang/actions/workflows/python-package.yml/badge.svg)](https://github.com/actlab-fhy/FhY-lang/actions/workflows/python-package.yml)
+
+*A Language for Modeling Physical Things*
+
+*FhY* is a cross-domain language with mathematical foundations that moves beyond the
+current paradigm of domain-specific languages to enable cross-domain multi-acceleration.
 
 This package provides the user-facing surface of the compiler: the FhY source language, its grammar and parser (built on ANTLR), the AST definitions, and the driver that turns a FhY source program into a fully-constructed AST module and symbol table ready to be consumed by downstream compilation stages.
 
