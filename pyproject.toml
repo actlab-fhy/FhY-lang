@@ -3,7 +3,7 @@ requires = ["setuptools>=67.6.1"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "fhy-lang"
+name = "fhy_lang"
 description = "Cross-domain-language frontend for the FhY compiler framework."
 license = {file = "LICENSE"}
 authors = [
@@ -36,11 +36,11 @@ where = ["src"]
 exclude = ["grammar", "tests"]
 
 [project.scripts]
-fhy = "fhy_lang.cli:app"
+compile-fhy-lang = "fhy_lang.cli:app"
 
 # pydata-sphinx-theme>=0.13 is required as that is the version which upgrades to Bootstrap 5
 [project.optional-dependencies]
-dev = ["fhy-lang[test,lint,type,pre-commit]", "tox"]
+dev = ["fhy_lang[test,lint,type,pre-commit]", "tox"]
 test = ["pytest", "coverage", "pytest-xdist"]
 pre-commit = ["pre-commit>3.0.0"]
 lint = ["ruff", "pylint"]
