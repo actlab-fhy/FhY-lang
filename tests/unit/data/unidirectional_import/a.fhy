@@ -1,3 +1,0 @@
-import unidirectional_import.b.B;
-
-temp int32 A = 4 + unidirectional_import.b.B;

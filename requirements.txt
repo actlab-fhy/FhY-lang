@@ -1,1 +1,4 @@
-networkx>=3.3
+fhy-core>=0.1.0
+frozendict
+networkx>=3.2.1
+typer>=0.24.1

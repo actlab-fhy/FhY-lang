@@ -105,6 +105,10 @@ dtype
     : base_dtype=IDENTIFIER (LESS_THAN expression_list GREATER_THAN)?
     ;
 
+dtype_list
+    : (dtype (COMMA dtype)* COMMA?)?
+    ;
+
 index_type
     : INDEX OPEN_BRACKET range CLOSE_BRACKET
     ;
@@ -141,7 +145,7 @@ expression_list
 
 primitive_expression
     : tuple_access_expression=primitive_expression FLOAT_LITERAL
-    | function_expression=primitive_expression (LESS_THAN expression_list GREATER_THAN)? (OPEN_BRACKET expression_list CLOSE_BRACKET)? OPEN_PARENTHESES expression_list CLOSE_PARENTHESES
+    | function_expression=primitive_expression (LESS_THAN dtype_list GREATER_THAN)? (OPEN_BRACKET expression_list CLOSE_BRACKET)? OPEN_PARENTHESES expression_list CLOSE_PARENTHESES
     | array_access_expression=primitive_expression OPEN_BRACKET expression_list CLOSE_BRACKET
     | atom
     ;
@@ -168,6 +172,7 @@ identifier_expression
 literal
     : INT_LITERAL
     | FLOAT_LITERAL
+    | COMPLEX_LITERAL
     ;
 
 /*
@@ -394,6 +399,11 @@ INT_LITERAL
 FLOAT_LITERAL
     : FRACTION_PART EXPONENT_PART?
     | DIGIT_SEQUENCE EXPONENT_PART
+    ;
+
+COMPLEX_LITERAL
+    : FRACTION_PART EXPONENT_PART? [jJ]
+    | DIGIT_SEQUENCE EXPONENT_PART? [jJ]
     ;
 
 FRACTION_PART

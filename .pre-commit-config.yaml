@@ -1,0 +1,28 @@
+ci:
+  autoupdate_schedule: quarterly
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.2.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: ^tests/(integration|unit)/data/
+      - id: end-of-file-fixer
+        exclude: ^tests/(integration|unit)/data/
+      - id: check-yaml
+      - id: check-added-large-files
+
+  - repo: https://github.com/sphinx-contrib/sphinx-lint
+    rev: v0.9.1
+    hooks:
+      - id: sphinx-lint
+        args: [ --max-line-length, "78" ]
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.4.7
+    hooks:
+      - id: ruff
+        args: [ --fix ]
+        types_or: [ python, pyi, jupyter ]
+      - id: ruff-format
+        types_or: [ python, pyi, jupyter ]

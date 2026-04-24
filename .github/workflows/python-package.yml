@@ -1,7 +1,7 @@
 # This workflow will install Python dependencies, run tests and lint with a variety of Python versions
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python
 
-name: Python package CI
+name: FhY CI
 
 on:
   push:
@@ -47,7 +47,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: parser-files
-          path: src/fhy/lang/parser/FhY*.py
+          path: src/fhy_lang/lang/parser/FhY*.py
           retention-days: 1
           if-no-files-found: ignore
 
@@ -65,7 +65,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: parser-files
-          path: src/fhy/lang/parser/
+          path: src/fhy_lang/lang/parser/
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -92,16 +92,13 @@ jobs:
         if: always()
         run: tox -e type
 
-      - name: Documentation Build
-        run: tox -e docs
-
   tests:
     runs-on: ${{ matrix.os }}
     needs: [build]
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
         os: [ubuntu-latest, macOS-latest, windows-latest]
 
     steps:
@@ -112,7 +109,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: parser-files
-          path: src/fhy/lang/parser/
+          path: src/fhy_lang/lang/parser/
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -141,12 +138,12 @@ jobs:
         run: |
           "TOX_VERSION=py$(echo ${{ matrix.python-version }} | tr -d .)-tests" >> $env:GITHUB_ENV
 
-      - name: PyTest
+      - name: Unit & Integration Testing
         run: |
           echo ${{ env.TOX_VERSION }}
           tox -e ${{ env.TOX_VERSION }}
 
-      - name: Save Coverage Data Temporarily
+      - name: Save Coverage Data
         uses: actions/upload-artifact@v4
         with:
           name: coverage-data-${{ matrix.os }}-${{ matrix.python-version }}
@@ -168,7 +165,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: parser-files
-          path: src/fhy/lang/parser/
+          path: src/fhy_lang/lang/parser/
 
       - name: Download coverage data
         uses: actions/download-artifact@v4

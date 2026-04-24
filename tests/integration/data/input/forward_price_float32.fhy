@@ -1,0 +1,17 @@
+# Risk-neutral forward price for a collection of assets:
+# F_i = S_i * exp((r - q_i) * T), where S is the spot price vector, q is the
+# per-asset continuous dividend yield, r is the risk-free rate, and T is the
+# horizon in years.
+proc forward_price(
+    input float32[n] S,
+    input float32[n] q,
+
+    param float32 r,
+    param float32 T,
+
+    output float32[n] F
+) {
+    temp index[1:n] i;
+
+    F[i] = S[i] * exp((r - q[i]) * T);
+}

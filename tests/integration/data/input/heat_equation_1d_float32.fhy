@@ -1,0 +1,15 @@
+# One explicit finite-difference step of the 1D heat equation
+#   u_t = alpha * u_xx
+# using the FTCS scheme on an interior of length n with one ghost cell on
+# each end (Dirichlet boundary conditions are baked into u[1] and u[n + 2]).
+proc heat_step_1d(
+    input float32[n + 2] u,
+
+    param float32 alpha,
+
+    output float32[n] u_new
+) {
+    temp index[1:n] i;
+
+    u_new[i] = u[i + 1] + alpha * (u[i] - 2.0 * u[i + 1] + u[i + 2]);
+}
