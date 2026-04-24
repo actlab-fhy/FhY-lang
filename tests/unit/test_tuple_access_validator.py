@@ -1,7 +1,17 @@
 """Tests the tuple access validator AST pass."""
 
 import pytest
-from fhy.lang.ast import (
+from fhy_core import (
+    CoreDataType,
+    Identifier,
+    NumericalType,
+    PrimitiveDataType,
+    Provenance,
+    TupleType,
+    TypeQualifier,
+    ValidationFailedError,
+)
+from fhy_lang.lang.ast import (
     DeclarationStatement,
     ExpressionStatement,
     IdentifierExpression,
@@ -12,19 +22,9 @@ from fhy.lang.ast import (
     TupleAccessExpression,
     TupleExpression,
 )
-from fhy.lang.ast.passes import (
+from fhy_lang.lang.ast.passes import (
     TupleAccessValidator,
     build_symbol_table,
-)
-from fhy_core import (
-    CoreDataType,
-    Identifier,
-    NumericalType,
-    PrimitiveDataType,
-    Provenance,
-    TupleType,
-    TypeQualifier,
-    ValidationFailedError,
 )
 
 from .utils import run_validator

@@ -47,7 +47,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: parser-files
-          path: src/fhy/lang/parser/FhY*.py
+          path: src/fhy_lang/lang/parser/FhY*.py
           retention-days: 1
           if-no-files-found: ignore
 
@@ -65,7 +65,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: parser-files
-          path: src/fhy/lang/parser/
+          path: src/fhy_lang/lang/parser/
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -112,7 +112,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: parser-files
-          path: src/fhy/lang/parser/
+          path: src/fhy_lang/lang/parser/
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -168,7 +168,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: parser-files
-          path: src/fhy/lang/parser/
+          path: src/fhy_lang/lang/parser/
 
       - name: Download coverage data
         uses: actions/download-artifact@v4

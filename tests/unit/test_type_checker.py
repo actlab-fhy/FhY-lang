@@ -1,7 +1,21 @@
 """Tests the type checker AST pass."""
 
 import pytest
-from fhy.lang.ast import (
+from fhy_core import (
+    CoreDataType,
+    Identifier,
+    IndexType,
+    LiteralExpression,
+    NumericalType,
+    PrimitiveDataType,
+    Provenance,
+    TypeQualifier,
+    ValidationFailedError,
+)
+from fhy_core import (
+    IdentifierExpression as CoreIdentifierExpression,
+)
+from fhy_lang.lang.ast import (
     Argument,
     ArrayAccessExpression,
     BinaryExpression,
@@ -19,22 +33,8 @@ from fhy.lang.ast import (
     ReturnStatement,
     TernaryExpression,
 )
-from fhy.lang.ast.passes import TypeChecker, build_symbol_table
-from fhy.lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
-from fhy_core import (
-    CoreDataType,
-    Identifier,
-    IndexType,
-    LiteralExpression,
-    NumericalType,
-    PrimitiveDataType,
-    Provenance,
-    TypeQualifier,
-    ValidationFailedError,
-)
-from fhy_core import (
-    IdentifierExpression as CoreIdentifierExpression,
-)
+from fhy_lang.lang.ast.passes import TypeChecker, build_symbol_table
+from fhy_lang.lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
 
 from .utils import run_validator
 

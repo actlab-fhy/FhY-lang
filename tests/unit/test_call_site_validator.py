@@ -3,7 +3,20 @@
 from collections.abc import Sequence
 
 import pytest
-from fhy.lang.ast import (
+from fhy_core import (
+    Identifier,
+    IndexType,
+    LiteralExpression,
+    NumericalType,
+    Provenance,
+    Type,
+    TypeQualifier,
+    ValidationFailedError,
+)
+from fhy_core import (
+    IdentifierExpression as CoreIdentifierExpression,
+)
+from fhy_lang.lang.ast import (
     Argument,
     ArrayAccessExpression,
     BinaryExpression,
@@ -19,24 +32,11 @@ from fhy.lang.ast import (
     QualifiedType,
     Statement,
 )
-from fhy.lang.ast.passes import (
+from fhy_lang.lang.ast.passes import (
     CallSiteValidator,
     build_symbol_table,
 )
-from fhy.lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
-from fhy_core import (
-    Identifier,
-    IndexType,
-    LiteralExpression,
-    NumericalType,
-    Provenance,
-    Type,
-    TypeQualifier,
-    ValidationFailedError,
-)
-from fhy_core import (
-    IdentifierExpression as CoreIdentifierExpression,
-)
+from fhy_lang.lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
 
 from .utils import run_validator
 
@@ -708,8 +708,8 @@ def test_fails_with_procedure_called_in_value_position(int32: NumericalType):
 
 def test_warns_on_operation_called_as_bare_statement(int32: NumericalType):
     """Test that calling an operation as a bare statement emits a warning."""
-    from fhy.lang.ast.passes.call_site_validator import CallSiteValidator
     from fhy_core import DiagnosticLevel
+    from fhy_lang.lang.ast.passes.call_site_validator import CallSiteValidator
 
     main = Identifier("main")
     op = Identifier("op")

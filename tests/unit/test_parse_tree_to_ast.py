@@ -3,10 +3,6 @@
 from collections.abc import Sequence
 
 import pytest
-from fhy.lang import FhYSyntaxError
-from fhy.lang.ast import node as ast_node
-from fhy.lang.ast.passes import collect_identifiers
-from fhy.lang.ast.pprint import pformat_ast
 from fhy_core import (
     BinaryExpression as CoreBinaryExpression,
 )
@@ -37,6 +33,10 @@ from fhy_core import (
 from fhy_core import (
     UnaryExpression as CoreUnaryExpression,
 )
+from fhy_lang.lang import FhYSyntaxError
+from fhy_lang.lang.ast import node as ast_node
+from fhy_lang.lang.ast.passes import collect_identifiers
+from fhy_lang.lang.ast.pprint import pformat_ast
 
 from ..utils import assert_name, assert_sequence_type, assert_type
 

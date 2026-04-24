@@ -1,6 +1,14 @@
 """Tests the dead code elimination pass."""
 
-from fhy.lang.ast import (
+from fhy_core import (
+    FixpointGroupRecord,
+    FixpointPassGroup,
+    Identifier,
+    PassManager,
+    Provenance,
+    TypeQualifier,
+)
+from fhy_lang.lang.ast import (
     BinaryExpression,
     BinaryOperation,
     DeclarationStatement,
@@ -12,17 +20,9 @@ from fhy.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy.lang.ast.passes import (
+from fhy_lang.lang.ast.passes import (
     DeadCodeEliminationPass,
     build_symbol_table,
-)
-from fhy_core import (
-    FixpointGroupRecord,
-    FixpointPassGroup,
-    Identifier,
-    PassManager,
-    Provenance,
-    TypeQualifier,
 )
 
 from .utils import (

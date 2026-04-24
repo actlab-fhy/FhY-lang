@@ -1,26 +1,6 @@
 """Tests for the FhY definite-assignment analysis and validator."""
 
 import pytest
-from fhy.lang.ast import (
-    Argument,
-    ArrayAccessExpression,
-    DeclarationStatement,
-    ExpressionStatement,
-    FunctionExpression,
-    IdentifierExpression,
-    IntLiteral,
-    Module,
-    Procedure,
-    QualifiedType,
-    SelectionStatement,
-)
-from fhy.lang.ast.passes import (
-    DefiniteAssignmentValidator,
-    build_symbol_table,
-)
-from fhy.lang.ast.passes.definite_assignment import (
-    _ScalarDefiniteAssignmentAnalysis,
-)
 from fhy_core import (
     CoreDataType,
     Identifier,
@@ -34,6 +14,26 @@ from fhy_core import (
 )
 from fhy_core import (
     IdentifierExpression as CoreIdentifierExpression,
+)
+from fhy_lang.lang.ast import (
+    Argument,
+    ArrayAccessExpression,
+    DeclarationStatement,
+    ExpressionStatement,
+    FunctionExpression,
+    IdentifierExpression,
+    IntLiteral,
+    Module,
+    Procedure,
+    QualifiedType,
+    SelectionStatement,
+)
+from fhy_lang.lang.ast.passes import (
+    DefiniteAssignmentValidator,
+    build_symbol_table,
+)
+from fhy_lang.lang.ast.passes.definite_assignment import (
+    _ScalarDefiniteAssignmentAnalysis,
 )
 
 from .utils import (

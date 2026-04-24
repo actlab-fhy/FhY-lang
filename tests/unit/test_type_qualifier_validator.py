@@ -1,7 +1,14 @@
 """Tests the type qualifier validator AST pass."""
 
 import pytest
-from fhy.lang.ast import (
+from fhy_core import (
+    Identifier,
+    NumericalType,
+    Provenance,
+    TypeQualifier,
+    ValidationFailedError,
+)
+from fhy_lang.lang.ast import (
     Argument,
     ArrayAccessExpression,
     DeclarationStatement,
@@ -13,14 +20,7 @@ from fhy.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy.lang.ast.passes import TypeQualifierValidator, build_symbol_table
-from fhy_core import (
-    Identifier,
-    NumericalType,
-    Provenance,
-    TypeQualifier,
-    ValidationFailedError,
-)
+from fhy_lang.lang.ast.passes import TypeQualifierValidator, build_symbol_table
 
 from .utils import run_validator
 

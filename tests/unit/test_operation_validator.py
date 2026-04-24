@@ -1,17 +1,6 @@
 """Tests the operation validator AST pass."""
 
 import pytest
-from fhy.lang.ast import (
-    Argument,
-    IdentifierExpression,
-    IntLiteral,
-    Module,
-    Operation,
-    Procedure,
-    QualifiedType,
-    ReturnStatement,
-)
-from fhy.lang.ast.passes import OperationValidator
 from fhy_core import (
     CoreDataType,
     Identifier,
@@ -24,6 +13,17 @@ from fhy_core import (
 from fhy_core import (
     IdentifierExpression as CoreIdentifierExpression,
 )
+from fhy_lang.lang.ast import (
+    Argument,
+    IdentifierExpression,
+    IntLiteral,
+    Module,
+    Operation,
+    Procedure,
+    QualifiedType,
+    ReturnStatement,
+)
+from fhy_lang.lang.ast.passes import OperationValidator
 
 from .utils import run_validator
 

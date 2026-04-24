@@ -1,7 +1,13 @@
 """Tests for the FhY constant-safety validator."""
 
 import pytest
-from fhy.lang.ast import (
+from fhy_core import (
+    Identifier,
+    Provenance,
+    TypeQualifier,
+    ValidationFailedError,
+)
+from fhy_lang.lang.ast import (
     BinaryExpression,
     BinaryOperation,
     ComplexLiteral,
@@ -13,13 +19,7 @@ from fhy.lang.ast import (
     UnaryExpression,
     UnaryOperation,
 )
-from fhy.lang.ast.passes import ConstantSafetyValidator
-from fhy_core import (
-    Identifier,
-    Provenance,
-    TypeQualifier,
-    ValidationFailedError,
-)
+from fhy_lang.lang.ast.passes import ConstantSafetyValidator
 
 from .utils import (
     make_argument,

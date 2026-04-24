@@ -1,7 +1,15 @@
 """Tests the FhY AST to core expression converter."""
 
 import pytest
-from fhy.lang import (
+from fhy_core import BinaryExpression as CoreBinaryExpression
+from fhy_core import BinaryOperation as CoreBinaryOperation
+from fhy_core import Expression as CoreExpression
+from fhy_core import Identifier, Provenance
+from fhy_core import IdentifierExpression as CoreIdentifierExpression
+from fhy_core import LiteralExpression as CoreLiteralExpression
+from fhy_core import UnaryExpression as CoreUnaryExpression
+from fhy_core import UnaryOperation as CoreUnaryOperation
+from fhy_lang.lang import (
     ASTBinaryExpression,
     ASTBinaryOperation,
     ASTComplexLiteral,
@@ -13,14 +21,6 @@ from fhy.lang import (
     ASTUnaryOperation,
     convert_ast_expression_to_core_expression,
 )
-from fhy_core import BinaryExpression as CoreBinaryExpression
-from fhy_core import BinaryOperation as CoreBinaryOperation
-from fhy_core import Expression as CoreExpression
-from fhy_core import Identifier, Provenance
-from fhy_core import IdentifierExpression as CoreIdentifierExpression
-from fhy_core import LiteralExpression as CoreLiteralExpression
-from fhy_core import UnaryExpression as CoreUnaryExpression
-from fhy_core import UnaryOperation as CoreUnaryOperation
 
 
 def test_convert_identifier_expression():

@@ -1,7 +1,17 @@
 """Tests the identifier replacer AST pass."""
 
-from fhy.lang import replace_identifiers
-from fhy.lang.ast import (
+from fhy_core import (
+    CoreDataType,
+    Identifier,
+    NumericalType,
+    PrimitiveDataType,
+    Provenance,
+    TemplateDataType,
+    TypeQualifier,
+)
+from fhy_core import IdentifierExpression as CoreIdentifierExpression
+from fhy_lang.lang import replace_identifiers
+from fhy_lang.lang.ast import (
     Argument,
     ArrayAccessExpression,
     BinaryExpression,
@@ -16,16 +26,6 @@ from fhy.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy_core import (
-    CoreDataType,
-    Identifier,
-    NumericalType,
-    PrimitiveDataType,
-    Provenance,
-    TemplateDataType,
-    TypeQualifier,
-)
-from fhy_core import IdentifierExpression as CoreIdentifierExpression
 
 
 def _make_id_expr(identifier: Identifier) -> IdentifierExpression:

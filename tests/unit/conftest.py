@@ -3,21 +3,6 @@
 from collections.abc import Callable
 
 import pytest
-from fhy.lang.ast import (
-    Argument,
-    ArrayAccessExpression,
-    BinaryExpression,
-    BinaryOperation,
-    DeclarationStatement,
-    ExpressionStatement,
-    ForAllStatement,
-    IdentifierExpression,
-    Module,
-    Node,
-    Procedure,
-    QualifiedType,
-)
-from fhy.lang.converter.from_fhy_source import from_fhy_source as fhy_source
 from fhy_core import (
     CoreDataType,
     Identifier,
@@ -33,6 +18,21 @@ from fhy_core import (
 from fhy_core import (
     LiteralExpression as CoreLiteralExpression,
 )
+from fhy_lang.lang.ast import (
+    Argument,
+    ArrayAccessExpression,
+    BinaryExpression,
+    BinaryOperation,
+    DeclarationStatement,
+    ExpressionStatement,
+    ForAllStatement,
+    IdentifierExpression,
+    Module,
+    Node,
+    Procedure,
+    QualifiedType,
+)
+from fhy_lang.lang.converter.from_fhy_source import from_fhy_source as fhy_source
 
 
 @pytest.fixture

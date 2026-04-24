@@ -1,19 +1,19 @@
 """Tests for the FhY expression side-effect analysis."""
 
-from fhy.lang.ast import (
+from fhy_core import (
+    Identifier,
+    Provenance,
+)
+from fhy_lang.lang.ast import (
     BinaryExpression,
     BinaryOperation,
     FunctionExpression,
     IdentifierExpression,
     IntLiteral,
 )
-from fhy.lang.ast.passes import ExpressionSideEffectAnalysis
-from fhy.lang.builtins import (
+from fhy_lang.lang.ast.passes import ExpressionSideEffectAnalysis
+from fhy_lang.lang.builtins import (
     BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS,
-)
-from fhy_core import (
-    Identifier,
-    Provenance,
 )
 
 

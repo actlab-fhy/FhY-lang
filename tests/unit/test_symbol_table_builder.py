@@ -1,15 +1,6 @@
 """Tests the symbol table builder AST pass."""
 
 import pytest
-from fhy.lang.ast import (
-    Argument,
-    DeclarationStatement,
-    Module,
-    Procedure,
-    QualifiedType,
-)
-from fhy.lang.ast.passes import build_symbol_table
-from fhy.lang.ast.passes.symbol_table_builder import FhYSymbolTableBuilderError
 from fhy_core import (
     CoreDataType,
     FunctionKeyword,
@@ -22,6 +13,15 @@ from fhy_core import (
     TypeQualifier,
     VariableSymbolTableFrame,
 )
+from fhy_lang.lang.ast import (
+    Argument,
+    DeclarationStatement,
+    Module,
+    Procedure,
+    QualifiedType,
+)
+from fhy_lang.lang.ast.passes import build_symbol_table
+from fhy_lang.lang.ast.passes.symbol_table_builder import FhYSymbolTableBuilderError
 
 
 def test_empty_module(empty_module_ast):

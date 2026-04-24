@@ -1,6 +1,15 @@
 """Tests the identifier collector AST pass."""
 
-from fhy.lang.ast import (
+from fhy_core import (
+    CoreDataType,
+    Identifier,
+    NumericalType,
+    Provenance,
+    TemplateDataType,
+    TypeQualifier,
+)
+from fhy_core import IdentifierExpression as CoreIdentifierExpression
+from fhy_lang.lang.ast import (
     Argument,
     ArrayAccessExpression,
     DeclarationStatement,
@@ -12,18 +21,9 @@ from fhy.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy.lang.ast.passes.identifier_collector import (
+from fhy_lang.lang.ast.passes.identifier_collector import (
     collect_identifiers,
 )
-from fhy_core import (
-    CoreDataType,
-    Identifier,
-    NumericalType,
-    Provenance,
-    TemplateDataType,
-    TypeQualifier,
-)
-from fhy_core import IdentifierExpression as CoreIdentifierExpression
 
 
 def test_empty_module(empty_module_ast):

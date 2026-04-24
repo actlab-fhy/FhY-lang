@@ -1,6 +1,13 @@
 """Tests for the FhY control flow graph construction."""
 
-from fhy.lang.ast import (
+from fhy_core import (
+    Identifier,
+    IndexType,
+    Provenance,
+    TypeQualifier,
+    parse_expression,
+)
+from fhy_lang.lang.ast import (
     DeclarationStatement,
     ForAllStatement,
     IdentifierExpression,
@@ -9,17 +16,10 @@ from fhy.lang.ast import (
     ReturnStatement,
     SelectionStatement,
 )
-from fhy.lang.ast.cfg import (
+from fhy_lang.lang.ast.cfg import (
     CFGEdgeKind,
     CFGNodeKind,
     build_cfg,
-)
-from fhy_core import (
-    Identifier,
-    IndexType,
-    Provenance,
-    TypeQualifier,
-    parse_expression,
 )
 
 from .utils import (

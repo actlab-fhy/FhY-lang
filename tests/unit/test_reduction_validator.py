@@ -1,7 +1,16 @@
 """Tests the reduction validator AST pass."""
 
 import pytest
-from fhy.lang.ast import (
+from fhy_core import (
+    Identifier,
+    IndexType,
+    LiteralExpression,
+    NumericalType,
+    Provenance,
+    TypeQualifier,
+    ValidationFailedError,
+)
+from fhy_lang.lang.ast import (
     Argument,
     ArrayAccessExpression,
     BinaryExpression,
@@ -15,18 +24,9 @@ from fhy.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy.lang.ast.passes import (
+from fhy_lang.lang.ast.passes import (
     ReductionValidator,
     build_symbol_table,
-)
-from fhy_core import (
-    Identifier,
-    IndexType,
-    LiteralExpression,
-    NumericalType,
-    Provenance,
-    TypeQualifier,
-    ValidationFailedError,
 )
 
 from .utils import run_validator

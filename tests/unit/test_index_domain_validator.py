@@ -1,23 +1,6 @@
 """Tests the index domain validator AST pass."""
 
 import pytest
-from fhy.lang.ast import (
-    Argument,
-    ArrayAccessExpression,
-    DeclarationStatement,
-    ExpressionStatement,
-    FloatLiteral,
-    IdentifierExpression,
-    IntLiteral,
-    Module,
-    Procedure,
-    QualifiedType,
-    TupleAccessExpression,
-)
-from fhy.lang.ast.passes import (
-    IndexDomainValidator,
-    build_symbol_table,
-)
 from fhy_core import (
     CoreDataType,
     Identifier,
@@ -31,6 +14,23 @@ from fhy_core import (
 )
 from fhy_core import (
     IdentifierExpression as CoreIdentifierExpression,
+)
+from fhy_lang.lang.ast import (
+    Argument,
+    ArrayAccessExpression,
+    DeclarationStatement,
+    ExpressionStatement,
+    FloatLiteral,
+    IdentifierExpression,
+    IntLiteral,
+    Module,
+    Procedure,
+    QualifiedType,
+    TupleAccessExpression,
+)
+from fhy_lang.lang.ast.passes import (
+    IndexDomainValidator,
+    build_symbol_table,
 )
 
 from .utils import run_validator

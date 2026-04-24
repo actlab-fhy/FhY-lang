@@ -1,6 +1,11 @@
 """Tests for the FhY unreachable code elimination pass."""
 
-from fhy.lang.ast import (
+from fhy_core import (
+    Identifier,
+    Provenance,
+    TypeQualifier,
+)
+from fhy_lang.lang.ast import (
     ExpressionStatement,
     IdentifierExpression,
     Module,
@@ -10,12 +15,7 @@ from fhy.lang.ast import (
     SelectionStatement,
     Statement,
 )
-from fhy.lang.ast.passes import UnreachableCodeEliminationPass
-from fhy_core import (
-    Identifier,
-    Provenance,
-    TypeQualifier,
-)
+from fhy_lang.lang.ast.passes import UnreachableCodeEliminationPass
 
 from .utils import (
     make_argument,

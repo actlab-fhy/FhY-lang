@@ -1,6 +1,11 @@
 """Tests for the FhY algebraic simplification optimization pass."""
 
-from fhy.lang.ast import (
+from fhy_core import (
+    Identifier,
+    Provenance,
+    TypeQualifier,
+)
+from fhy_lang.lang.ast import (
     BinaryExpression,
     BinaryOperation,
     ExpressionStatement,
@@ -11,12 +16,7 @@ from fhy.lang.ast import (
     UnaryExpression,
     UnaryOperation,
 )
-from fhy.lang.ast.passes import AlgebraicSimplificationPass
-from fhy_core import (
-    Identifier,
-    Provenance,
-    TypeQualifier,
-)
+from fhy_lang.lang.ast.passes import AlgebraicSimplificationPass
 
 from .utils import (
     make_argument,

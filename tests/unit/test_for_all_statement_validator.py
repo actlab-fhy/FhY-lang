@@ -1,19 +1,6 @@
 """Tests the for-all statement validator AST pass."""
 
 import pytest
-from fhy.lang.ast import (
-    DeclarationStatement,
-    ForAllStatement,
-    IdentifierExpression,
-    IntLiteral,
-    Module,
-    Procedure,
-    QualifiedType,
-)
-from fhy.lang.ast.passes import (
-    ForAllStatementValidator,
-    build_symbol_table,
-)
 from fhy_core import (
     Identifier,
     IndexType,
@@ -22,6 +9,19 @@ from fhy_core import (
     Provenance,
     TypeQualifier,
     ValidationFailedError,
+)
+from fhy_lang.lang.ast import (
+    DeclarationStatement,
+    ForAllStatement,
+    IdentifierExpression,
+    IntLiteral,
+    Module,
+    Procedure,
+    QualifiedType,
+)
+from fhy_lang.lang.ast.passes import (
+    ForAllStatementValidator,
+    build_symbol_table,
 )
 
 from .utils import run_validator

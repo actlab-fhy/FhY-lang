@@ -1,18 +1,18 @@
 """Tests the liveness analysis pass."""
 
-from fhy.lang.ast import (
-    IdentifierExpression,
-    Module,
-    SelectionStatement,
-)
-from fhy.lang.ast.passes import (
-    LivenessAnalysis,
-    LivenessResult,
-)
 from fhy_core import (
     Identifier,
     Provenance,
     TypeQualifier,
+)
+from fhy_lang.lang.ast import (
+    IdentifierExpression,
+    Module,
+    SelectionStatement,
+)
+from fhy_lang.lang.ast.passes import (
+    LivenessAnalysis,
+    LivenessResult,
 )
 
 from .utils import (
