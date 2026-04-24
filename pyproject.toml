@@ -44,7 +44,7 @@ dev = ["fhy[test,lint,type,pre-commit]", "tox"]
 test = ["pytest", "coverage", "pytest-xdist"]
 pre-commit = ["pre-commit>3.0.0"]
 lint = ["ruff", "pylint"]
-type = ["mypy"]
+type = ["mypy", "types-networkx"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

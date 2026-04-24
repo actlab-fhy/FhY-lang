@@ -1,16 +1,16 @@
 """Core AST nodes for FhY language constructs."""
 
 __all__ = [
-    "Module",
-    "Statement",
-    "Function",
-    "StatementData",
-    "is_valid_statement_data",
     "Expression",
     "ExpressionData",
-    "is_valid_expression_data",
+    "Function",
     "FunctionData",
+    "Module",
+    "Statement",
+    "StatementData",
+    "is_valid_expression_data",
     "is_valid_function_data",
+    "is_valid_statement_data",
 ]
 
 from abc import ABC

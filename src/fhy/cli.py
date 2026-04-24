@@ -3,7 +3,7 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated
 
 import typer
 from fhy_core import SerializationFormat as CoreSerializationFormat
@@ -109,7 +109,7 @@ def version(
 )
 def serialize(
     main_file: Annotated[
-        Optional[Path],
+        Path | None,
         typer.Argument(help="Valid filepath to main FhY module source code."),
     ] = None,
     verbose: Annotated[
@@ -119,16 +119,16 @@ def serialize(
         bool, typer.Option("--optimize", help="Enable optimization.")
     ] = False,
     log_file: Annotated[
-        Optional[Path], typer.Option(help="Provide a filepath to write logs to.")
+        Path | None, typer.Option(help="Provide a filepath to write logs to.")
     ] = None,
     format: Annotated[
-        Optional[SerializationOptions],
+        SerializationOptions | None,
         typer.Option(
             "--format", "-f", case_sensitive=False, help="Format to serialize to."
         ),
     ] = None,
     indent: Annotated[
-        Optional[int],
+        int | None,
         typer.Option(
             "--indent",
             "-i",

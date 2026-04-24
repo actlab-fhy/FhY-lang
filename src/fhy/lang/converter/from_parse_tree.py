@@ -161,9 +161,14 @@ class ParseTreeConverter(FhYVisitor):
     ) -> ast.Operation | ast.Procedure:
         # TODO: consider getting function name here as the open scope needed to be moved
         #       to function header so the function name is still in the parent scope
-        keyword, name, template, indices, args, return_type = self.visitFunction_header(
-            ctx.function_header()
-        )
+        (
+            keyword,
+            name,
+            template,
+            _indices,
+            args,
+            return_type,
+        ) = self.visitFunction_header(ctx.function_header())
 
         body_ctx: FhYParser.Function_bodyContext = ctx.function_body()
         body: list[ast.Statement] = self.visitFunction_body(body_ctx)
