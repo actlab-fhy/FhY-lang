@@ -1,0 +1,4 @@
+proc riemann_sum<>(input float32[n] f, param float32 dx, output float32 integral) {
+  temp index[1:n:1] i;
+  integral = (dx * sum<>[i](f[i]));
+}

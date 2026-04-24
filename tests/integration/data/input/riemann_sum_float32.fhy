@@ -1,0 +1,13 @@
+# Left-endpoint Riemann approximation of the integral of f over a uniform
+# grid of n nodes with spacing dx.
+proc riemann_sum(
+    input float32[n] f,
+
+    param float32 dx,
+
+    output float32 integral
+) {
+    temp index[1:n] i;
+
+    integral = dx * sum[i](f[i]);
+}
