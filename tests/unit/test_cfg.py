@@ -3,7 +3,6 @@
 from fhy_core import (
     Identifier,
     IndexType,
-    Provenance,
     TypeQualifier,
     parse_expression,
 )
@@ -84,14 +83,11 @@ def test_for_all_statement_has_loop_back_and_loop_exit_edges(int32):
                 parse_expression("1"), parse_expression("n"), stride=None
             ),
             type_qualifier=TypeQualifier.TEMP,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
     forall_ast = ForAllStatement(
-        index=IdentifierExpression(identifier=i, provenance=Provenance.unknown()),
+        index=IdentifierExpression(identifier=i),
         body=(make_identifier_assignment(b, a),),
-        provenance=Provenance.unknown(),
     )
     procedure_ast = make_procedure(
         name=Identifier("main"),
@@ -138,10 +134,7 @@ def test_return_statement_terminates_control_flow(int32):
             make_uninitialized_temp_declaration(r, int32),
             make_identifier_assignment(r, a),
             ReturnStatement(
-                expression=IdentifierExpression(
-                    identifier=r, provenance=Provenance.unknown()
-                ),
-                provenance=Provenance.unknown(),
+                expression=IdentifierExpression(identifier=r),
             ),
             # An unreachable tail; the builder must skip it.
             make_identifier_assignment(r, a),
@@ -149,9 +142,7 @@ def test_return_statement_terminates_control_flow(int32):
         return_type=QualifiedType(
             base_type=int32,
             type_qualifier=TypeQualifier.OUTPUT,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
 
     cfg = build_cfg(operation_ast)
@@ -186,25 +177,17 @@ def test_selection_with_empty_branches_preserves_both_edge_kinds(int32):
         return_type=QualifiedType(
             base_type=int32,
             type_qualifier=TypeQualifier.OUTPUT,
-            provenance=Provenance.unknown(),
         ),
         body=(
             SelectionStatement(
-                condition=IdentifierExpression(
-                    identifier=c, provenance=Provenance.unknown()
-                ),
+                condition=IdentifierExpression(identifier=c),
                 true_body=(),
                 false_body=(),
-                provenance=Provenance.unknown(),
             ),
             ReturnStatement(
-                expression=IdentifierExpression(
-                    identifier=a, provenance=Provenance.unknown()
-                ),
-                provenance=Provenance.unknown(),
+                expression=IdentifierExpression(identifier=a),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     cfg = build_cfg(operation_ast)

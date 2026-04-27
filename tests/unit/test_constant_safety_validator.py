@@ -3,7 +3,6 @@
 import pytest
 from fhy_core import (
     Identifier,
-    Provenance,
     TypeQualifier,
     ValidationFailedError,
 )
@@ -37,16 +36,12 @@ def _make_binary_assignment(
     divisor_expression,
 ) -> ExpressionStatement:
     return ExpressionStatement(
-        left=IdentifierExpression(identifier=target, provenance=Provenance.unknown()),
+        left=IdentifierExpression(identifier=target),
         right=BinaryExpression(
             operation=operation,
-            left=IdentifierExpression(
-                identifier=source, provenance=Provenance.unknown()
-            ),
+            left=IdentifierExpression(identifier=source),
             right=divisor_expression,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
 
 
@@ -75,7 +70,7 @@ def _build_main_with_division_by(
 def test_zero_divisor_int_literal_raises(int32, operation):
     """Test that `a / 0`, `a // 0`, and `a % 0` are flagged."""
     procedure_ast = _build_main_with_division_by(
-        IntLiteral(value=0, provenance=Provenance.unknown()),
+        IntLiteral(value=0),
         operation,
         int32,
     )
@@ -88,7 +83,7 @@ def test_zero_divisor_int_literal_raises(int32, operation):
 def test_zero_divisor_float_literal_raises(int32):
     """Test that `a / 0.0` is flagged."""
     procedure_ast = _build_main_with_division_by(
-        FloatLiteral(value=0.0, provenance=Provenance.unknown()),
+        FloatLiteral(value=0.0),
         BinaryOperation.DIVISION,
         int32,
     )
@@ -101,7 +96,7 @@ def test_zero_divisor_float_literal_raises(int32):
 def test_zero_divisor_complex_literal_raises(int32):
     """Test that `a / (0+0j)` is flagged."""
     procedure_ast = _build_main_with_division_by(
-        ComplexLiteral(value=complex(0, 0), provenance=Provenance.unknown()),
+        ComplexLiteral(value=complex(0, 0)),
         BinaryOperation.DIVISION,
         int32,
     )
@@ -115,8 +110,7 @@ def test_negated_zero_divisor_raises(int32):
     """Test that `-0` (a unary negation of zero) is also flagged."""
     negated_zero = UnaryExpression(
         operation=UnaryOperation.NEGATION,
-        expression=IntLiteral(value=0, provenance=Provenance.unknown()),
-        provenance=Provenance.unknown(),
+        expression=IntLiteral(value=0),
     )
     procedure_ast = _build_main_with_division_by(
         negated_zero,
@@ -133,13 +127,11 @@ def test_doubly_negated_zero_divisor_raises(int32):
     """Test that `--0` is still recognized as a literal zero."""
     inner = UnaryExpression(
         operation=UnaryOperation.NEGATION,
-        expression=IntLiteral(value=0, provenance=Provenance.unknown()),
-        provenance=Provenance.unknown(),
+        expression=IntLiteral(value=0),
     )
     outer = UnaryExpression(
         operation=UnaryOperation.NEGATION,
         expression=inner,
-        provenance=Provenance.unknown(),
     )
     procedure_ast = _build_main_with_division_by(outer, BinaryOperation.DIVISION, int32)
     program_ast = make_module_with_statement(procedure_ast)
@@ -151,7 +143,7 @@ def test_doubly_negated_zero_divisor_raises(int32):
 def test_nonzero_literal_divisor_does_not_raise(int32):
     """Test that `a / 1` passes validation."""
     procedure_ast = _build_main_with_division_by(
-        IntLiteral(value=1, provenance=Provenance.unknown()),
+        IntLiteral(value=1),
         BinaryOperation.DIVISION,
         int32,
     )
@@ -175,7 +167,7 @@ def test_identifier_divisor_does_not_raise(int32):
                 b,
                 a,
                 BinaryOperation.DIVISION,
-                IdentifierExpression(identifier=c, provenance=Provenance.unknown()),
+                IdentifierExpression(identifier=c),
             ),
         ),
     )
@@ -195,18 +187,12 @@ def test_zero_on_left_hand_side_does_not_raise(int32):
         ),
         body=(
             ExpressionStatement(
-                left=IdentifierExpression(
-                    identifier=b, provenance=Provenance.unknown()
-                ),
+                left=IdentifierExpression(identifier=b),
                 right=BinaryExpression(
                     operation=BinaryOperation.DIVISION,
-                    left=IntLiteral(value=0, provenance=Provenance.unknown()),
-                    right=IdentifierExpression(
-                        identifier=a, provenance=Provenance.unknown()
-                    ),
-                    provenance=Provenance.unknown(),
+                    left=IntLiteral(value=0),
+                    right=IdentifierExpression(identifier=a),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
     )
@@ -223,7 +209,7 @@ def test_non_division_operation_with_zero_right_does_not_raise(int32):
         BinaryOperation.MULTIPLICATION,
     ):
         procedure_ast = _build_main_with_division_by(
-            IntLiteral(value=0, provenance=Provenance.unknown()),
+            IntLiteral(value=0),
             operation,
             int32,
         )

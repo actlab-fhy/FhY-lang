@@ -2,7 +2,6 @@
 
 from fhy_core import (
     Identifier,
-    Provenance,
 )
 
 from fhy_lang.ast import (
@@ -19,11 +18,11 @@ from fhy_lang.builtins import (
 
 
 def _make_int_literal(value: int) -> IntLiteral:
-    return IntLiteral(value=value, provenance=Provenance.unknown())
+    return IntLiteral(value=value)
 
 
 def _make_identifier_expr(name: Identifier) -> IdentifierExpression:
-    return IdentifierExpression(identifier=name, provenance=Provenance.unknown())
+    return IdentifierExpression(identifier=name)
 
 
 def test_plain_identifier_has_no_side_effects():
@@ -46,7 +45,6 @@ def test_binary_of_pure_operands_has_no_side_effects():
         operation=BinaryOperation.ADDITION,
         left=_make_identifier_expr(Identifier("x")),
         right=_make_int_literal(1),
-        provenance=Provenance.unknown(),
     )
 
     assert ExpressionSideEffectAnalysis().run(expression) is False
@@ -64,7 +62,6 @@ def test_non_reduction_call_has_side_effects():
     call = FunctionExpression(
         function=_make_identifier_expr(foo),
         args=(_make_identifier_expr(Identifier("x")),),
-        provenance=Provenance.unknown(),
     )
 
     assert ExpressionSideEffectAnalysis().run(call) is True
@@ -76,7 +73,6 @@ def test_builtin_reduction_call_has_no_side_effects():
     call = FunctionExpression(
         function=_make_identifier_expr(reduction_identifier),
         args=(_make_identifier_expr(Identifier("x")),),
-        provenance=Provenance.unknown(),
     )
 
     assert ExpressionSideEffectAnalysis().run(call) is False
@@ -88,13 +84,11 @@ def test_nested_non_reduction_call_is_detected():
     nested_call = FunctionExpression(
         function=_make_identifier_expr(foo),
         args=(_make_identifier_expr(Identifier("x")),),
-        provenance=Provenance.unknown(),
     )
     expression = BinaryExpression(
         operation=BinaryOperation.ADDITION,
         left=_make_identifier_expr(Identifier("x")),
         right=nested_call,
-        provenance=Provenance.unknown(),
     )
 
     assert ExpressionSideEffectAnalysis().run(expression) is True

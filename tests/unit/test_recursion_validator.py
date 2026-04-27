@@ -4,7 +4,6 @@ import pytest
 from fhy_core import (
     Identifier,
     NumericalType,
-    Provenance,
     TypeQualifier,
     ValidationFailedError,
 )
@@ -34,9 +33,7 @@ def _make_scalar_argument(
         qualified_type=QualifiedType(
             base_type=base_type,
             type_qualifier=qualifier,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
 
 
@@ -45,7 +42,6 @@ def _make_procedure(name: Identifier, body: tuple[Statement, ...]) -> Procedure:
         name=name,
         args=(),
         body=body,
-        provenance=Provenance.unknown(),
     )
 
 
@@ -53,15 +49,11 @@ def _make_bare_call(callee: Identifier) -> ExpressionStatement:
     return ExpressionStatement(
         left=None,
         right=FunctionExpression(
-            function=IdentifierExpression(
-                identifier=callee, provenance=Provenance.unknown()
-            ),
+            function=IdentifierExpression(identifier=callee),
             template_types=(),
             indices=(),
             args=(),
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
 
 
@@ -75,7 +67,6 @@ def test_valid_non_recursive_procedure():
     main = Identifier("main")
     program_ast = Module(
         statements=(_make_procedure(main, body=()),),
-        provenance=Provenance.unknown(),
     )
 
     run_validator(RecursionValidator(), program_ast)
@@ -90,7 +81,6 @@ def test_valid_chain_of_calls_without_cycle():
             _make_procedure(b, body=(_make_bare_call(c),)),
             _make_procedure(c, body=()),
         ),
-        provenance=Provenance.unknown(),
     )
 
     run_validator(RecursionValidator(), program_ast)
@@ -101,7 +91,6 @@ def test_fails_with_direct_self_recursion():
     main = Identifier("main")
     program_ast = Module(
         statements=(_make_procedure(main, body=(_make_bare_call(main),)),),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(ValidationFailedError, match="semantic error"):
@@ -116,7 +105,6 @@ def test_fails_with_mutual_recursion_between_two_procedures():
             _make_procedure(a, body=(_make_bare_call(b),)),
             _make_procedure(b, body=(_make_bare_call(a),)),
         ),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(ValidationFailedError, match="semantic error"):
@@ -132,7 +120,6 @@ def test_fails_with_mutual_recursion_through_three_procedures():
             _make_procedure(b, body=(_make_bare_call(c),)),
             _make_procedure(c, body=(_make_bare_call(a),)),
         ),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(ValidationFailedError, match="semantic error"):
@@ -151,30 +138,19 @@ def test_fails_with_self_recursive_operation(int32: NumericalType):
                 return_type=QualifiedType(
                     base_type=int32,
                     type_qualifier=TypeQualifier.OUTPUT,
-                    provenance=Provenance.unknown(),
                 ),
                 body=(
                     ReturnStatement(
                         expression=FunctionExpression(
-                            function=IdentifierExpression(
-                                identifier=op, provenance=Provenance.unknown()
-                            ),
+                            function=IdentifierExpression(identifier=op),
                             template_types=(),
                             indices=(),
-                            args=(
-                                IdentifierExpression(
-                                    identifier=x, provenance=Provenance.unknown()
-                                ),
-                            ),
-                            provenance=Provenance.unknown(),
+                            args=(IdentifierExpression(identifier=x),),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(ValidationFailedError, match="semantic error"):
@@ -194,7 +170,6 @@ def test_call_to_unknown_identifier_is_not_recursion():
     unknown = Identifier("unknown")
     program_ast = Module(
         statements=(_make_procedure(main, body=(_make_bare_call(unknown),)),),
-        provenance=Provenance.unknown(),
     )
 
     run_validator(RecursionValidator(), program_ast)

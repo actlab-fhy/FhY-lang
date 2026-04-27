@@ -6,7 +6,6 @@ from fhy_core import (
     Identifier,
     NumericalType,
     PrimitiveDataType,
-    Provenance,
     TypeQualifier,
     ValidationFailedError,
 )
@@ -33,7 +32,6 @@ def _qt(type_, qualifier: TypeQualifier) -> QualifiedType:
     return QualifiedType(
         base_type=type_,
         type_qualifier=qualifier,
-        provenance=Provenance.unknown(),
     )
 
 
@@ -43,7 +41,7 @@ def _scalar_int32() -> NumericalType:
 
 def test_empty_program():
     """Test validation of an empty program."""
-    program_ast = Module(provenance=Provenance.unknown())
+    program_ast = Module()
 
     run_validator(OperationValidator(), program_ast)
 
@@ -60,22 +58,16 @@ def test_valid_scalar_operation():
                     Argument(
                         name=a,
                         qualified_type=_qt(_scalar_int32(), TypeQualifier.INPUT),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
                     ReturnStatement(
-                        expression=IdentifierExpression(
-                            identifier=a, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        expression=IdentifierExpression(identifier=a),
                     ),
                 ),
                 return_type=_qt(_scalar_int32(), TypeQualifier.OUTPUT),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     run_validator(OperationValidator(), program_ast)
@@ -98,20 +90,16 @@ def test_fails_with_non_scalar_argument():
                     Argument(
                         name=a,
                         qualified_type=_qt(vector_int32, TypeQualifier.INPUT),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
                     ReturnStatement(
-                        expression=IntLiteral(value=0, provenance=Provenance.unknown()),
-                        provenance=Provenance.unknown(),
+                        expression=IntLiteral(value=0),
                     ),
                 ),
                 return_type=_qt(_scalar_int32(), TypeQualifier.OUTPUT),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(ValidationFailedError, match="type error"):
@@ -135,22 +123,16 @@ def test_fails_with_non_scalar_return_type():
                     Argument(
                         name=a,
                         qualified_type=_qt(_scalar_int32(), TypeQualifier.INPUT),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
                     ReturnStatement(
-                        expression=IdentifierExpression(
-                            identifier=a, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        expression=IdentifierExpression(identifier=a),
                     ),
                 ),
                 return_type=_qt(vector_int32, TypeQualifier.OUTPUT),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(ValidationFailedError, match="type error"):
@@ -169,22 +151,16 @@ def test_fails_with_non_output_return_qualifier():
                     Argument(
                         name=a,
                         qualified_type=_qt(_scalar_int32(), TypeQualifier.INPUT),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
                     ReturnStatement(
-                        expression=IdentifierExpression(
-                            identifier=a, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        expression=IdentifierExpression(identifier=a),
                     ),
                 ),
                 return_type=_qt(_scalar_int32(), TypeQualifier.INPUT),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(ValidationFailedError, match="type error"):
@@ -208,14 +184,11 @@ def test_procedure_is_not_validated_as_operation():
                     Argument(
                         name=a,
                         qualified_type=_qt(vector_int32, TypeQualifier.INPUT),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     run_validator(OperationValidator(), program_ast)

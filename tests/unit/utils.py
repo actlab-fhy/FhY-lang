@@ -5,7 +5,6 @@ from typing import Any, cast
 from fhy_core import (
     CompilerPass,
     Identifier,
-    Provenance,
     Type,
     TypeQualifier,
     ValidationManager,
@@ -58,9 +57,7 @@ def make_argument(
         qualified_type=QualifiedType(
             base_type=base_type,
             type_qualifier=qualifier,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
 
 
@@ -73,9 +70,7 @@ def make_uninitialized_temp_declaration(
         variable_type=QualifiedType(
             base_type=base_type,
             type_qualifier=TypeQualifier.TEMP,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
 
 
@@ -88,12 +83,8 @@ def make_initialized_temp_declaration(
         variable_type=QualifiedType(
             base_type=base_type,
             type_qualifier=TypeQualifier.TEMP,
-            provenance=Provenance.unknown(),
         ),
-        expression=IdentifierExpression(
-            identifier=initializer_identifier, provenance=Provenance.unknown()
-        ),
-        provenance=Provenance.unknown(),
+        expression=IdentifierExpression(identifier=initializer_identifier),
     )
 
 
@@ -102,9 +93,8 @@ def make_identifier_assignment(
 ) -> ExpressionStatement:
     """Construct an `target = source` assignment between two identifiers."""
     return ExpressionStatement(
-        left=IdentifierExpression(identifier=target, provenance=Provenance.unknown()),
-        right=IdentifierExpression(identifier=source, provenance=Provenance.unknown()),
-        provenance=Provenance.unknown(),
+        left=IdentifierExpression(identifier=target),
+        right=IdentifierExpression(identifier=source),
     )
 
 
@@ -118,10 +108,9 @@ def make_procedure(
         name=name,
         args=args,
         body=body,
-        provenance=Provenance.unknown(),
     )
 
 
 def make_module_with_statement(statement: Statement) -> Module:
     """Wrap a single top-level statement in a new `Module`."""
-    return Module(statements=(statement,), provenance=Provenance.unknown())
+    return Module(statements=(statement,))

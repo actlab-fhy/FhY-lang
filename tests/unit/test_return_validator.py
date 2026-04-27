@@ -16,7 +16,6 @@ from fhy_core import (
     LiteralExpression,
     NumericalType,
     PrimitiveDataType,
-    Provenance,
     TypeQualifier,
     ValidationFailedError,
 )
@@ -43,7 +42,6 @@ def _qt(type_, qualifier: TypeQualifier) -> QualifiedType:
     return QualifiedType(
         base_type=type_,
         type_qualifier=qualifier,
-        provenance=Provenance.unknown(),
     )
 
 
@@ -58,12 +56,10 @@ def _make_operation(name: Identifier, body: tuple) -> Operation:
             Argument(
                 name=Identifier("x"),
                 qualified_type=_qt(_scalar_int32(), TypeQualifier.INPUT),
-                provenance=Provenance.unknown(),
             ),
         ),
         body=body,
         return_type=_qt(_scalar_int32(), TypeQualifier.OUTPUT),
-        provenance=Provenance.unknown(),
     )
 
 
@@ -74,18 +70,15 @@ def _make_procedure(name: Identifier, body: tuple) -> Procedure:
             Argument(
                 name=Identifier("x"),
                 qualified_type=_qt(_scalar_int32(), TypeQualifier.INPUT),
-                provenance=Provenance.unknown(),
             ),
         ),
         body=body,
-        provenance=Provenance.unknown(),
     )
 
 
 def _return_literal() -> ReturnStatement:
     return ReturnStatement(
-        expression=IntLiteral(value=0, provenance=Provenance.unknown()),
-        provenance=Provenance.unknown(),
+        expression=IntLiteral(value=0),
     )
 
 
@@ -96,7 +89,7 @@ def _return_literal() -> ReturnStatement:
 
 def test_empty_module_passes():
     """Test that an empty module trivially validates."""
-    program_ast = Module(provenance=Provenance.unknown())
+    program_ast = Module()
 
     run_validator(ReturnValidator(), program_ast)
 
@@ -105,7 +98,6 @@ def test_operation_with_single_return_passes():
     """Test that an operation whose body ends with a return validates."""
     program_ast = Module(
         statements=(_make_operation(Identifier("op"), (_return_literal(),)),),
-        provenance=Provenance.unknown(),
     )
 
     run_validator(ReturnValidator(), program_ast)
@@ -115,7 +107,6 @@ def test_operation_with_empty_body_fails():
     """Test that an operation with an empty body does not return on any path."""
     program_ast = Module(
         statements=(_make_operation(Identifier("op"), ()),),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(ValidationFailedError, match="structural error"):
@@ -126,16 +117,12 @@ def test_operation_with_no_return_fails():
     """Test that an operation whose body does not contain a return fails."""
     body = (
         ForAllStatement(
-            index=IdentifierExpression(
-                identifier=Identifier("i"), provenance=Provenance.unknown()
-            ),
+            index=IdentifierExpression(identifier=Identifier("i")),
             body=(),
-            provenance=Provenance.unknown(),
         ),
     )
     program_ast = Module(
         statements=(_make_operation(Identifier("op"), body),),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(ValidationFailedError, match="structural error"):
@@ -151,16 +138,12 @@ def test_operation_return_in_only_one_branch_fails():
     without having returned.
     """
     selection = SelectionStatement(
-        condition=IdentifierExpression(
-            identifier=Identifier("x"), provenance=Provenance.unknown()
-        ),
+        condition=IdentifierExpression(identifier=Identifier("x")),
         true_body=(_return_literal(),),
         false_body=(),
-        provenance=Provenance.unknown(),
     )
     program_ast = Module(
         statements=(_make_operation(Identifier("op"), (selection,)),),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(ValidationFailedError, match="structural error"):
@@ -170,16 +153,12 @@ def test_operation_return_in_only_one_branch_fails():
 def test_operation_return_in_both_branches_passes():
     """Test that an operation returning in both branches of a selection passes."""
     selection = SelectionStatement(
-        condition=IdentifierExpression(
-            identifier=Identifier("x"), provenance=Provenance.unknown()
-        ),
+        condition=IdentifierExpression(identifier=Identifier("x")),
         true_body=(_return_literal(),),
         false_body=(_return_literal(),),
-        provenance=Provenance.unknown(),
     )
     program_ast = Module(
         statements=(_make_operation(Identifier("op"), (selection,)),),
-        provenance=Provenance.unknown(),
     )
 
     run_validator(ReturnValidator(), program_ast)
@@ -193,15 +172,11 @@ def test_operation_return_inside_forall_body_passes():
     so the operation as a whole returns on every path.
     """
     forall = ForAllStatement(
-        index=IdentifierExpression(
-            identifier=Identifier("i"), provenance=Provenance.unknown()
-        ),
+        index=IdentifierExpression(identifier=Identifier("i")),
         body=(_return_literal(),),
-        provenance=Provenance.unknown(),
     )
     program_ast = Module(
         statements=(_make_operation(Identifier("op"), (forall,)),),
-        provenance=Provenance.unknown(),
     )
 
     run_validator(ReturnValidator(), program_ast)
@@ -216,7 +191,6 @@ def test_procedure_without_return_passes():
     """Test that a procedure with no return validates."""
     program_ast = Module(
         statements=(_make_procedure(Identifier("main"), ()),),
-        provenance=Provenance.unknown(),
     )
 
     run_validator(ReturnValidator(), program_ast)
@@ -226,7 +200,6 @@ def test_procedure_with_top_level_return_fails():
     """Test that a top-level return in a procedure fails."""
     program_ast = Module(
         statements=(_make_procedure(Identifier("main"), (_return_literal(),)),),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(ValidationFailedError, match="structural error"):
@@ -236,15 +209,11 @@ def test_procedure_with_top_level_return_fails():
 def test_procedure_with_return_inside_forall_fails():
     """Test that a return nested inside a for-all body in a procedure fails."""
     forall = ForAllStatement(
-        index=IdentifierExpression(
-            identifier=Identifier("i"), provenance=Provenance.unknown()
-        ),
+        index=IdentifierExpression(identifier=Identifier("i")),
         body=(_return_literal(),),
-        provenance=Provenance.unknown(),
     )
     program_ast = Module(
         statements=(_make_procedure(Identifier("main"), (forall,)),),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(ValidationFailedError, match="structural error"):
@@ -254,16 +223,12 @@ def test_procedure_with_return_inside_forall_fails():
 def test_procedure_with_return_inside_selection_fails():
     """Test that a return nested inside a selection branch in a procedure fails."""
     selection = SelectionStatement(
-        condition=IdentifierExpression(
-            identifier=Identifier("x"), provenance=Provenance.unknown()
-        ),
+        condition=IdentifierExpression(identifier=Identifier("x")),
         true_body=(_return_literal(),),
         false_body=(),
-        provenance=Provenance.unknown(),
     )
     program_ast = Module(
         statements=(_make_procedure(Identifier("main"), (selection,)),),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(ValidationFailedError, match="structural error"):
@@ -279,16 +244,12 @@ def test_procedure_with_multiple_reachable_returns_reports_each():
     that distinct diagnostics are produced, not deduplicated.
     """
     selection = SelectionStatement(
-        condition=IdentifierExpression(
-            identifier=Identifier("x"), provenance=Provenance.unknown()
-        ),
+        condition=IdentifierExpression(identifier=Identifier("x")),
         true_body=(_return_literal(),),
         false_body=(_return_literal(),),
-        provenance=Provenance.unknown(),
     )
     program_ast = Module(
         statements=(_make_procedure(Identifier("main"), (selection,)),),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(ValidationFailedError) as exc_info:
@@ -320,16 +281,13 @@ def test_operation_forall_body_without_return_fails():
             ),
             TypeQualifier.TEMP,
         ),
-        provenance=Provenance.unknown(),
     )
     forall = ForAllStatement(
-        index=IdentifierExpression(identifier=i, provenance=Provenance.unknown()),
+        index=IdentifierExpression(identifier=i),
         body=(),
-        provenance=Provenance.unknown(),
     )
     program_ast = Module(
         statements=(_make_operation(Identifier("op"), (decl, forall)),),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(ValidationFailedError, match="structural error"):

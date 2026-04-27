@@ -2,7 +2,6 @@
 
 from fhy_core import (
     Identifier,
-    Provenance,
     TypeQualifier,
 )
 
@@ -76,10 +75,9 @@ def test_selection_statement_unions_branch_liveness(int32):
     true_branch_assignment_ast = make_identifier_assignment(y, a)
     false_branch_assignment_ast = make_identifier_assignment(y, b)
     selection_ast = SelectionStatement(
-        condition=IdentifierExpression(identifier=c, provenance=Provenance.unknown()),
+        condition=IdentifierExpression(identifier=c),
         true_body=(true_branch_assignment_ast,),
         false_body=(false_branch_assignment_ast,),
-        provenance=Provenance.unknown(),
     )
     procedure_ast = make_procedure(
         name=Identifier("main"),

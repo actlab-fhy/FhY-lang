@@ -2,7 +2,6 @@
 
 from fhy_core import (
     Identifier,
-    Provenance,
     TypeQualifier,
 )
 
@@ -27,11 +26,11 @@ from .utils import (
 
 
 def _make_int_literal(value: int) -> IntLiteral:
-    return IntLiteral(value=value, provenance=Provenance.unknown())
+    return IntLiteral(value=value)
 
 
 def _make_identifier_expr(name: Identifier) -> IdentifierExpression:
-    return IdentifierExpression(identifier=name, provenance=Provenance.unknown())
+    return IdentifierExpression(identifier=name)
 
 
 def _make_binary_expr(
@@ -51,7 +50,6 @@ def _make_binary_expr(
         operation=operation,
         left=left,
         right=right,
-        provenance=Provenance.unknown(),
     )
 
 
@@ -59,7 +57,6 @@ def _make_unary_expr(operation: UnaryOperation, inner) -> UnaryExpression:
     return UnaryExpression(
         operation=operation,
         expression=inner,
-        provenance=Provenance.unknown(),
     )
 
 
@@ -77,7 +74,6 @@ def _wrap_as_main_rhs(expression, int32) -> Procedure:
             ExpressionStatement(
                 left=_make_identifier_expr(b),
                 right=expression,
-                provenance=Provenance.unknown(),
             ),
         ),
     )
@@ -193,7 +189,6 @@ def test_does_not_simplify_multiplication_by_zero_when_operand_has_call(int32):
     call = FunctionExpression(
         function=_make_identifier_expr(foo),
         args=(_make_identifier_expr(x),),
-        provenance=Provenance.unknown(),
     )
     procedure_ast = _wrap_as_main_rhs(
         _make_binary_expr(call, _make_int_literal(0), BinaryOperation.MULTIPLICATION),

@@ -57,19 +57,16 @@ def x_plus_y_expression_ast() -> tuple[BinaryExpression, Identifier, Identifier]
     x = Identifier("x")
     y = Identifier("y")
     expression = BinaryExpression(
-        left=IdentifierExpression(identifier=x, provenance=Provenance.unknown()),
-        right=IdentifierExpression(identifier=y, provenance=Provenance.unknown()),
+        left=IdentifierExpression(identifier=x),
+        right=IdentifierExpression(identifier=y),
         operation=BinaryOperation.ADDITION,
-        provenance=Provenance.unknown(),
     )
     return expression, x, y
 
 
 @pytest.fixture
 def empty_module_ast() -> Module:
-    return Module(
-        provenance=Provenance.unknown(),
-    )
+    return Module()
 
 
 @pytest.fixture
@@ -103,59 +100,40 @@ def forall_vector_sum_module_ast(
                 stride=None,
             ),
             type_qualifier=TypeQualifier.TEMP,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
     acc_declaration_ast = DeclarationStatement(
         variable_name=acc,
         variable_type=QualifiedType(
             base_type=int32,
             type_qualifier=TypeQualifier.TEMP,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
     acc_init_ast = ExpressionStatement(
-        left=IdentifierExpression(identifier=acc, provenance=Provenance.unknown()),
+        left=IdentifierExpression(identifier=acc),
         right=ArrayAccessExpression(
-            array_expression=IdentifierExpression(
-                identifier=a, provenance=Provenance.unknown()
-            ),
-            indices=(
-                IdentifierExpression(identifier=i, provenance=Provenance.unknown()),
-            ),
-            provenance=Provenance.unknown(),
+            array_expression=IdentifierExpression(identifier=a),
+            indices=(IdentifierExpression(identifier=i),),
         ),
-        provenance=Provenance.unknown(),
     )
     acc_update_ast = ExpressionStatement(
-        left=IdentifierExpression(identifier=acc, provenance=Provenance.unknown()),
+        left=IdentifierExpression(identifier=acc),
         right=BinaryExpression(
-            left=IdentifierExpression(identifier=acc, provenance=Provenance.unknown()),
+            left=IdentifierExpression(identifier=acc),
             right=ArrayAccessExpression(
-                array_expression=IdentifierExpression(
-                    identifier=a, provenance=Provenance.unknown()
-                ),
-                indices=(
-                    IdentifierExpression(identifier=i, provenance=Provenance.unknown()),
-                ),
-                provenance=Provenance.unknown(),
+                array_expression=IdentifierExpression(identifier=a),
+                indices=(IdentifierExpression(identifier=i),),
             ),
             operation=BinaryOperation.ADDITION,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
     b_assign_ast = ExpressionStatement(
-        left=IdentifierExpression(identifier=b, provenance=Provenance.unknown()),
-        right=IdentifierExpression(identifier=acc, provenance=Provenance.unknown()),
-        provenance=Provenance.unknown(),
+        left=IdentifierExpression(identifier=b),
+        right=IdentifierExpression(identifier=acc),
     )
     forall_ast = ForAllStatement(
-        index=IdentifierExpression(identifier=i, provenance=Provenance.unknown()),
+        index=IdentifierExpression(identifier=i),
         body=(acc_update_ast,),
-        provenance=Provenance.unknown(),
     )
     procedure_ast = Procedure(
         name=Identifier("main"),
@@ -168,18 +146,14 @@ def forall_vector_sum_module_ast(
                         shape=(CoreIdentifierExpression(N),),
                     ),
                     type_qualifier=TypeQualifier.INPUT,
-                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
             Argument(
                 name=b,
                 qualified_type=QualifiedType(
                     base_type=int32,
                     type_qualifier=TypeQualifier.OUTPUT,
-                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
         body=(
@@ -189,7 +163,6 @@ def forall_vector_sum_module_ast(
             forall_ast,
             b_assign_ast,
         ),
-        provenance=Provenance.unknown(),
     )
-    ast = Module(statements=(procedure_ast,), provenance=Provenance.unknown())
+    ast = Module(statements=(procedure_ast,))
     return ast, a, b, i, acc, N

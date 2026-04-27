@@ -22,7 +22,7 @@ def other_provenance() -> Provenance:
 
 def test_int_literal_equivalent_across_provenance(other_provenance):
     """Test int literals with same value but different provenance are equivalent."""
-    a = IntLiteral(value=7, provenance=Provenance.unknown())
+    a = IntLiteral(value=7)
     b = IntLiteral(value=7, provenance=other_provenance)
     assert a.provenance != b.provenance
     assert a.is_structurally_equivalent(b)
@@ -31,15 +31,15 @@ def test_int_literal_equivalent_across_provenance(other_provenance):
 
 def test_int_literal_inequivalent_when_value_differs():
     """Test int literals with different values are not structurally equivalent."""
-    a = IntLiteral(value=7, provenance=Provenance.unknown())
-    b = IntLiteral(value=8, provenance=Provenance.unknown())
+    a = IntLiteral(value=7)
+    b = IntLiteral(value=8)
     assert not a.is_structurally_equivalent(b)
 
 
 def test_identifier_expression_equivalent_across_provenance(other_provenance):
     """Test identifier expressions with shared identifier are equivalent."""
     ident = Identifier("x")
-    a = IdentifierExpression(identifier=ident, provenance=Provenance.unknown())
+    a = IdentifierExpression(identifier=ident)
     b = IdentifierExpression(identifier=ident, provenance=other_provenance)
     assert a.provenance != b.provenance
     assert a.is_structurally_equivalent(b)
@@ -47,12 +47,11 @@ def test_identifier_expression_equivalent_across_provenance(other_provenance):
 
 def test_unary_expression_equivalent_across_provenance(other_provenance):
     """Test unary expression equivalence ignores provenance on node and operand."""
-    operand_a = IntLiteral(value=1, provenance=Provenance.unknown())
+    operand_a = IntLiteral(value=1)
     operand_b = IntLiteral(value=1, provenance=other_provenance)
     a = UnaryExpression(
         operation=UnaryOperation.NEGATION,
         expression=operand_a,
-        provenance=Provenance.unknown(),
     )
     b = UnaryExpression(
         operation=UnaryOperation.NEGATION,
@@ -82,15 +81,13 @@ def test_binary_expression_inequivalent_when_operation_differs():
     """Test binary expressions with different operators are not equivalent."""
     a = BinaryExpression(
         operation=BinaryOperation.ADDITION,
-        left=IntLiteral(value=1, provenance=Provenance.unknown()),
-        right=IntLiteral(value=2, provenance=Provenance.unknown()),
-        provenance=Provenance.unknown(),
+        left=IntLiteral(value=1),
+        right=IntLiteral(value=2),
     )
     b = BinaryExpression(
         operation=BinaryOperation.SUBTRACTION,
-        left=IntLiteral(value=1, provenance=Provenance.unknown()),
-        right=IntLiteral(value=2, provenance=Provenance.unknown()),
-        provenance=Provenance.unknown(),
+        left=IntLiteral(value=1),
+        right=IntLiteral(value=2),
     )
     assert not a.is_structurally_equivalent(b)
 
@@ -99,10 +96,9 @@ def test_tuple_expression_equivalent_across_provenance(other_provenance):
     """Test tuple expression equivalence ignores provenance on node and elements."""
     a = TupleExpression(
         expressions=(
-            IntLiteral(value=1, provenance=Provenance.unknown()),
-            IntLiteral(value=2, provenance=Provenance.unknown()),
+            IntLiteral(value=1),
+            IntLiteral(value=2),
         ),
-        provenance=Provenance.unknown(),
     )
     b = TupleExpression(
         expressions=(

@@ -8,7 +8,7 @@ __all__ = [
 ]
 
 from abc import ABC
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TypedDict, TypeGuard
 
 from fhy_core import (
@@ -51,7 +51,7 @@ class Node(
 ):
     """A node in the FhY AST."""
 
-    provenance: Provenance
+    provenance: Provenance = field(default_factory=Provenance.unknown)
 
     def get_provenance(self) -> Provenance:
         return self.provenance

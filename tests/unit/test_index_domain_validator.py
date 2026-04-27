@@ -8,7 +8,6 @@ from fhy_core import (
     LiteralExpression,
     NumericalType,
     PrimitiveDataType,
-    Provenance,
     TypeQualifier,
     ValidationFailedError,
 )
@@ -66,9 +65,7 @@ def test_valid_in_bounds_symbolic_access():
                         qualified_type=QualifiedType(
                             base_type=_make_int32_vector(m),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -81,31 +78,22 @@ def test_valid_in_bounds_symbolic_access():
                                 stride=None,
                             ),
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
                         left=None,
                         right=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=a, provenance=Provenance.unknown()
-                            ),
+                            array_expression=IdentifierExpression(identifier=a),
                             indices=(
                                 IdentifierExpression(
                                     identifier=i,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -129,9 +117,7 @@ def test_valid_in_bounds_constant_access():
                                 shape=(LiteralExpression(10),),
                             ),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -144,31 +130,22 @@ def test_valid_in_bounds_constant_access():
                                 stride=None,
                             ),
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
                         left=None,
                         right=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=a, provenance=Provenance.unknown()
-                            ),
+                            array_expression=IdentifierExpression(identifier=a),
                             indices=(
                                 IdentifierExpression(
                                     identifier=i,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -192,9 +169,7 @@ def test_fails_with_constant_out_of_bounds_lower():
                                 shape=(LiteralExpression(10),),
                             ),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -207,31 +182,22 @@ def test_fails_with_constant_out_of_bounds_lower():
                                 stride=None,
                             ),
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
                         left=None,
                         right=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=a, provenance=Provenance.unknown()
-                            ),
+                            array_expression=IdentifierExpression(identifier=a),
                             indices=(
                                 IdentifierExpression(
                                     identifier=i,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -256,9 +222,7 @@ def test_fails_with_constant_out_of_bounds_upper():
                                 shape=(LiteralExpression(10),),
                             ),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -271,31 +235,22 @@ def test_fails_with_constant_out_of_bounds_upper():
                                 stride=None,
                             ),
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
                         left=None,
                         right=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=a, provenance=Provenance.unknown()
-                            ),
+                            array_expression=IdentifierExpression(identifier=a),
                             indices=(
                                 IdentifierExpression(
                                     identifier=i,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -318,9 +273,7 @@ def test_fails_with_symbolic_mismatched_dimension():
                         qualified_type=QualifiedType(
                             base_type=_make_int32_vector(m),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -333,31 +286,22 @@ def test_fails_with_symbolic_mismatched_dimension():
                                 stride=None,
                             ),
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
                         left=None,
                         right=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=a, provenance=Provenance.unknown()
-                            ),
+                            array_expression=IdentifierExpression(identifier=a),
                             indices=(
                                 IdentifierExpression(
                                     identifier=i,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -382,33 +326,24 @@ def test_valid_scalar_literal_access():
                                 shape=(LiteralExpression(10),),
                             ),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
                     ExpressionStatement(
                         left=None,
                         right=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=a, provenance=Provenance.unknown()
-                            ),
+                            array_expression=IdentifierExpression(identifier=a),
                             indices=(
                                 IntLiteral(
                                     value=5,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -430,9 +365,7 @@ def test_valid_scalar_param_identifier_access():
                         qualified_type=QualifiedType(
                             base_type=_make_int32_vector(m),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     Argument(
                         name=p,
@@ -441,33 +374,24 @@ def test_valid_scalar_param_identifier_access():
                                 PrimitiveDataType(CoreDataType.UINT32),
                             ),
                             type_qualifier=TypeQualifier.PARAM,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
                     ExpressionStatement(
                         left=None,
                         right=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=a, provenance=Provenance.unknown()
-                            ),
+                            array_expression=IdentifierExpression(identifier=a),
                             indices=(
                                 IdentifierExpression(
                                     identifier=p,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -493,33 +417,24 @@ def test_fails_with_scalar_literal_out_of_bounds():
                                 shape=(LiteralExpression(10),),
                             ),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
                     ExpressionStatement(
                         left=None,
                         right=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=a, provenance=Provenance.unknown()
-                            ),
+                            array_expression=IdentifierExpression(identifier=a),
                             indices=(
                                 IntLiteral(
                                     value=0,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -544,33 +459,24 @@ def test_fails_with_float_literal_index():
                                 shape=(LiteralExpression(10),),
                             ),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
                     ExpressionStatement(
                         left=None,
                         right=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=a, provenance=Provenance.unknown()
-                            ),
+                            array_expression=IdentifierExpression(identifier=a),
                             indices=(
                                 FloatLiteral(
                                     value=1.5,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -595,9 +501,7 @@ def test_fails_with_non_param_scalar_index(int32: NumericalType):
                                 shape=(LiteralExpression(10),),
                             ),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -608,31 +512,22 @@ def test_fails_with_non_param_scalar_index(int32: NumericalType):
                                 PrimitiveDataType(CoreDataType.UINT32),
                             ),
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
                         left=None,
                         right=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=a, provenance=Provenance.unknown()
-                            ),
+                            array_expression=IdentifierExpression(identifier=a),
                             indices=(
                                 IdentifierExpression(
                                     identifier=t,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -655,9 +550,7 @@ def test_fails_with_non_identifier_array_expression(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=_make_int32_vector(m),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -670,9 +563,7 @@ def test_fails_with_non_identifier_array_expression(int32: NumericalType):
                                 stride=None,
                             ),
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
                         left=None,
@@ -680,31 +571,23 @@ def test_fails_with_non_identifier_array_expression(int32: NumericalType):
                             array_expression=ArrayAccessExpression(
                                 array_expression=IdentifierExpression(
                                     identifier=a,
-                                    provenance=Provenance.unknown(),
                                 ),
                                 indices=(
                                     IdentifierExpression(
                                         identifier=i,
-                                        provenance=Provenance.unknown(),
                                     ),
                                 ),
-                                provenance=Provenance.unknown(),
                             ),
                             indices=(
                                 IdentifierExpression(
                                     identifier=i,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -731,9 +614,7 @@ def test_fails_when_array_variable_is_not_numerical():
                                 stride=None,
                             ),
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     DeclarationStatement(
                         variable_name=j,
@@ -744,31 +625,22 @@ def test_fails_when_array_variable_is_not_numerical():
                                 stride=None,
                             ),
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
                         left=None,
                         right=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=i, provenance=Provenance.unknown()
-                            ),
+                            array_expression=IdentifierExpression(identifier=i),
                             indices=(
                                 IdentifierExpression(
                                     identifier=j,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -791,9 +663,7 @@ def test_fails_with_indices_shape_mismatch():
                         qualified_type=QualifiedType(
                             base_type=_make_int32_vector(m),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -806,35 +676,25 @@ def test_fails_with_indices_shape_mismatch():
                                 stride=None,
                             ),
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
                         left=None,
                         right=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=a, provenance=Provenance.unknown()
-                            ),
+                            array_expression=IdentifierExpression(identifier=a),
                             indices=(
                                 IdentifierExpression(
                                     identifier=i,
-                                    provenance=Provenance.unknown(),
                                 ),
                                 IdentifierExpression(
                                     identifier=i,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -859,40 +719,29 @@ def test_fails_with_tuple_access_index():
                                 shape=(LiteralExpression(10),),
                             ),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
                     ExpressionStatement(
                         left=None,
                         right=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=a, provenance=Provenance.unknown()
-                            ),
+                            array_expression=IdentifierExpression(identifier=a),
                             indices=(
                                 TupleAccessExpression(
                                     tuple_expression=IdentifierExpression(
                                         identifier=t,
-                                        provenance=Provenance.unknown(),
                                     ),
                                     element_index=IntLiteral(
                                         value=0,
-                                        provenance=Provenance.unknown(),
                                     ),
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
