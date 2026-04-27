@@ -24,6 +24,7 @@ __all__ = [
     "ASTSelectionStatement",
     "ASTStatement",
     "ASTTernaryExpression",
+    "ASTFunctionExpression",
     "ASTTupleAccessExpression",
     "ASTTupleExpression",
     "ASTUnaryExpression",
@@ -60,6 +61,7 @@ from .ast import (
 )
 from .ast import FloatLiteral as ASTFloatLiteral
 from .ast import ForAllStatement as ASTForAllStatement
+from .ast import FunctionExpression as ASTFunctionExpression
 from .ast import IdentifierExpression as ASTIdentifierExpression
 from .ast import Import as ASTImport
 from .ast import IntLiteral as ASTIntLiteral

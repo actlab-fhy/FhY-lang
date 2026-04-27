@@ -418,18 +418,14 @@ class ConstantFoldingPass(Transformer):
     def _simplify_index_type(self, type_node: IndexType) -> IndexType:
         new_lower = simplify_expression(type_node.lower_bound)
         new_upper = simplify_expression(type_node.upper_bound)
-        new_stride = (
-            simplify_expression(type_node.stride)
-            if type_node.stride is not None
-            else None
-        )
+        new_stride = simplify_expression(type_node.stride)
         lower_unchanged = _core_expressions_equal(type_node.lower_bound, new_lower)
         upper_unchanged = _core_expressions_equal(type_node.upper_bound, new_upper)
         stride_unchanged = _core_expressions_equal(type_node.stride, new_stride)
         if lower_unchanged and upper_unchanged and stride_unchanged:
             return type_node
         self._folded_count += 1
-        return IndexType(new_lower, new_upper, stride=new_stride)
+        return IndexType(new_lower, new_upper, new_stride)
 
     def _simplify_tuple_type(self, type_node: TupleType) -> TupleType:
         new_types = [self._simplify_type(t) for t in type_node.types]

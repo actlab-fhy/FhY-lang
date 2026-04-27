@@ -357,7 +357,7 @@ def _assert_is_expected_index_type(
     index_type: IndexType,
     expected_low: CoreExpression,
     expected_high: CoreExpression,
-    expected_stride: CoreExpression | None,
+    expected_stride: CoreExpression,
 ) -> None:
     assert_type(index_type, IndexType, "index type")
     assert_type(index_type.lower_bound, CoreExpression, "index type lower bound")
@@ -370,12 +370,11 @@ def _assert_is_expected_index_type(
         "Expected upper bound to be equal "
         + f"(expected: {expected_high}, actual: {index_type.upper_bound})"
     )
-    if expected_stride is not None:
-        assert_type(index_type.stride, CoreExpression, "index type stride")
-        assert _is_core_expressions_exactly_equal(index_type.stride, expected_stride), (
-            "Expected stride to be equal "
-            + f"(expected: {expected_stride}, actual: {index_type.stride})"
-        )
+    assert_type(index_type.stride, CoreExpression, "index type stride")
+    assert _is_core_expressions_exactly_equal(index_type.stride, expected_stride), (
+        "Expected stride to be equal "
+        + f"(expected: {expected_stride}, actual: {index_type.stride})"
+    )
 
 
 def _assert_is_expected_declaration_statement(
@@ -844,7 +843,7 @@ def test_index_variable_declaration_statement(construct_ast):
         index_type.base_type,
         CoreLiteralExpression(1),
         CoreIdentifierExpression(identifier_map["N"]),
-        None,
+        CoreLiteralExpression(1),
     )
 
 
