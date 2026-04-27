@@ -4,12 +4,11 @@ import pytest
 from fhy_core import (
     Identifier,
     NumericalType,
-    Provenance,
     TypeQualifier,
     ValidationFailedError,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     ArrayAccessExpression,
     DeclarationStatement,
@@ -21,7 +20,7 @@ from fhy_lang.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy_lang.lang.ast.passes import TypeQualifierValidator, build_symbol_table
+from fhy_lang.ast.passes import TypeQualifierValidator, build_symbol_table
 
 from .utils import run_validator
 
@@ -47,18 +46,14 @@ def test_valid_procedure(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     Argument(
                         name=b,
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.OUTPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -67,33 +62,19 @@ def test_valid_procedure(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
-                        right=IdentifierExpression(
-                            identifier=a, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        left=IdentifierExpression(identifier=t),
+                        right=IdentifierExpression(identifier=a),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=b, provenance=Provenance.unknown()
-                        ),
-                        right=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        left=IdentifierExpression(identifier=b),
+                        right=IdentifierExpression(identifier=t),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -114,21 +95,16 @@ def test_valid_operation_with_output_return_type(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(),
                 return_type=QualifiedType(
                     base_type=int32,
                     type_qualifier=TypeQualifier.OUTPUT,
-                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -149,16 +125,12 @@ def test_valid_param_argument(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.PARAM,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -179,16 +151,12 @@ def test_fails_with_temp_argument(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -211,15 +179,11 @@ def test_fails_with_input_declaration(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -242,15 +206,11 @@ def test_fails_with_output_declaration(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.OUTPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -270,12 +230,9 @@ def test_fails_with_input_return_type(int32: NumericalType):
                 return_type=QualifiedType(
                     base_type=int32,
                     type_qualifier=TypeQualifier.INPUT,
-                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -295,12 +252,9 @@ def test_fails_with_temp_return_type(int32: NumericalType):
                 return_type=QualifiedType(
                     base_type=int32,
                     type_qualifier=TypeQualifier.TEMP,
-                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -322,26 +276,17 @@ def test_fails_with_assignment_to_input(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=a, provenance=Provenance.unknown()
-                        ),
-                        right=IdentifierExpression(
-                            identifier=a, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        left=IdentifierExpression(identifier=a),
+                        right=IdentifierExpression(identifier=a),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -363,9 +308,7 @@ def test_fails_with_assignment_to_param(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.PARAM,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -374,24 +317,15 @@ def test_fails_with_assignment_to_param(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=a, provenance=Provenance.unknown()
-                        ),
-                        right=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        left=IdentifierExpression(identifier=a),
+                        right=IdentifierExpression(identifier=t),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -413,9 +347,7 @@ def test_fails_with_array_access_assignment_to_input(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -424,30 +356,18 @@ def test_fails_with_array_access_assignment_to_input(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
                         left=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=a, provenance=Provenance.unknown()
-                            ),
-                            indices=(
-                                IntLiteral(value=0, provenance=Provenance.unknown()),
-                            ),
-                            provenance=Provenance.unknown(),
+                            array_expression=IdentifierExpression(identifier=a),
+                            indices=(IntLiteral(value=0),),
                         ),
-                        right=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        right=IdentifierExpression(identifier=t),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -469,9 +389,7 @@ def test_valid_array_access_assignment_to_output(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.OUTPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -480,30 +398,18 @@ def test_valid_array_access_assignment_to_output(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
                         left=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=a, provenance=Provenance.unknown()
-                            ),
-                            indices=(
-                                IntLiteral(value=0, provenance=Provenance.unknown()),
-                            ),
-                            provenance=Provenance.unknown(),
+                            array_expression=IdentifierExpression(identifier=a),
+                            indices=(IntLiteral(value=0),),
                         ),
-                        right=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        right=IdentifierExpression(identifier=t),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 

@@ -5,12 +5,11 @@ from fhy_core import (
     DiagnosticLevel,
     Identifier,
     NumericalType,
-    Provenance,
     TypeQualifier,
     ValidationFailedError,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     ArrayAccessExpression,
     BinaryExpression,
@@ -24,7 +23,7 @@ from fhy_lang.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy_lang.lang.ast.passes import (
+from fhy_lang.ast.passes import (
     ExpressionStatementLHSValidator,
 )
 
@@ -50,9 +49,7 @@ def test_valid_identifier_lhs(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -61,24 +58,15 @@ def test_valid_identifier_lhs(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
-                        right=IdentifierExpression(
-                            identifier=a, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        left=IdentifierExpression(identifier=t),
+                        right=IdentifierExpression(identifier=a),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     run_validator(ExpressionStatementLHSValidator(), program_ast)
@@ -98,9 +86,7 @@ def test_valid_array_access_lhs(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.OUTPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -109,30 +95,18 @@ def test_valid_array_access_lhs(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
                         left=ArrayAccessExpression(
-                            array_expression=IdentifierExpression(
-                                identifier=a, provenance=Provenance.unknown()
-                            ),
-                            indices=(
-                                IntLiteral(value=0, provenance=Provenance.unknown()),
-                            ),
-                            provenance=Provenance.unknown(),
+                            array_expression=IdentifierExpression(identifier=a),
+                            indices=(IntLiteral(value=0),),
                         ),
-                        right=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        right=IdentifierExpression(identifier=t),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     run_validator(ExpressionStatementLHSValidator(), program_ast)
@@ -152,24 +126,17 @@ def test_valid_no_lhs(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
                     ExpressionStatement(
                         left=None,
-                        right=IdentifierExpression(
-                            identifier=a, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        right=IdentifierExpression(identifier=a),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     run_validator(ExpressionStatementLHSValidator(), program_ast)
@@ -190,29 +157,19 @@ def test_fails_with_binary_expression_lhs(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
                         left=BinaryExpression(
                             operation=BinaryOperation.ADDITION,
-                            left=IdentifierExpression(
-                                identifier=t, provenance=Provenance.unknown()
-                            ),
-                            right=IntLiteral(value=1, provenance=Provenance.unknown()),
-                            provenance=Provenance.unknown(),
+                            left=IdentifierExpression(identifier=t),
+                            right=IntLiteral(value=1),
                         ),
-                        right=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        right=IdentifierExpression(identifier=t),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(
@@ -237,22 +194,15 @@ def test_fails_with_literal_lhs(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IntLiteral(value=0, provenance=Provenance.unknown()),
-                        right=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        left=IntLiteral(value=0),
+                        right=IdentifierExpression(identifier=t),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(
@@ -279,9 +229,7 @@ def test_fails_with_array_access_on_non_identifier(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
                         left=ArrayAccessExpression(
@@ -289,28 +237,16 @@ def test_fails_with_array_access_on_non_identifier(int32: NumericalType):
                                 operation=BinaryOperation.ADDITION,
                                 left=IdentifierExpression(
                                     identifier=t,
-                                    provenance=Provenance.unknown(),
                                 ),
-                                right=IntLiteral(
-                                    value=1, provenance=Provenance.unknown()
-                                ),
-                                provenance=Provenance.unknown(),
+                                right=IntLiteral(value=1),
                             ),
-                            indices=(
-                                IntLiteral(value=0, provenance=Provenance.unknown()),
-                            ),
-                            provenance=Provenance.unknown(),
+                            indices=(IntLiteral(value=0),),
                         ),
-                        right=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        right=IdentifierExpression(identifier=t),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(
@@ -335,40 +271,27 @@ def test_fails_with_nested_array_access_lhs(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
                         left=ArrayAccessExpression(
                             array_expression=ArrayAccessExpression(
                                 array_expression=IdentifierExpression(
                                     identifier=t,
-                                    provenance=Provenance.unknown(),
                                 ),
                                 indices=(
                                     IntLiteral(
                                         value=0,
-                                        provenance=Provenance.unknown(),
                                     ),
                                 ),
-                                provenance=Provenance.unknown(),
                             ),
-                            indices=(
-                                IntLiteral(value=1, provenance=Provenance.unknown()),
-                            ),
-                            provenance=Provenance.unknown(),
+                            indices=(IntLiteral(value=1),),
                         ),
-                        right=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
-                        provenance=Provenance.unknown(),
+                        right=IdentifierExpression(identifier=t),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     with pytest.raises(
@@ -389,14 +312,11 @@ def test_warns_on_bare_value_expression_statement(int32: NumericalType):
                 body=(
                     ExpressionStatement(
                         left=None,
-                        right=IntLiteral(value=1, provenance=Provenance.unknown()),
-                        provenance=Provenance.unknown(),
+                        right=IntLiteral(value=1),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     validator = ExpressionStatementLHSValidator()
     result = validator.execute(program_ast)
@@ -420,18 +340,13 @@ def test_does_not_warn_on_function_call_statement(int32: NumericalType):
                         right=FunctionExpression(
                             function=IdentifierExpression(
                                 identifier=other,
-                                provenance=Provenance.unknown(),
                             ),
                             args=(),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     validator = ExpressionStatementLHSValidator()
     result = validator.execute(program_ast)

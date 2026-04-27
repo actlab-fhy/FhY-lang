@@ -9,7 +9,6 @@ from fhy_core import (
     IndexType,
     LiteralExpression,
     NumericalType,
-    Provenance,
     Type,
     TypeQualifier,
     ValidationFailedError,
@@ -18,7 +17,7 @@ from fhy_core import (
     IdentifierExpression as CoreIdentifierExpression,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     ArrayAccessExpression,
     BinaryExpression,
@@ -34,11 +33,11 @@ from fhy_lang.lang.ast import (
     QualifiedType,
     Statement,
 )
-from fhy_lang.lang.ast.passes import (
+from fhy_lang.ast.passes import (
     CallSiteValidator,
     build_symbol_table,
 )
-from fhy_lang.lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
+from fhy_lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
 
 from .utils import run_validator
 
@@ -46,7 +45,6 @@ from .utils import run_validator
 def _make_module_ast(statements: Sequence[Statement]) -> Module:
     return Module(
         statements=statements,
-        provenance=Provenance.unknown(),
     )
 
 
@@ -58,7 +56,6 @@ def _make_procedure_ast(
         templates=(),
         args=args,
         body=body,
-        provenance=Provenance.unknown(),
     )
 
 
@@ -76,9 +73,7 @@ def _make_operation_ast(
         return_type=QualifiedType(
             base_type=return_type,
             type_qualifier=TypeQualifier.OUTPUT,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
 
 
@@ -103,9 +98,7 @@ def test_valid_operation_call_with_lhs(int32: NumericalType):
                     qualified_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.INPUT,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
             (),
@@ -119,9 +112,7 @@ def test_valid_operation_call_with_lhs(int32: NumericalType):
                     qualified_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.INPUT,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
             (
@@ -130,28 +121,20 @@ def test_valid_operation_call_with_lhs(int32: NumericalType):
                     variable_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.TEMP,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
                 ExpressionStatement(
-                    left=IdentifierExpression(
-                        identifier=t, provenance=Provenance.unknown()
-                    ),
+                    left=IdentifierExpression(identifier=t),
                     right=FunctionExpression(
                         function=IdentifierExpression(
                             identifier=op,
-                            provenance=Provenance.unknown(),
                         ),
                         args=(
                             IdentifierExpression(
                                 identifier=a,
-                                provenance=Provenance.unknown(),
                             ),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
         ),
@@ -177,9 +160,7 @@ def test_valid_procedure_call_without_lhs(int32: NumericalType):
                     qualified_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.INPUT,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
             (),
@@ -192,9 +173,7 @@ def test_valid_procedure_call_without_lhs(int32: NumericalType):
                     qualified_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.INPUT,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
             (
@@ -203,17 +182,13 @@ def test_valid_procedure_call_without_lhs(int32: NumericalType):
                     right=FunctionExpression(
                         function=IdentifierExpression(
                             identifier=other,
-                            provenance=Provenance.unknown(),
                         ),
                         args=(
                             IdentifierExpression(
                                 identifier=a,
-                                provenance=Provenance.unknown(),
                             ),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
         ),
@@ -239,9 +214,7 @@ def test_valid_reduction_call_with_indices(int32: NumericalType):
                     qualified_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.INPUT,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
             (
@@ -254,52 +227,39 @@ def test_valid_reduction_call_with_indices(int32: NumericalType):
                             stride=None,
                         ),
                         type_qualifier=TypeQualifier.TEMP,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
                 DeclarationStatement(
                     variable_name=t,
                     variable_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.TEMP,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
                 ExpressionStatement(
-                    left=IdentifierExpression(
-                        identifier=t, provenance=Provenance.unknown()
-                    ),
+                    left=IdentifierExpression(identifier=t),
                     right=FunctionExpression(
                         function=IdentifierExpression(
                             identifier=sum_,
-                            provenance=Provenance.unknown(),
                         ),
                         indices=(
                             IdentifierExpression(
                                 identifier=k,
-                                provenance=Provenance.unknown(),
                             ),
                         ),
                         args=(
                             ArrayAccessExpression(
                                 array_expression=IdentifierExpression(
                                     identifier=a,
-                                    provenance=Provenance.unknown(),
                                 ),
                                 indices=(
                                     IdentifierExpression(
                                         identifier=k,
-                                        provenance=Provenance.unknown(),
                                     ),
                                 ),
-                                provenance=Provenance.unknown(),
                             ),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
         ),
@@ -323,9 +283,7 @@ def test_fails_with_non_identifier_function_expression(int32: NumericalType):
                     qualified_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.INPUT,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
             (
@@ -336,18 +294,13 @@ def test_fails_with_non_identifier_function_expression(int32: NumericalType):
                             operation=BinaryOperation.ADDITION,
                             left=IdentifierExpression(
                                 identifier=a,
-                                provenance=Provenance.unknown(),
                             ),
                             right=IntLiteral(
                                 value=1,
-                                provenance=Provenance.unknown(),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
                         args=(),
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
         ),
@@ -372,9 +325,7 @@ def test_fails_with_non_function_identifier(int32: NumericalType):
                     qualified_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.INPUT,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
             body=(
@@ -383,15 +334,11 @@ def test_fails_with_non_function_identifier(int32: NumericalType):
                     right=FunctionExpression(
                         function=IdentifierExpression(
                             identifier=a,
-                            provenance=Provenance.unknown(),
                         ),
                         args=(),
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
-            provenance=Provenance.unknown(),
         ),
     )
     program_ast = _make_module_ast(module_statements)
@@ -415,9 +362,7 @@ def test_fails_with_non_reduction_call_having_indices(int32: NumericalType):
                     qualified_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.INPUT,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
             body=(),
@@ -430,9 +375,7 @@ def test_fails_with_non_reduction_call_having_indices(int32: NumericalType):
                     qualified_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.INPUT,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
             (
@@ -445,32 +388,25 @@ def test_fails_with_non_reduction_call_having_indices(int32: NumericalType):
                             stride=None,
                         ),
                         type_qualifier=TypeQualifier.TEMP,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
                 ExpressionStatement(
                     left=None,
                     right=FunctionExpression(
                         function=IdentifierExpression(
                             identifier=other,
-                            provenance=Provenance.unknown(),
                         ),
                         indices=(
                             IdentifierExpression(
                                 identifier=k,
-                                provenance=Provenance.unknown(),
                             ),
                         ),
                         args=(
                             IdentifierExpression(
                                 identifier=a,
-                                provenance=Provenance.unknown(),
                             ),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
         ),
@@ -496,9 +432,7 @@ def test_fails_with_procedure_call_having_lhs(int32: NumericalType):
                     qualified_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.INPUT,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
             body=(),
@@ -511,9 +445,7 @@ def test_fails_with_procedure_call_having_lhs(int32: NumericalType):
                     qualified_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.INPUT,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
             (
@@ -522,28 +454,20 @@ def test_fails_with_procedure_call_having_lhs(int32: NumericalType):
                     variable_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.TEMP,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
                 ExpressionStatement(
-                    left=IdentifierExpression(
-                        identifier=t, provenance=Provenance.unknown()
-                    ),
+                    left=IdentifierExpression(identifier=t),
                     right=FunctionExpression(
                         function=IdentifierExpression(
                             identifier=other,
-                            provenance=Provenance.unknown(),
                         ),
                         args=(
                             IdentifierExpression(
                                 identifier=a,
-                                provenance=Provenance.unknown(),
                             ),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
         ),
@@ -569,18 +493,14 @@ def test_fails_with_wrong_number_of_arguments(int32: NumericalType):
                     qualified_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.INPUT,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
                 Argument(
                     name=b,
                     qualified_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.INPUT,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
             (),
@@ -593,9 +513,7 @@ def test_fails_with_wrong_number_of_arguments(int32: NumericalType):
                     qualified_type=QualifiedType(
                         base_type=int32,
                         type_qualifier=TypeQualifier.INPUT,
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
             (
@@ -604,17 +522,13 @@ def test_fails_with_wrong_number_of_arguments(int32: NumericalType):
                     right=FunctionExpression(
                         function=IdentifierExpression(
                             identifier=other,
-                            provenance=Provenance.unknown(),
                         ),
                         args=(
                             IdentifierExpression(
                                 identifier=a,
-                                provenance=Provenance.unknown(),
                             ),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
             ),
         ),
@@ -641,13 +555,10 @@ def test_fails_with_procedure_called_in_value_position(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(),
-                provenance=Provenance.unknown(),
             ),
             Procedure(
                 name=main,
@@ -657,9 +568,7 @@ def test_fails_with_procedure_called_in_value_position(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -668,39 +577,28 @@ def test_fails_with_procedure_called_in_value_position(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=t),
                         right=BinaryExpression(
                             operation=BinaryOperation.ADDITION,
                             left=FunctionExpression(
                                 function=IdentifierExpression(
                                     identifier=other,
-                                    provenance=Provenance.unknown(),
                                 ),
                                 args=(
                                     IdentifierExpression(
                                         identifier=a,
-                                        provenance=Provenance.unknown(),
                                     ),
                                 ),
-                                provenance=Provenance.unknown(),
                             ),
-                            right=IntLiteral(value=1, provenance=Provenance.unknown()),
-                            provenance=Provenance.unknown(),
+                            right=IntLiteral(value=1),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -723,18 +621,14 @@ def test_warns_on_operation_called_as_bare_statement(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(),
                 return_type=QualifiedType(
                     base_type=int32,
                     type_qualifier=TypeQualifier.OUTPUT,
-                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
             Procedure(
                 name=main,
@@ -744,9 +638,7 @@ def test_warns_on_operation_called_as_bare_statement(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -755,23 +647,17 @@ def test_warns_on_operation_called_as_bare_statement(int32: NumericalType):
                         right=FunctionExpression(
                             function=IdentifierExpression(
                                 identifier=op,
-                                provenance=Provenance.unknown(),
                             ),
                             args=(
                                 IdentifierExpression(
                                     identifier=a,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
     validator = CallSiteValidator(symbol_table)

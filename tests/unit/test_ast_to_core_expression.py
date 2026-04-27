@@ -4,13 +4,13 @@ import pytest
 from fhy_core import BinaryExpression as CoreBinaryExpression
 from fhy_core import BinaryOperation as CoreBinaryOperation
 from fhy_core import Expression as CoreExpression
-from fhy_core import Identifier, Provenance
+from fhy_core import Identifier
 from fhy_core import IdentifierExpression as CoreIdentifierExpression
 from fhy_core import LiteralExpression as CoreLiteralExpression
 from fhy_core import UnaryExpression as CoreUnaryExpression
 from fhy_core import UnaryOperation as CoreUnaryOperation
 
-from fhy_lang.lang import (
+from fhy_lang import (
     ASTBinaryExpression,
     ASTBinaryOperation,
     ASTComplexLiteral,
@@ -27,9 +27,7 @@ from fhy_lang.lang import (
 def test_convert_identifier_expression():
     """Test FhY AST identifier expression conversion works as expected."""
     a = Identifier("A")
-    ast_expression = ASTIdentifierExpression(
-        identifier=a, provenance=Provenance.unknown()
-    )
+    ast_expression = ASTIdentifierExpression(identifier=a)
     core_expression = convert_ast_expression_to_core_expression(ast_expression)
     expected_core_expression = CoreIdentifierExpression(a)
     assert core_expression.is_structurally_equivalent(expected_core_expression)
@@ -39,27 +37,25 @@ def test_convert_identifier_expression():
     ["ast_expression", "core_expression"],
     [
         (
-            ASTIntLiteral(value=1, provenance=Provenance.unknown()),
+            ASTIntLiteral(value=1),
             CoreLiteralExpression(1),
         ),
         (
-            ASTFloatLiteral(value=1.0, provenance=Provenance.unknown()),
+            ASTFloatLiteral(value=1.0),
             CoreLiteralExpression(1.0),
         ),
         (
             ASTUnaryExpression(
                 operation=ASTUnaryOperation.NEGATION,
-                expression=ASTIntLiteral(value=1, provenance=Provenance.unknown()),
-                provenance=Provenance.unknown(),
+                expression=ASTIntLiteral(value=1),
             ),
             CoreUnaryExpression(CoreUnaryOperation.NEGATE, CoreLiteralExpression(1)),
         ),
         (
             ASTBinaryExpression(
                 operation=ASTBinaryOperation.ADDITION,
-                left=ASTIntLiteral(value=1, provenance=Provenance.unknown()),
-                right=ASTIntLiteral(value=2, provenance=Provenance.unknown()),
-                provenance=Provenance.unknown(),
+                left=ASTIntLiteral(value=1),
+                right=ASTIntLiteral(value=2),
             ),
             CoreBinaryExpression(
                 CoreBinaryOperation.ADD,
@@ -72,12 +68,10 @@ def test_convert_identifier_expression():
                 operation=ASTBinaryOperation.SUBTRACTION,
                 left=ASTBinaryExpression(
                     operation=ASTBinaryOperation.ADDITION,
-                    left=ASTIntLiteral(value=1, provenance=Provenance.unknown()),
-                    right=ASTIntLiteral(value=2, provenance=Provenance.unknown()),
-                    provenance=Provenance.unknown(),
+                    left=ASTIntLiteral(value=1),
+                    right=ASTIntLiteral(value=2),
                 ),
-                right=ASTIntLiteral(value=3, provenance=Provenance.unknown()),
-                provenance=Provenance.unknown(),
+                right=ASTIntLiteral(value=3),
             ),
             CoreBinaryExpression(
                 CoreBinaryOperation.SUBTRACT,
@@ -113,8 +107,7 @@ def test_unary_operation_lowering(
     """Test FhY AST unary operation lowering works as expected."""
     ast_expression = ASTUnaryExpression(
         operation=ast_operation,
-        expression=ASTIntLiteral(value=1, provenance=Provenance.unknown()),
-        provenance=Provenance.unknown(),
+        expression=ASTIntLiteral(value=1),
     )
     core_expression = convert_ast_expression_to_core_expression(ast_expression)
     expected_core_expression = CoreUnaryExpression(
@@ -146,9 +139,8 @@ def test_binary_operation_lowering(
     """Test FhY AST binary operation lowering works as expected."""
     ast_expression = ASTBinaryExpression(
         operation=ast_operation,
-        left=ASTIntLiteral(value=1, provenance=Provenance.unknown()),
-        right=ASTIntLiteral(value=2, provenance=Provenance.unknown()),
-        provenance=Provenance.unknown(),
+        left=ASTIntLiteral(value=1),
+        right=ASTIntLiteral(value=2),
     )
     core_expression = convert_ast_expression_to_core_expression(ast_expression)
     expected_core_expression = CoreBinaryExpression(
@@ -159,6 +151,6 @@ def test_binary_operation_lowering(
 
 def test_fails_with_complex_literal():
     """Test FhY AST to core expression conversion fails with a complex literal."""
-    ast_expression = ASTComplexLiteral(value=1.0j, provenance=Provenance.unknown())
+    ast_expression = ASTComplexLiteral(value=1.0j)
     with pytest.raises(NotImplementedError):
         convert_ast_expression_to_core_expression(ast_expression)

@@ -12,7 +12,7 @@ antlr4 -Dlanguage=Python3 -visitor grammar/FhY.g4
 printf "Finished Building Files from FhY Grammar!\n"
 
 printf "Now Moving Files into FhY Project\n"
-mv grammar/*.py src/fhy_lang/lang/parser/
+mv grammar/*.py src/fhy_lang/parser/
 printf "Finished Moving FhY Parser Files!\n"
 
 printf "Now Cleaning Up Files...\n"

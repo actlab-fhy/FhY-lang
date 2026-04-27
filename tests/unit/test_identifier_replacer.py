@@ -5,14 +5,13 @@ from fhy_core import (
     Identifier,
     NumericalType,
     PrimitiveDataType,
-    Provenance,
     TemplateDataType,
     TypeQualifier,
 )
 from fhy_core import IdentifierExpression as CoreIdentifierExpression
 
-from fhy_lang.lang import replace_identifiers
-from fhy_lang.lang.ast import (
+from fhy_lang import replace_identifiers
+from fhy_lang.ast import (
     Argument,
     ArrayAccessExpression,
     BinaryExpression,
@@ -30,7 +29,7 @@ from fhy_lang.lang.ast import (
 
 
 def _make_id_expr(identifier: Identifier) -> IdentifierExpression:
-    return IdentifierExpression(identifier=identifier, provenance=Provenance.unknown())
+    return IdentifierExpression(identifier=identifier)
 
 
 def test_empty_module(empty_module_ast):
@@ -49,7 +48,6 @@ def test_empty_map_is_identity(x_plus_y_expression_ast):
     right, x, y = x_plus_y_expression_ast
     statement = ExpressionStatement(
         right=right,
-        provenance=Provenance.unknown(),
     )
     result = replace_identifiers(statement, {})
     assert isinstance(result, ExpressionStatement)
@@ -64,7 +62,6 @@ def test_unmapped_identifier_is_preserved(x_plus_y_expression_ast):
     x_new = Identifier("x_new")
     statement = ExpressionStatement(
         right=right,
-        provenance=Provenance.unknown(),
     )
     result = replace_identifiers(statement, {x: x_new})
     assert result.right.left.identifier == x_new
@@ -78,7 +75,6 @@ def test_procedure_name():
         templates=(),
         args=(),
         body=(),
-        provenance=Provenance.unknown(),
     )
     new_procedure_name = Identifier("new_procedure_name")
     result = replace_identifiers(procedure, {procedure.name: new_procedure_name})
@@ -96,9 +92,7 @@ def test_operation_name():
         return_type=QualifiedType(
             base_type=NumericalType(PrimitiveDataType(CoreDataType.INT32)),
             type_qualifier=TypeQualifier.OUTPUT,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
     new_operation_name = Identifier("new_operation_name")
     result = replace_identifiers(operation, {operation.name: new_operation_name})
@@ -117,16 +111,13 @@ def test_arguments():
                 shape=[CoreIdentifierExpression(n)],
             ),
             type_qualifier=TypeQualifier.TEMP,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
     procedure = Procedure(
         name=Identifier("procedure_name"),
         templates=(),
         args=(argument,),
         body=(),
-        provenance=Provenance.unknown(),
     )
     new_argument_name = Identifier("new_argument_name")
     new_n = Identifier("new_n")
@@ -148,7 +139,6 @@ def test_template_types():
         templates=(template_type,),
         args=(),
         body=(),
-        provenance=Provenance.unknown(),
     )
     result = replace_identifiers(procedure, {T: T_new})
     assert isinstance(result, Procedure)
@@ -166,10 +156,8 @@ def test_declaration_statement_expression():
         variable_type=QualifiedType(
             base_type=NumericalType(PrimitiveDataType(CoreDataType.INT32)),
             type_qualifier=TypeQualifier.TEMP,
-            provenance=Provenance.unknown(),
         ),
         expression=_make_id_expr(y),
-        provenance=Provenance.unknown(),
     )
     result = replace_identifiers(statement, {y: y_new})
     assert isinstance(result, DeclarationStatement)
@@ -183,7 +171,7 @@ def test_binary_expression_statement(x_plus_y_expression_ast):
     right, x, y = x_plus_y_expression_ast
     x_new = Identifier("x_new")
     y_new = Identifier("y_new")
-    statement = ExpressionStatement(right=right, provenance=Provenance.unknown())
+    statement = ExpressionStatement(right=right)
     result = replace_identifiers(statement, {x: x_new, y: y_new})
     assert isinstance(result, ExpressionStatement)
     assert isinstance(result.right, BinaryExpression)
@@ -205,7 +193,6 @@ def test_function_expression():
         indices=[_make_id_expr(i)],
         template_types=[],
         args=[_make_id_expr(x)],
-        provenance=Provenance.unknown(),
     )
     result = replace_identifiers(func, {foo: foo_new, i: i_new, x: x_new})
     assert isinstance(result, FunctionExpression)
@@ -223,7 +210,6 @@ def test_array_access_expression():
     arr_access = ArrayAccessExpression(
         array_expression=_make_id_expr(arr),
         indices=[_make_id_expr(i)],
-        provenance=Provenance.unknown(),
     )
     result = replace_identifiers(arr_access, {i: i_new, arr: arr_new})
     assert isinstance(result, ArrayAccessExpression)
@@ -243,12 +229,9 @@ def test_module_with_nested_replacement():
                     left=_make_id_expr(x),
                     right=_make_id_expr(y),
                     operation=BinaryOperation.ADDITION,
-                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     result = replace_identifiers(module, {x: x_new})
     assert isinstance(result, Module)
@@ -270,7 +253,7 @@ def test_returns_new_node_when_mapped():
 
 def test_int_literal_unchanged():
     """Test that literals pass through unchanged."""
-    literal = IntLiteral(value=42, provenance=Provenance.unknown())
+    literal = IntLiteral(value=42)
     result = replace_identifiers(literal, {Identifier("x"): Identifier("y")})
     assert isinstance(result, IntLiteral)
     assert result.value == 42

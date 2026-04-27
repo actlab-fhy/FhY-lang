@@ -8,7 +8,6 @@ from fhy_core import (
     LiteralExpression,
     NumericalType,
     PrimitiveDataType,
-    Provenance,
     TypeQualifier,
     ValidationFailedError,
 )
@@ -16,7 +15,7 @@ from fhy_core import (
     IdentifierExpression as CoreIdentifierExpression,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     ArrayAccessExpression,
     DeclarationStatement,
@@ -29,11 +28,11 @@ from fhy_lang.lang.ast import (
     QualifiedType,
     SelectionStatement,
 )
-from fhy_lang.lang.ast.passes import (
+from fhy_lang.ast.passes import (
     DefiniteAssignmentValidator,
     build_symbol_table,
 )
-from fhy_lang.lang.ast.passes.definite_assignment import (
+from fhy_lang.ast.passes.definite_assignment import (
     _ScalarDefiniteAssignmentAnalysis,
 )
 
@@ -57,9 +56,7 @@ def _argument(name: Identifier, qualifier: TypeQualifier, base_type) -> Argument
         qualified_type=QualifiedType(
             base_type=base_type,
             type_qualifier=qualifier,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
 
 
@@ -75,9 +72,7 @@ def _index_declaration(
                 stride=None,
             ),
             type_qualifier=TypeQualifier.TEMP,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
 
 
@@ -88,17 +83,12 @@ def _array_write(
 ) -> ExpressionStatement:
     return ExpressionStatement(
         left=ArrayAccessExpression(
-            array_expression=IdentifierExpression(
-                identifier=array_name, provenance=Provenance.unknown()
-            ),
+            array_expression=IdentifierExpression(identifier=array_name),
             indices=tuple(
-                IdentifierExpression(identifier=name, provenance=Provenance.unknown())
-                for name in index_names
+                IdentifierExpression(identifier=name) for name in index_names
             ),
-            provenance=Provenance.unknown(),
         ),
-        right=IdentifierExpression(identifier=source, provenance=Provenance.unknown()),
-        provenance=Provenance.unknown(),
+        right=IdentifierExpression(identifier=source),
     )
 
 
@@ -109,17 +99,10 @@ def _array_write_with_literal_indices(
 ) -> ExpressionStatement:
     return ExpressionStatement(
         left=ArrayAccessExpression(
-            array_expression=IdentifierExpression(
-                identifier=array_name, provenance=Provenance.unknown()
-            ),
-            indices=tuple(
-                IntLiteral(value=value, provenance=Provenance.unknown())
-                for value in index_values
-            ),
-            provenance=Provenance.unknown(),
+            array_expression=IdentifierExpression(identifier=array_name),
+            indices=tuple(IntLiteral(value=value) for value in index_values),
         ),
-        right=IdentifierExpression(identifier=source, provenance=Provenance.unknown()),
-        provenance=Provenance.unknown(),
+        right=IdentifierExpression(identifier=source),
     )
 
 
@@ -258,24 +241,16 @@ def test_procedure_call_with_output_arg_assigns_through(int32):
             ExpressionStatement(
                 left=None,
                 right=FunctionExpression(
-                    function=IdentifierExpression(
-                        identifier=callee.name, provenance=Provenance.unknown()
-                    ),
+                    function=IdentifierExpression(identifier=callee.name),
                     args=(
-                        IdentifierExpression(
-                            identifier=a, provenance=Provenance.unknown()
-                        ),
-                        IdentifierExpression(
-                            identifier=b, provenance=Provenance.unknown()
-                        ),
+                        IdentifierExpression(identifier=a),
+                        IdentifierExpression(identifier=b),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
     )
-    program_ast = Module(statements=(callee, caller), provenance=Provenance.unknown())
+    program_ast = Module(statements=(callee, caller))
     symbol_table = build_symbol_table(program_ast)
 
     # Should not raise — b is written by the procedure call.
@@ -341,7 +316,6 @@ def test_output_array_fully_written_via_index_validates():
             _index_declaration(j, one, CoreIdentifierExpression(p)),
             _array_write(c, (i, j), a),
         ),
-        provenance=Provenance.unknown(),
     )
     program_ast = make_module_with_statement(procedure_ast)
     symbol_table = build_symbol_table(program_ast)
@@ -365,7 +339,6 @@ def test_output_array_only_one_element_written_raises():
             _argument(c, TypeQualifier.OUTPUT, _make_int32_array(shape)),
         ),
         body=(_array_write_with_literal_indices(c, (1,), a),),
-        provenance=Provenance.unknown(),
     )
     program_ast = make_module_with_statement(procedure_ast)
     symbol_table = build_symbol_table(program_ast)
@@ -390,7 +363,6 @@ def test_output_array_with_no_writes_raises():
             _argument(c, TypeQualifier.OUTPUT, _make_int32_array(shape)),
         ),
         body=(),
-        provenance=Provenance.unknown(),
     )
     program_ast = make_module_with_statement(procedure_ast)
     symbol_table = build_symbol_table(program_ast)
@@ -418,7 +390,6 @@ def test_output_array_sub_range_written_raises():
             _index_declaration(i, LiteralExpression(1), LiteralExpression(5)),
             _array_write(c, (i,), a),
         ),
-        provenance=Provenance.unknown(),
     )
     program_ast = make_module_with_statement(procedure_ast)
     symbol_table = build_symbol_table(program_ast)
@@ -445,15 +416,11 @@ def test_output_array_writes_in_both_selection_branches_validates():
         body=(
             _index_declaration(i, LiteralExpression(1), LiteralExpression(10)),
             SelectionStatement(
-                condition=IdentifierExpression(
-                    identifier=a, provenance=Provenance.unknown()
-                ),
+                condition=IdentifierExpression(identifier=a),
                 true_body=(_array_write(c, (i,), a),),
                 false_body=(_array_write(c, (i,), a),),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     program_ast = make_module_with_statement(procedure_ast)
     symbol_table = build_symbol_table(program_ast)
@@ -479,15 +446,11 @@ def test_output_array_write_in_only_one_selection_branch_raises():
         body=(
             _index_declaration(i, LiteralExpression(1), LiteralExpression(10)),
             SelectionStatement(
-                condition=IdentifierExpression(
-                    identifier=a, provenance=Provenance.unknown()
-                ),
+                condition=IdentifierExpression(identifier=a),
                 true_body=(_array_write(c, (i,), a),),
                 false_body=(),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     program_ast = make_module_with_statement(procedure_ast)
     symbol_table = build_symbol_table(program_ast)
@@ -519,7 +482,6 @@ def test_output_array_written_by_procedure_call_through_identifier_validates():
             ),
             _array_write(y, (callee_i,), x),
         ),
-        provenance=Provenance.unknown(),
     )
     caller_body_i = Identifier("i")
     caller = Procedure(
@@ -541,25 +503,16 @@ def test_output_array_written_by_procedure_call_through_identifier_validates():
             ExpressionStatement(
                 left=None,
                 right=FunctionExpression(
-                    function=IdentifierExpression(
-                        identifier=callee.name, provenance=Provenance.unknown()
-                    ),
+                    function=IdentifierExpression(identifier=callee.name),
                     args=(
-                        IdentifierExpression(
-                            identifier=a, provenance=Provenance.unknown()
-                        ),
-                        IdentifierExpression(
-                            identifier=c, provenance=Provenance.unknown()
-                        ),
+                        IdentifierExpression(identifier=a),
+                        IdentifierExpression(identifier=c),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
-    program_ast = Module(statements=(callee, caller), provenance=Provenance.unknown())
+    program_ast = Module(statements=(callee, caller))
     symbol_table = build_symbol_table(program_ast)
 
     run_validator(DefiniteAssignmentValidator(symbol_table), program_ast)

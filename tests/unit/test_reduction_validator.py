@@ -6,12 +6,11 @@ from fhy_core import (
     IndexType,
     LiteralExpression,
     NumericalType,
-    Provenance,
     TypeQualifier,
     ValidationFailedError,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     ArrayAccessExpression,
     BinaryExpression,
@@ -25,7 +24,7 @@ from fhy_lang.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy_lang.lang.ast.passes import (
+from fhy_lang.ast.passes import (
     ReductionValidator,
     build_symbol_table,
 )
@@ -66,9 +65,7 @@ def test_valid_reduction_with_index_variable(
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -77,58 +74,43 @@ def test_valid_reduction_with_index_variable(
                         variable_type=QualifiedType(
                             base_type=dummy_index_type,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     DeclarationStatement(
                         variable_name=t,
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=t),
                         right=FunctionExpression(
                             function=IdentifierExpression(
                                 identifier=sum_,
-                                provenance=Provenance.unknown(),
                             ),
                             indices=(
                                 IdentifierExpression(
                                     identifier=k,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
                             args=(
                                 ArrayAccessExpression(
                                     array_expression=IdentifierExpression(
                                         identifier=a,
-                                        provenance=Provenance.unknown(),
                                     ),
                                     indices=(
                                         IdentifierExpression(
                                             identifier=k,
-                                            provenance=Provenance.unknown(),
                                         ),
                                     ),
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -150,9 +132,7 @@ def test_valid_function_expression_without_indices(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -161,35 +141,25 @@ def test_valid_function_expression_without_indices(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=t),
                         right=FunctionExpression(
                             function=IdentifierExpression(
                                 identifier=foo,
-                                provenance=Provenance.unknown(),
                             ),
                             indices=(),
                             args=(
                                 IdentifierExpression(
                                     identifier=a,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -213,9 +183,7 @@ def test_fails_with_non_identifier_reduction_index(
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -224,48 +192,35 @@ def test_fails_with_non_identifier_reduction_index(
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=t),
                         right=FunctionExpression(
                             function=IdentifierExpression(
                                 identifier=sum_,
-                                provenance=Provenance.unknown(),
                             ),
                             indices=(
                                 BinaryExpression(
                                     operation=BinaryOperation.ADDITION,
                                     left=IntLiteral(
                                         value=0,
-                                        provenance=Provenance.unknown(),
                                     ),
                                     right=IntLiteral(
                                         value=1,
-                                        provenance=Provenance.unknown(),
                                     ),
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
                             args=(
                                 IdentifierExpression(
                                     identifier=a,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -288,9 +243,7 @@ def test_fails_with_non_index_variable_reduction_index(int32: NumericalType):
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -299,40 +252,29 @@ def test_fails_with_non_index_variable_reduction_index(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=t),
                         right=FunctionExpression(
                             function=IdentifierExpression(
                                 identifier=sum_,
-                                provenance=Provenance.unknown(),
                             ),
                             indices=(
                                 IdentifierExpression(
                                     identifier=t,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
                             args=(
                                 IdentifierExpression(
                                     identifier=a,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -357,9 +299,7 @@ def test_fails_with_non_distinct_reduction_indices(
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -368,53 +308,39 @@ def test_fails_with_non_distinct_reduction_indices(
                         variable_type=QualifiedType(
                             base_type=dummy_index_type,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     DeclarationStatement(
                         variable_name=t,
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=t),
                         right=FunctionExpression(
                             function=IdentifierExpression(
                                 identifier=sum_,
-                                provenance=Provenance.unknown(),
                             ),
                             indices=(
                                 IdentifierExpression(
                                     identifier=k,
-                                    provenance=Provenance.unknown(),
                                 ),
                                 IdentifierExpression(
                                     identifier=k,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
                             args=(
                                 IdentifierExpression(
                                     identifier=a,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -439,9 +365,7 @@ def test_fails_with_unused_reduction_index(
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -450,49 +374,36 @@ def test_fails_with_unused_reduction_index(
                         variable_type=QualifiedType(
                             base_type=dummy_index_type,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     DeclarationStatement(
                         variable_name=t,
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=t),
                         right=FunctionExpression(
                             function=IdentifierExpression(
                                 identifier=sum_,
-                                provenance=Provenance.unknown(),
                             ),
                             indices=(
                                 IdentifierExpression(
                                     identifier=k,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
                             args=(
                                 IdentifierExpression(
                                     identifier=a,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -518,44 +429,32 @@ def test_fails_with_reduction_zero_args(
                         variable_type=QualifiedType(
                             base_type=dummy_index_type,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     DeclarationStatement(
                         variable_name=t,
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=t),
                         right=FunctionExpression(
                             function=IdentifierExpression(
                                 identifier=sum_,
-                                provenance=Provenance.unknown(),
                             ),
                             indices=(
                                 IdentifierExpression(
                                     identifier=k,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
                             args=(),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -585,18 +484,14 @@ def test_fails_with_reduction_multiple_args(
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     Argument(
                         name=b,
                         qualified_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -605,71 +500,53 @@ def test_fails_with_reduction_multiple_args(
                         variable_type=QualifiedType(
                             base_type=dummy_index_type,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     DeclarationStatement(
                         variable_name=t,
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=t, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=t),
                         right=FunctionExpression(
                             function=IdentifierExpression(
                                 identifier=sum_,
-                                provenance=Provenance.unknown(),
                             ),
                             indices=(
                                 IdentifierExpression(
                                     identifier=k,
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
                             args=(
                                 ArrayAccessExpression(
                                     array_expression=IdentifierExpression(
                                         identifier=a,
-                                        provenance=Provenance.unknown(),
                                     ),
                                     indices=(
                                         IdentifierExpression(
                                             identifier=k,
-                                            provenance=Provenance.unknown(),
                                         ),
                                     ),
-                                    provenance=Provenance.unknown(),
                                 ),
                                 ArrayAccessExpression(
                                     array_expression=IdentifierExpression(
                                         identifier=b,
-                                        provenance=Provenance.unknown(),
                                     ),
                                     indices=(
                                         IdentifierExpression(
                                             identifier=k,
-                                            provenance=Provenance.unknown(),
                                         ),
                                     ),
-                                    provenance=Provenance.unknown(),
                                 ),
                             ),
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 

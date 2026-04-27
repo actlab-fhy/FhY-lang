@@ -9,20 +9,19 @@ from fhy_core import (
     NumericalType,
     PassExecutionError,
     PrimitiveDataType,
-    Provenance,
     TypeQualifier,
     VariableSymbolTableFrame,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     DeclarationStatement,
     Module,
     Procedure,
     QualifiedType,
 )
-from fhy_lang.lang.ast.passes import build_symbol_table
-from fhy_lang.lang.ast.passes.symbol_table_builder import FhYSymbolTableBuilderError
+from fhy_lang.ast.passes import build_symbol_table
+from fhy_lang.ast.passes.symbol_table_builder import FhYSymbolTableBuilderError
 
 
 def test_empty_module(empty_module_ast):
@@ -44,10 +43,8 @@ def test_empty_procedure():
                 templates=(),
                 args=(),
                 body=(),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     symbol_table = build_symbol_table(program_ast)
@@ -83,9 +80,7 @@ def test_procedure_with_arguments():
                                 PrimitiveDataType(CoreDataType.INT32)
                             ),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     Argument(
                         name=b,
@@ -94,16 +89,12 @@ def test_procedure_with_arguments():
                                 PrimitiveDataType(CoreDataType.INT64)
                             ),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     symbol_table = build_symbol_table(program_ast)
@@ -164,15 +155,11 @@ def test_procedure_with_declaration_statement():
                                 PrimitiveDataType(CoreDataType.INT32)
                             ),
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
 
     symbol_table = build_symbol_table(program_ast)
@@ -206,9 +193,7 @@ def test_fails_with_already_defined_variable():
                                 PrimitiveDataType(CoreDataType.INT32)
                             ),
                             type_qualifier=TypeQualifier.INPUT,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
                 body=(
@@ -219,15 +204,11 @@ def test_fails_with_already_defined_variable():
                                 PrimitiveDataType(CoreDataType.INT32)
                             ),
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     with pytest.raises(PassExecutionError, match=FhYSymbolTableBuilderError.__name__):
         build_symbol_table(program_ast)
@@ -243,17 +224,14 @@ def test_fails_with_already_defined_procedure():
                 templates=(),
                 args=(),
                 body=(),
-                provenance=Provenance.unknown(),
             ),
             Procedure(
                 name=main,
                 templates=(),
                 args=(),
                 body=(),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     with pytest.raises(PassExecutionError, match=FhYSymbolTableBuilderError.__name__):
         build_symbol_table(program_ast)

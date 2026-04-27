@@ -13,7 +13,6 @@ from fhy_core import (
     IndexType,
     NumericalType,
     PrimitiveDataType,
-    Provenance,
     Stack,
     TemplateDataType,
     TupleType,
@@ -34,10 +33,10 @@ from fhy_core import (
     UnaryExpression as CoreUnaryExpression,
 )
 
-from fhy_lang.lang import FhYSyntaxError
-from fhy_lang.lang.ast import node as ast_node
-from fhy_lang.lang.ast.passes import collect_identifiers
-from fhy_lang.lang.ast.pprint import pformat_ast
+from fhy_lang import FhYSyntaxError
+from fhy_lang.ast import node as ast_node
+from fhy_lang.ast.passes import collect_identifiers
+from fhy_lang.ast.pprint import pformat_ast
 
 from ..utils import assert_name, assert_sequence_type, assert_type
 
@@ -642,12 +641,8 @@ def test_empty_operation_return_type(construct_ast):
     _assert_is_expected_shape(
         return_type_shape,
         [
-            ast_node.IdentifierExpression(
-                identifier=identifier_map["n"], provenance=Provenance.unknown()
-            ),
-            ast_node.IdentifierExpression(
-                identifier=identifier_map["m"], provenance=Provenance.unknown()
-            ),
+            ast_node.IdentifierExpression(identifier=identifier_map["n"]),
+            ast_node.IdentifierExpression(identifier=identifier_map["m"]),
         ],
     )
 
@@ -732,16 +727,9 @@ def test_operation_template_type_call(construct_ast):
         statement,
         identifier_map["d"],
         ast_node.FunctionExpression(
-            function=ast_node.IdentifierExpression(
-                identifier=identifier_map["foo"], provenance=Provenance.unknown()
-            ),
+            function=ast_node.IdentifierExpression(identifier=identifier_map["foo"]),
             template_types=[TemplateDataType(data_type=identifier_map["P"])],
-            args=[
-                ast_node.IdentifierExpression(
-                    identifier=identifier_map["c"], provenance=Provenance.unknown()
-                )
-            ],
-            provenance=Provenance.unknown(),
+            args=[ast_node.IdentifierExpression(identifier=identifier_map["c"])],
         ),
     )
     procedure: ast_node.Procedure = ast.statements[2]
@@ -751,12 +739,9 @@ def test_operation_template_type_call(construct_ast):
         statement,
         identifier_map["z"],
         ast_node.FunctionExpression(
-            function=ast_node.IdentifierExpression(
-                identifier=identifier_map["bar"], provenance=Provenance.unknown()
-            ),
+            function=ast_node.IdentifierExpression(identifier=identifier_map["bar"]),
             template_types=[PrimitiveDataType(core_data_type=CoreDataType.INT32)],
             args=[],
-            provenance=Provenance.unknown(),
         ),
     )
 
@@ -801,7 +786,7 @@ def test_declaration_statement_with_assignment(construct_ast):
     _assert_is_expected_declaration_statement(
         statement,
         identifier_map["i"],
-        ast_node.IntLiteral(value=5, provenance=Provenance.unknown()),
+        ast_node.IntLiteral(value=5),
     )
 
 
@@ -819,12 +804,8 @@ def test_array_declaration_statement(construct_ast):
     _assert_is_expected_shape(
         array_type.base_type.shape,
         [
-            ast_node.IdentifierExpression(
-                identifier=identifier_map["A"], provenance=Provenance.unknown()
-            ),
-            ast_node.IdentifierExpression(
-                identifier=identifier_map["B"], provenance=Provenance.unknown()
-            ),
+            ast_node.IdentifierExpression(identifier=identifier_map["A"]),
+            ast_node.IdentifierExpression(identifier=identifier_map["B"]),
         ],
     )
 
@@ -860,9 +841,8 @@ def test_expression_statement_without_assignment(construct_ast):
         None,
         ast_node.BinaryExpression(
             operation=ast_node.BinaryOperation.ADDITION,
-            left=ast_node.IntLiteral(value=5, provenance=Provenance.unknown()),
-            right=ast_node.IntLiteral(value=5, provenance=Provenance.unknown()),
-            provenance=Provenance.unknown(),
+            left=ast_node.IntLiteral(value=5),
+            right=ast_node.IntLiteral(value=5),
         ),
     )
 
@@ -877,14 +857,11 @@ def test_expression_statement_with_assignment(construct_ast):
     statement = ast.statements[0]
     _assert_is_expected_expression_statement(
         statement,
-        ast_node.IdentifierExpression(
-            identifier=identifier_map["A"], provenance=Provenance.unknown()
-        ),
+        ast_node.IdentifierExpression(identifier=identifier_map["A"]),
         ast_node.BinaryExpression(
             operation=ast_node.BinaryOperation.ADDITION,
-            left=ast_node.IntLiteral(value=5, provenance=Provenance.unknown()),
-            right=ast_node.IntLiteral(value=5, provenance=Provenance.unknown()),
-            provenance=Provenance.unknown(),
+            left=ast_node.IntLiteral(value=5),
+            right=ast_node.IntLiteral(value=5),
         ),
     )
 
@@ -913,15 +890,12 @@ def test_selection_statement(construct_ast):
     _assert_is_expected_expression_statement(
         statement.true_body[0],
         ast_node.IdentifierExpression(identifier=identifier_map["i"]),
-        ast_node.IntLiteral(value=1, provenance=Provenance.unknown()),
+        ast_node.IntLiteral(value=1),
     )
     _assert_is_expected_expression_statement(
         statement.false_body[0],
-        ast_node.IdentifierExpression(
-            identifier=identifier_map["j"], provenance=Provenance.unknown()
-        ),
-        ast_node.IntLiteral(value=1, provenance=Provenance.unknown()),
-        provenance=Provenance.unknown(),
+        ast_node.IdentifierExpression(identifier=identifier_map["j"]),
+        ast_node.IntLiteral(value=1),
     )
 
 
@@ -937,9 +911,7 @@ def test_for_all_statement(construct_ast):
     assert_type(statement.index, ast_node.Expression, "forall statement index")
     _assert_expressions_exactly_equal(
         statement.index,
-        ast_node.IdentifierExpression(
-            identifier=identifier_map["i"], provenance=Provenance.unknown()
-        ),
+        ast_node.IdentifierExpression(identifier=identifier_map["i"]),
         "forall statement index",
     )
     assert_sequence_type(statement.body, ast_node.Statement, "forall statement body")
@@ -956,9 +928,7 @@ def test_return_statement(construct_ast):
     statement = ast.statements[0]
     _assert_is_expected_return_statement(
         statement,
-        ast_node.IdentifierExpression(
-            identifier=identifer_map["i"], provenance=Provenance.unknown()
-        ),
+        ast_node.IdentifierExpression(identifier=identifer_map["i"]),
     )
 
 
@@ -979,8 +949,7 @@ def test_unary_expression(construct_ast, operator: ast_node.UnaryOperation):
         identifer_map["i"],
         ast_node.UnaryExpression(
             operation=operator,
-            expression=ast_node.IntLiteral(value=5, provenance=Provenance.unknown()),
-            provenance=Provenance.unknown(),
+            expression=ast_node.IntLiteral(value=5),
         ),
     )
 
@@ -999,9 +968,8 @@ def test_binary_expressions(construct_ast, operator: ast_node.BinaryOperation):
         identifer_map["i"],
         ast_node.BinaryExpression(
             operation=operator,
-            left=ast_node.IntLiteral(value=5, provenance=Provenance.unknown()),
-            right=ast_node.IntLiteral(value=6, provenance=Provenance.unknown()),
-            provenance=Provenance.unknown(),
+            left=ast_node.IntLiteral(value=5),
+            right=ast_node.IntLiteral(value=6),
         ),
     )
 
@@ -1020,13 +988,11 @@ def test_ternary_expressions(construct_ast):
         ast_node.TernaryExpression(
             condition=ast_node.BinaryExpression(
                 operation=ast_node.BinaryOperation.LESS_THAN,
-                left=ast_node.IntLiteral(value=5, provenance=Provenance.unknown()),
-                right=ast_node.IntLiteral(value=6, provenance=Provenance.unknown()),
-                provenance=Provenance.unknown(),
+                left=ast_node.IntLiteral(value=5),
+                right=ast_node.IntLiteral(value=6),
             ),
-            true=ast_node.IntLiteral(value=7, provenance=Provenance.unknown()),
-            false=ast_node.IntLiteral(value=8, provenance=Provenance.unknown()),
-            provenance=Provenance.unknown(),
+            true=ast_node.IntLiteral(value=7),
+            false=ast_node.IntLiteral(value=8),
         ),
     )
 
@@ -1043,15 +1009,12 @@ def test_tuple_access_expression(construct_ast, name: str):
 
     _assert_is_expected_expression_statement(
         statement,
-        ast_node.IdentifierExpression(
-            identifier=identifier_map["x"], provenance=Provenance.unknown()
-        ),
+        ast_node.IdentifierExpression(identifier=identifier_map["x"]),
         ast_node.TupleAccessExpression(
             tuple_expression=ast_node.IdentifierExpression(
-                identifier=identifier_map[name], provenance=Provenance.unknown()
+                identifier=identifier_map[name]
             ),
-            element_index=ast_node.IntLiteral(value=1, provenance=Provenance.unknown()),
-            provenance=Provenance.unknown(),
+            element_index=ast_node.IntLiteral(value=1),
         ),
     )
 
@@ -1066,18 +1029,12 @@ def test_tuple_access_function_expression(construct_ast):
     statement = ast.statements[0]
     _assert_is_expected_expression_statement(
         statement,
-        ast_node.IdentifierExpression(
-            identifier=identifier_map["x"], provenance=Provenance.unknown()
-        ),
+        ast_node.IdentifierExpression(identifier=identifier_map["x"]),
         ast_node.TupleAccessExpression(
             tuple_expression=ast_node.FunctionExpression(
-                function=ast_node.IdentifierExpression(
-                    identifier=identifier_map["f"], provenance=Provenance.unknown()
-                ),
-                provenance=Provenance.unknown(),
+                function=ast_node.IdentifierExpression(identifier=identifier_map["f"]),
             ),
-            element_index=ast_node.IntLiteral(value=1, provenance=Provenance.unknown()),
-            provenance=Provenance.unknown(),
+            element_index=ast_node.IntLiteral(value=1),
         ),
     )
 
@@ -1114,16 +1071,11 @@ def test_function_expression(construct_ast, source: str, nargs: int, name: str):
         statement,
         identifier_map["i"],
         ast_node.FunctionExpression(
-            function=ast_node.IdentifierExpression(
-                identifier=identifier_map[name], provenance=Provenance.unknown()
-            ),
+            function=ast_node.IdentifierExpression(identifier=identifier_map[name]),
             args=[
-                ast_node.IdentifierExpression(
-                    identifier=identifier_map["A"], provenance=Provenance.unknown()
-                )
+                ast_node.IdentifierExpression(identifier=identifier_map["A"])
                 for _ in range(nargs)
             ],
-            provenance=Provenance.unknown(),
         ),
     )
 
@@ -1148,10 +1100,7 @@ def test_function_expression_as_expression_statement(construct_ast, source: str)
         statement,
         None,
         ast_node.FunctionExpression(
-            function=ast_node.IdentifierExpression(
-                identifier=identifier_map["foo"], provenance=Provenance.unknown()
-            ),
-            provenance=Provenance.unknown(),
+            function=ast_node.IdentifierExpression(identifier=identifier_map["foo"]),
         ),
     )
 
@@ -1168,16 +1117,11 @@ def test_tensor_access_expression(construct_ast):
         statement,
         ast_node.ArrayAccessExpression(
             array_expression=ast_node.IdentifierExpression(
-                identifier=identifier_map["A"], provenance=Provenance.unknown()
+                identifier=identifier_map["A"]
             ),
-            indices=[
-                ast_node.IdentifierExpression(
-                    identifier=identifier_map["i"], provenance=Provenance.unknown()
-                )
-            ],
-            provenance=Provenance.unknown(),
+            indices=[ast_node.IdentifierExpression(identifier=identifier_map["i"])],
         ),
-        ast_node.IntLiteral(value=1, provenance=Provenance.unknown()),
+        ast_node.IntLiteral(value=1),
     )
 
 
@@ -1191,16 +1135,9 @@ def test_tuple_expression(construct_ast):
     statement = ast.statements[0]
     _assert_is_expected_expression_statement(
         statement,
-        ast_node.IdentifierExpression(
-            identifier=identifier_map["b"], provenance=Provenance.unknown()
-        ),
+        ast_node.IdentifierExpression(identifier=identifier_map["b"]),
         ast_node.TupleExpression(
-            expressions=[
-                ast_node.IdentifierExpression(
-                    identifier=identifier_map["a"], provenance=Provenance.unknown()
-                )
-            ],
-            provenance=Provenance.unknown(),
+            expressions=[ast_node.IdentifierExpression(identifier=identifier_map["a"])],
         ),
     )
 
@@ -1261,7 +1198,7 @@ def test_int_literal(construct_ast, source: str, value: int):
     _assert_is_expected_expression_statement(
         statement,
         None,
-        ast_node.IntLiteral(value=value, provenance=Provenance.unknown()),
+        ast_node.IntLiteral(value=value),
     )
 
 
@@ -1284,7 +1221,7 @@ def test_float_literal(construct_ast, source: str, value: float):
     _assert_is_expected_expression_statement(
         statement,
         None,
-        ast_node.FloatLiteral(value=value, provenance=Provenance.unknown()),
+        ast_node.FloatLiteral(value=value),
     )
 
 
@@ -1307,7 +1244,7 @@ def test_complex_literal(construct_ast, source: str, value: complex):
     _assert_is_expected_expression_statement(
         statement,
         None,
-        ast_node.ComplexLiteral(value=value, provenance=Provenance.unknown()),
+        ast_node.ComplexLiteral(value=value),
     )
 
 

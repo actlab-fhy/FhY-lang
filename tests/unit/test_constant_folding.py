@@ -2,11 +2,10 @@
 
 from fhy_core import (
     Identifier,
-    Provenance,
     TypeQualifier,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     BinaryExpression,
     BinaryOperation,
     ComplexLiteral,
@@ -19,7 +18,7 @@ from fhy_lang.lang.ast import (
     UnaryExpression,
     UnaryOperation,
 )
-from fhy_lang.lang.ast.passes import ConstantFoldingPass
+from fhy_lang.ast.passes import ConstantFoldingPass
 
 from .utils import (
     make_argument,
@@ -29,15 +28,15 @@ from .utils import (
 
 
 def _int(value: int) -> IntLiteral:
-    return IntLiteral(value=value, provenance=Provenance.unknown())
+    return IntLiteral(value=value)
 
 
 def _float(value: float) -> FloatLiteral:
-    return FloatLiteral(value=value, provenance=Provenance.unknown())
+    return FloatLiteral(value=value)
 
 
 def _complex(value: complex) -> ComplexLiteral:
-    return ComplexLiteral(value=value, provenance=Provenance.unknown())
+    return ComplexLiteral(value=value)
 
 
 def _binary(
@@ -47,7 +46,6 @@ def _binary(
         operation=operation,
         left=left,
         right=right,
-        provenance=Provenance.unknown(),
     )
 
 
@@ -55,7 +53,6 @@ def _unary(operation: UnaryOperation, inner) -> UnaryExpression:
     return UnaryExpression(
         operation=operation,
         expression=inner,
-        provenance=Provenance.unknown(),
     )
 
 
@@ -67,11 +64,8 @@ def _wrap_as_main_rhs(expression, int32) -> Procedure:
         args=(make_argument(b, TypeQualifier.OUTPUT, int32),),
         body=(
             ExpressionStatement(
-                left=IdentifierExpression(
-                    identifier=b, provenance=Provenance.unknown()
-                ),
+                left=IdentifierExpression(identifier=b),
                 right=expression,
-                provenance=Provenance.unknown(),
             ),
         ),
     )
@@ -184,9 +178,8 @@ def test_ternary_with_literal_condition_collapses(int32):
     a, c = Identifier("a"), Identifier("c")
     ternary = TernaryExpression(
         condition=_int(1),  # literal truthy
-        true=IdentifierExpression(identifier=a, provenance=Provenance.unknown()),
-        false=IdentifierExpression(identifier=c, provenance=Provenance.unknown()),
-        provenance=Provenance.unknown(),
+        true=IdentifierExpression(identifier=a),
+        false=IdentifierExpression(identifier=c),
     )
     procedure_ast = make_procedure(
         name=Identifier("main"),
@@ -197,11 +190,8 @@ def test_ternary_with_literal_condition_collapses(int32):
         ),
         body=(
             ExpressionStatement(
-                left=IdentifierExpression(
-                    identifier=Identifier("b"), provenance=Provenance.unknown()
-                ),
+                left=IdentifierExpression(identifier=Identifier("b")),
                 right=ternary,
-                provenance=Provenance.unknown(),
             ),
         ),
     )
@@ -225,14 +215,11 @@ def test_does_not_fold_expression_with_identifier_operand(int32):
         ),
         body=(
             ExpressionStatement(
-                left=IdentifierExpression(
-                    identifier=Identifier("b"), provenance=Provenance.unknown()
-                ),
+                left=IdentifierExpression(identifier=Identifier("b")),
                 right=_binary(
-                    IdentifierExpression(identifier=x, provenance=Provenance.unknown()),
+                    IdentifierExpression(identifier=x),
                     _int(2),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
     )
@@ -308,13 +295,8 @@ def test_did_change_reports_folding_activity(int32):
         ),
         body=(
             ExpressionStatement(
-                left=IdentifierExpression(
-                    identifier=Identifier("b"), provenance=Provenance.unknown()
-                ),
-                right=IdentifierExpression(
-                    identifier=x, provenance=Provenance.unknown()
-                ),
-                provenance=Provenance.unknown(),
+                left=IdentifierExpression(identifier=Identifier("b")),
+                right=IdentifierExpression(identifier=x),
             ),
         ),
     )

@@ -6,13 +6,12 @@ from fhy_core import (
     Identifier,
     NumericalType,
     PrimitiveDataType,
-    Provenance,
     TupleType,
     TypeQualifier,
     ValidationFailedError,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     DeclarationStatement,
     ExpressionStatement,
     IdentifierExpression,
@@ -23,7 +22,7 @@ from fhy_lang.lang.ast import (
     TupleAccessExpression,
     TupleExpression,
 )
-from fhy_lang.lang.ast.passes import (
+from fhy_lang.ast.passes import (
     TupleAccessValidator,
     build_symbol_table,
 )
@@ -63,39 +62,25 @@ def test_valid_tuple_access_on_identifier(int32_float_pair_type: TupleType):
                         variable_type=QualifiedType(
                             base_type=int32_float_pair_type,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     DeclarationStatement(
                         variable_name=u,
                         variable_type=QualifiedType(
                             base_type=int32_float_pair_type,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=u, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=u),
                         right=TupleAccessExpression(
-                            tuple_expression=IdentifierExpression(
-                                identifier=t, provenance=Provenance.unknown()
-                            ),
-                            element_index=IntLiteral(
-                                value=1, provenance=Provenance.unknown()
-                            ),
-                            provenance=Provenance.unknown(),
+                            tuple_expression=IdentifierExpression(identifier=t),
+                            element_index=IntLiteral(value=1),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -119,39 +104,25 @@ def test_fails_with_element_index_equal_to_arity(
                         variable_type=QualifiedType(
                             base_type=int32_float_pair_type,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     DeclarationStatement(
                         variable_name=u,
                         variable_type=QualifiedType(
                             base_type=int32_float_pair_type,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=u, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=u),
                         right=TupleAccessExpression(
-                            tuple_expression=IdentifierExpression(
-                                identifier=t, provenance=Provenance.unknown()
-                            ),
-                            element_index=IntLiteral(
-                                value=2, provenance=Provenance.unknown()
-                            ),
-                            provenance=Provenance.unknown(),
+                            tuple_expression=IdentifierExpression(identifier=t),
+                            element_index=IntLiteral(value=2),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -174,39 +145,25 @@ def test_fails_with_negative_element_index(int32_float_pair_type: TupleType):
                         variable_type=QualifiedType(
                             base_type=int32_float_pair_type,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     DeclarationStatement(
                         variable_name=u,
                         variable_type=QualifiedType(
                             base_type=int32_float_pair_type,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=u, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=u),
                         right=TupleAccessExpression(
-                            tuple_expression=IdentifierExpression(
-                                identifier=t, provenance=Provenance.unknown()
-                            ),
-                            element_index=IntLiteral(
-                                value=-1, provenance=Provenance.unknown()
-                            ),
-                            provenance=Provenance.unknown(),
+                            tuple_expression=IdentifierExpression(identifier=t),
+                            element_index=IntLiteral(value=-1),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -229,41 +186,24 @@ def test_valid_tuple_access_on_tuple_literal(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=u, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=u),
                         right=TupleAccessExpression(
                             tuple_expression=TupleExpression(
                                 expressions=(
-                                    IntLiteral(
-                                        value=1, provenance=Provenance.unknown()
-                                    ),
-                                    IntLiteral(
-                                        value=2, provenance=Provenance.unknown()
-                                    ),
-                                    IntLiteral(
-                                        value=3, provenance=Provenance.unknown()
-                                    ),
+                                    IntLiteral(value=1),
+                                    IntLiteral(value=2),
+                                    IntLiteral(value=3),
                                 ),
-                                provenance=Provenance.unknown(),
                             ),
-                            element_index=IntLiteral(
-                                value=2, provenance=Provenance.unknown()
-                            ),
-                            provenance=Provenance.unknown(),
+                            element_index=IntLiteral(value=2),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -285,38 +225,23 @@ def test_fails_with_tuple_literal_access_out_of_range(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=u, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=u),
                         right=TupleAccessExpression(
                             tuple_expression=TupleExpression(
                                 expressions=(
-                                    IntLiteral(
-                                        value=1, provenance=Provenance.unknown()
-                                    ),
-                                    IntLiteral(
-                                        value=2, provenance=Provenance.unknown()
-                                    ),
+                                    IntLiteral(value=1),
+                                    IntLiteral(value=2),
                                 ),
-                                provenance=Provenance.unknown(),
                             ),
-                            element_index=IntLiteral(
-                                value=5, provenance=Provenance.unknown()
-                            ),
-                            provenance=Provenance.unknown(),
+                            element_index=IntLiteral(value=5),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -341,45 +266,28 @@ def test_valid_nested_tuple_access(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=outer_tuple_type,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     DeclarationStatement(
                         variable_name=u,
                         variable_type=QualifiedType(
                             base_type=inner_pair_type,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=u, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=u),
                         right=TupleAccessExpression(
                             tuple_expression=TupleAccessExpression(
-                                tuple_expression=IdentifierExpression(
-                                    identifier=t, provenance=Provenance.unknown()
-                                ),
-                                element_index=IntLiteral(
-                                    value=1, provenance=Provenance.unknown()
-                                ),
-                                provenance=Provenance.unknown(),
+                                tuple_expression=IdentifierExpression(identifier=t),
+                                element_index=IntLiteral(value=1),
                             ),
-                            element_index=IntLiteral(
-                                value=1, provenance=Provenance.unknown()
-                            ),
-                            provenance=Provenance.unknown(),
+                            element_index=IntLiteral(value=1),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -403,45 +311,28 @@ def test_fails_with_nested_tuple_access_out_of_range(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=outer_tuple_type,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     DeclarationStatement(
                         variable_name=u,
                         variable_type=QualifiedType(
                             base_type=inner_pair_type,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=u, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=u),
                         right=TupleAccessExpression(
                             tuple_expression=TupleAccessExpression(
-                                tuple_expression=IdentifierExpression(
-                                    identifier=t, provenance=Provenance.unknown()
-                                ),
-                                element_index=IntLiteral(
-                                    value=1, provenance=Provenance.unknown()
-                                ),
-                                provenance=Provenance.unknown(),
+                                tuple_expression=IdentifierExpression(identifier=t),
+                                element_index=IntLiteral(value=1),
                             ),
-                            element_index=IntLiteral(
-                                value=5, provenance=Provenance.unknown()
-                            ),
-                            provenance=Provenance.unknown(),
+                            element_index=IntLiteral(value=5),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 
@@ -469,39 +360,25 @@ def test_tuple_access_on_non_tuple_identifier_is_silent(int32: NumericalType):
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     DeclarationStatement(
                         variable_name=u,
                         variable_type=QualifiedType(
                             base_type=int32,
                             type_qualifier=TypeQualifier.TEMP,
-                            provenance=Provenance.unknown(),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                     ExpressionStatement(
-                        left=IdentifierExpression(
-                            identifier=u, provenance=Provenance.unknown()
-                        ),
+                        left=IdentifierExpression(identifier=u),
                         right=TupleAccessExpression(
-                            tuple_expression=IdentifierExpression(
-                                identifier=s, provenance=Provenance.unknown()
-                            ),
-                            element_index=IntLiteral(
-                                value=0, provenance=Provenance.unknown()
-                            ),
-                            provenance=Provenance.unknown(),
+                            tuple_expression=IdentifierExpression(identifier=s),
+                            element_index=IntLiteral(value=0),
                         ),
-                        provenance=Provenance.unknown(),
                     ),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
-        provenance=Provenance.unknown(),
     )
     symbol_table = build_symbol_table(program_ast)
 

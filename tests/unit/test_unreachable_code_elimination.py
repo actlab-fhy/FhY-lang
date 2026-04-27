@@ -2,11 +2,10 @@
 
 from fhy_core import (
     Identifier,
-    Provenance,
     TypeQualifier,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     ExpressionStatement,
     IdentifierExpression,
     Module,
@@ -16,7 +15,7 @@ from fhy_lang.lang.ast import (
     SelectionStatement,
     Statement,
 )
-from fhy_lang.lang.ast.passes import UnreachableCodeEliminationPass
+from fhy_lang.ast.passes import UnreachableCodeEliminationPass
 
 from .utils import (
     make_argument,
@@ -27,7 +26,7 @@ from .utils import (
 
 
 def _make_identifier_expr(name: Identifier) -> IdentifierExpression:
-    return IdentifierExpression(identifier=name, provenance=Provenance.unknown())
+    return IdentifierExpression(identifier=name)
 
 
 def _make_operation(
@@ -43,9 +42,7 @@ def _make_operation(
         return_type=QualifiedType(
             base_type=return_type_base,
             type_qualifier=TypeQualifier.OUTPUT,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
 
 
@@ -62,9 +59,7 @@ def test_removes_statement_following_return(int32):
         args=(make_argument(a, TypeQualifier.INPUT, int32),),
         body=(
             make_identifier_assignment(r, a),
-            ReturnStatement(
-                expression=_make_identifier_expr(r), provenance=Provenance.unknown()
-            ),
+            ReturnStatement(expression=_make_identifier_expr(r)),
             unreachable_assignment_ast,
         ),
         return_type_base=int32,
@@ -86,9 +81,7 @@ def test_removes_multiple_trailing_statements(int32):
         name=Identifier("f"),
         args=(make_argument(a, TypeQualifier.INPUT, int32),),
         body=(
-            ReturnStatement(
-                expression=_make_identifier_expr(a), provenance=Provenance.unknown()
-            ),
+            ReturnStatement(expression=_make_identifier_expr(a)),
             make_identifier_assignment(r, a),
             make_identifier_assignment(r, a),
             make_identifier_assignment(r, a),
@@ -113,17 +106,12 @@ def test_removes_unreachable_tail_only_inside_returning_branch(int32):
     selection = SelectionStatement(
         condition=_make_identifier_expr(c),
         true_body=(
-            ReturnStatement(
-                expression=_make_identifier_expr(a), provenance=Provenance.unknown()
-            ),
+            ReturnStatement(expression=_make_identifier_expr(a)),
             true_unreachable,  # unreachable — after the return
         ),
         false_body=(make_identifier_assignment(r, a),),
-        provenance=Provenance.unknown(),
     )
-    trailing = ReturnStatement(
-        expression=_make_identifier_expr(r), provenance=Provenance.unknown()
-    )
+    trailing = ReturnStatement(expression=_make_identifier_expr(r))
     operation_ast = _make_operation(
         name=Identifier("f"),
         args=(
@@ -154,17 +142,8 @@ def test_removes_statements_after_selection_when_both_branches_return(int32):
     a, c = Identifier("a"), Identifier("c")
     selection = SelectionStatement(
         condition=_make_identifier_expr(c),
-        true_body=(
-            ReturnStatement(
-                expression=_make_identifier_expr(a), provenance=Provenance.unknown()
-            ),
-        ),
-        false_body=(
-            ReturnStatement(
-                expression=_make_identifier_expr(a), provenance=Provenance.unknown()
-            ),
-        ),
-        provenance=Provenance.unknown(),
+        true_body=(ReturnStatement(expression=_make_identifier_expr(a)),),
+        false_body=(ReturnStatement(expression=_make_identifier_expr(a)),),
     )
     operation_ast = _make_operation(
         name=Identifier("f"),
@@ -214,9 +193,7 @@ def test_did_change_reports_removal_activity(int32):
     """Test it reports `did_change=True` when it removes, `False` otherwise."""
     a = Identifier("a")
     unreachable_body = (
-        ReturnStatement(
-            expression=_make_identifier_expr(a), provenance=Provenance.unknown()
-        ),
+        ReturnStatement(expression=_make_identifier_expr(a)),
         make_identifier_assignment(a, a),
     )
     with_unreachable = make_module_with_statement(
@@ -227,11 +204,7 @@ def test_did_change_reports_removal_activity(int32):
             return_type_base=int32,
         )
     )
-    fully_reachable_body = (
-        ReturnStatement(
-            expression=_make_identifier_expr(a), provenance=Provenance.unknown()
-        ),
-    )
+    fully_reachable_body = (ReturnStatement(expression=_make_identifier_expr(a)),)
     fully_reachable = make_module_with_statement(
         _make_operation(
             name=Identifier("f"),

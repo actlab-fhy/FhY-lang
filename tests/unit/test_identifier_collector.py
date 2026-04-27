@@ -4,13 +4,12 @@ from fhy_core import (
     CoreDataType,
     Identifier,
     NumericalType,
-    Provenance,
     TemplateDataType,
     TypeQualifier,
 )
 from fhy_core import IdentifierExpression as CoreIdentifierExpression
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     ArrayAccessExpression,
     DeclarationStatement,
@@ -22,7 +21,7 @@ from fhy_lang.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy_lang.lang.ast.passes.identifier_collector import (
+from fhy_lang.ast.passes.identifier_collector import (
     collect_identifiers,
 )
 
@@ -46,10 +45,8 @@ def test_declaration_statement():
                 CoreDataType.INT32, shape=[CoreIdentifierExpression(N)]
             ),
             type_qualifier=TypeQualifier.TEMP,
-            provenance=Provenance.unknown(),
         ),
-        expression=IntLiteral(value=5, provenance=Provenance.unknown()),
-        provenance=Provenance.unknown(),
+        expression=IntLiteral(value=5),
     )
 
     result = collect_identifiers(statement)
@@ -61,7 +58,6 @@ def test_expression_statement(x_plus_y_expression_ast):
     right, x, y = x_plus_y_expression_ast
     statement = ExpressionStatement(
         right=right,
-        provenance=Provenance.unknown(),
     )
     result = collect_identifiers(statement)
     assert result == {x, y}
@@ -74,8 +70,8 @@ def test_function_expression():
     i = Identifier("i")
     foo = Identifier("foo")
     func = FunctionExpression(
-        function=IdentifierExpression(identifier=foo, provenance=Provenance.unknown()),
-        indices=[IdentifierExpression(identifier=i, provenance=Provenance.unknown())],
+        function=IdentifierExpression(identifier=foo),
+        indices=[IdentifierExpression(identifier=i)],
         template_types=[],
         args=[
             Argument(
@@ -83,21 +79,16 @@ def test_function_expression():
                 qualified_type=QualifiedType(
                     base_type=NumericalType(CoreDataType.INT32),
                     type_qualifier=TypeQualifier.TEMP,
-                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
             Argument(
                 name=y,
                 qualified_type=QualifiedType(
                     base_type=NumericalType(CoreDataType.INT32),
                     type_qualifier=TypeQualifier.TEMP,
-                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ],
-        provenance=Provenance.unknown(),
     )
     result = collect_identifiers(func)
     assert result == {x, y, foo, i}
@@ -108,11 +99,8 @@ def test_array_access_expression():
     i = Identifier("i")
     arr = Identifier("arr")
     arr_access = ArrayAccessExpression(
-        array_expression=IdentifierExpression(
-            identifier=arr, provenance=Provenance.unknown()
-        ),
-        indices=[IdentifierExpression(identifier=i, provenance=Provenance.unknown())],
-        provenance=Provenance.unknown(),
+        array_expression=IdentifierExpression(identifier=arr),
+        indices=[IdentifierExpression(identifier=i)],
     )
     result = collect_identifiers(arr_access)
     assert result == {i, arr}
@@ -121,9 +109,7 @@ def test_array_access_expression():
 def test_empty_procedure():
     """Test retrieval of identifiers from an empty procedure."""
     foo = Identifier("foo")
-    proc = Procedure(
-        name=foo, templates=[], args=[], body=[], provenance=Provenance.unknown()
-    )
+    proc = Procedure(name=foo, templates=[], args=[], body=[])
     result = collect_identifiers(proc)
     assert result == {foo}
 
@@ -139,9 +125,7 @@ def test_empty_operation():
         return_type=QualifiedType(
             base_type=NumericalType(data_type=CoreDataType.INT32),
             type_qualifier=TypeQualifier.TEMP,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
     result = collect_identifiers(op)
     assert result == {foo}
@@ -161,22 +145,17 @@ def test_function_arguments():
                 qualified_type=QualifiedType(
                     base_type=NumericalType(CoreDataType.INT32),
                     type_qualifier=TypeQualifier.TEMP,
-                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
             Argument(
                 name=y,
                 qualified_type=QualifiedType(
                     base_type=NumericalType(CoreDataType.INT32),
                     type_qualifier=TypeQualifier.TEMP,
-                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ],
         body=[],
-        provenance=Provenance.unknown(),
     )
     result = collect_identifiers(proc)
     assert result == {x, y, bar}
@@ -191,7 +170,6 @@ def test_function_template_types():
         templates=[TemplateDataType(T)],
         args=[],
         body=[],
-        provenance=Provenance.unknown(),
     )
     result = collect_identifiers(proc)
     assert result == {T, bar}

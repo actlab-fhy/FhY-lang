@@ -5,11 +5,10 @@ from fhy_core import (
     FixpointPassGroup,
     Identifier,
     PassManager,
-    Provenance,
     TypeQualifier,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     BinaryExpression,
     BinaryOperation,
     DeclarationStatement,
@@ -21,7 +20,7 @@ from fhy_lang.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy_lang.lang.ast.passes import (
+from fhy_lang.ast.passes import (
     DeadCodeEliminationPass,
     build_symbol_table,
 )
@@ -209,28 +208,18 @@ def test_dce_preserves_function_call_with_side_effects(int32):
         body=(
             make_initialized_temp_declaration(result, int32, x),
             ExpressionStatement(
-                left=IdentifierExpression(
-                    identifier=result, provenance=Provenance.unknown()
-                ),
+                left=IdentifierExpression(identifier=result),
                 right=BinaryExpression(
                     operation=BinaryOperation.ADDITION,
-                    left=IdentifierExpression(
-                        identifier=x, provenance=Provenance.unknown()
-                    ),
-                    right=IdentifierExpression(
-                        identifier=y, provenance=Provenance.unknown()
-                    ),
-                    provenance=Provenance.unknown(),
+                    left=IdentifierExpression(identifier=x),
+                    right=IdentifierExpression(identifier=y),
                 ),
-                provenance=Provenance.unknown(),
             ),
         ),
         return_type=QualifiedType(
             base_type=int32,
             type_qualifier=TypeQualifier.OUTPUT,
-            provenance=Provenance.unknown(),
         ),
-        provenance=Provenance.unknown(),
     )
     a, b, t = Identifier("a"), Identifier("b"), Identifier("t")
     main_procedure_ast = _build_main_procedure(
@@ -241,24 +230,14 @@ def test_dce_preserves_function_call_with_side_effects(int32):
         body=(
             make_uninitialized_temp_declaration(t, int32),
             ExpressionStatement(
-                left=IdentifierExpression(
-                    identifier=t, provenance=Provenance.unknown()
-                ),
+                left=IdentifierExpression(identifier=t),
                 right=FunctionExpression(
-                    function=IdentifierExpression(
-                        identifier=add, provenance=Provenance.unknown()
-                    ),
+                    function=IdentifierExpression(identifier=add),
                     args=(
-                        IdentifierExpression(
-                            identifier=a, provenance=Provenance.unknown()
-                        ),
-                        IdentifierExpression(
-                            identifier=a, provenance=Provenance.unknown()
-                        ),
+                        IdentifierExpression(identifier=a),
+                        IdentifierExpression(identifier=a),
                     ),
-                    provenance=Provenance.unknown(),
                 ),
-                provenance=Provenance.unknown(),
             ),
             make_identifier_assignment(t, a),
             make_identifier_assignment(b, t),
@@ -266,7 +245,6 @@ def test_dce_preserves_function_call_with_side_effects(int32):
     )
     program_ast = Module(
         statements=(add_operation_ast, main_procedure_ast),
-        provenance=Provenance.unknown(),
     )
 
     optimized_ast = _run_dce(program_ast)
