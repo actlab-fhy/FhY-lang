@@ -27,9 +27,10 @@ def assert_type(obj: Any, expected_type: type, what_it_is: str) -> None:
         what_it_is: Description of the object.
 
     """
-    assert isinstance(
-        obj, expected_type
-    ), f'Expected {what_it_is} to be "{expected_type.__name__}", but got "{type(obj)}".'
+    assert isinstance(obj, expected_type), (
+        f'Expected {what_it_is} to be "{expected_type.__name__}", '
+        f'but got "{type(obj)}".'
+    )
 
 
 def assert_sequence_type(obj: Any, expected_type: type, what_it_is: str) -> None:
@@ -41,10 +42,10 @@ def assert_sequence_type(obj: Any, expected_type: type, what_it_is: str) -> None
         what_it_is: Description of the sequence.
 
     """
-    assert all(
-        isinstance(x, expected_type) for x in obj
-    ), f'Expected all {what_it_is} to be "{expected_type.__name__}", \
+    assert all(isinstance(x, expected_type) for x in obj), (
+        f'Expected all {what_it_is} to be "{expected_type.__name__}", \
 got "{list_to_types(obj)}".'
+    )
 
 
 def assert_name(
@@ -68,14 +69,14 @@ def assert_name(
                 'Cannot specify expected_name as an "Identifier" and then '
                 "provide an expected_id."
             )
-        assert (
-            name == expected_name
-        ), f'Expected {what_it_is} to be "{expected_name}", got "{name}".'
+        assert name == expected_name, (
+            f'Expected {what_it_is} to be "{expected_name}", got "{name}".'
+        )
     else:
-        assert (
-            name.name_hint == expected_name
-        ), f'Expected {what_it_is} to be "{expected_name}", got "{name.name_hint}".'
+        assert name.name_hint == expected_name, (
+            f'Expected {what_it_is} to be "{expected_name}", got "{name.name_hint}".'
+        )
         if expected_id is not None:
-            assert (
-                name.id == expected_id
-            ), f'Expected {what_it_is} to have ID "{expected_id}", got "{name.id}".'
+            assert name.id == expected_id, (
+                f'Expected {what_it_is} to have ID "{expected_id}", got "{name.id}".'
+            )

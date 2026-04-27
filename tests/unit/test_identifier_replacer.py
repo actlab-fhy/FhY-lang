@@ -10,6 +10,7 @@ from fhy_core import (
     TypeQualifier,
 )
 from fhy_core import IdentifierExpression as CoreIdentifierExpression
+
 from fhy_lang.lang import replace_identifiers
 from fhy_lang.lang.ast import (
     Argument,

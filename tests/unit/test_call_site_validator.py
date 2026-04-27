@@ -4,6 +4,7 @@ from collections.abc import Sequence
 
 import pytest
 from fhy_core import (
+    DiagnosticLevel,
     Identifier,
     IndexType,
     LiteralExpression,
@@ -16,6 +17,7 @@ from fhy_core import (
 from fhy_core import (
     IdentifierExpression as CoreIdentifierExpression,
 )
+
 from fhy_lang.lang.ast import (
     Argument,
     ArrayAccessExpression,
@@ -708,9 +710,6 @@ def test_fails_with_procedure_called_in_value_position(int32: NumericalType):
 
 def test_warns_on_operation_called_as_bare_statement(int32: NumericalType):
     """Test that calling an operation as a bare statement emits a warning."""
-    from fhy_core import DiagnosticLevel
-    from fhy_lang.lang.ast.passes.call_site_validator import CallSiteValidator
-
     main = Identifier("main")
     op = Identifier("op")
     a = Identifier("a")

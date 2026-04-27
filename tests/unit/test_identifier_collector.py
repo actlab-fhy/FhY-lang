@@ -9,6 +9,7 @@ from fhy_core import (
     TypeQualifier,
 )
 from fhy_core import IdentifierExpression as CoreIdentifierExpression
+
 from fhy_lang.lang.ast import (
     Argument,
     ArrayAccessExpression,

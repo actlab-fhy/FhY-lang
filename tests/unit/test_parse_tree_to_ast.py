@@ -33,6 +33,7 @@ from fhy_core import (
 from fhy_core import (
     UnaryExpression as CoreUnaryExpression,
 )
+
 from fhy_lang.lang import FhYSyntaxError
 from fhy_lang.lang.ast import node as ast_node
 from fhy_lang.lang.ast.passes import collect_identifiers
@@ -206,11 +207,11 @@ def _is_expressions_exactly_equal(
 def _assert_expressions_exactly_equal(
     expr1: ast_node.Expression, expr2: ast_node.Expression, what_it_is: str
 ) -> None:
-    assert _is_expressions_exactly_equal(
-        expr1, expr2
-    ), f"Expected {what_it_is} expressions to be exactly equal \
+    assert _is_expressions_exactly_equal(expr1, expr2), (
+        f"Expected {what_it_is} expressions to be exactly equal \
 (expected: {pformat_ast(expr1, show_id=True)}, \
 actual: {pformat_ast(expr2, show_id=True)})"
+    )
 
 
 def _is_core_expressions_exactly_equal(

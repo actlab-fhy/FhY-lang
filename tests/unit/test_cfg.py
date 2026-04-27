@@ -7,6 +7,7 @@ from fhy_core import (
     TypeQualifier,
     parse_expression,
 )
+
 from fhy_lang.lang.ast import (
     DeclarationStatement,
     ForAllStatement,
