@@ -57,7 +57,7 @@ class Node(
         return self.provenance
 
     def is_structurally_equivalent(self, other: object) -> bool:
-        return isinstance(other, Node) and self.provenance == other.provenance
+        return isinstance(other, Node)
 
     def serialize_data_to_dict(self) -> SerializedDict:
         return {"provenance": (self.provenance.serialize_to_dict())}
