@@ -38,15 +38,10 @@ class _IdentifierReplacer(Transformer):
         )
 
     def visit_index_type(self, node: IndexType) -> Type:
-        new_stride = (
-            replace_core_identifiers(node.stride, self._identifier_map)
-            if node.stride is not None
-            else None
-        )
         return IndexType(
             replace_core_identifiers(node.lower_bound, self._identifier_map),
             replace_core_identifiers(node.upper_bound, self._identifier_map),
-            stride=new_stride,
+            replace_core_identifiers(node.stride, self._identifier_map),
         )
 
     def visit_tuple_type(self, node: TupleType) -> Type:

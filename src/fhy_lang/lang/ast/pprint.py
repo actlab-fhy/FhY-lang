@@ -276,12 +276,7 @@ class ASTPrettyFormatter(VisitablePass[Node, str]):
             f"{pformat_expression(index_type.upper_bound, show_id=self._show_id)}:"
         )
 
-        if index_type.stride is not None:
-            index_range += (
-                f"{pformat_expression(index_type.stride, show_id=self._show_id)}"
-            )
-        else:
-            index_range += "1"
+        index_range += f"{pformat_expression(index_type.stride, show_id=self._show_id)}"
 
         return f"index[{index_range}]"
 

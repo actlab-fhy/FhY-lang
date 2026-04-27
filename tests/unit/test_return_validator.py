@@ -20,8 +20,10 @@ from fhy_core import (
     TypeQualifier,
     ValidationFailedError,
 )
+
 from fhy_lang.lang.ast import (
     Argument,
+    DeclarationStatement,
     ForAllStatement,
     IdentifierExpression,
     IntLiteral,
@@ -307,7 +309,6 @@ def test_procedure_with_multiple_reachable_returns_reports_each():
 def test_operation_forall_body_without_return_fails():
     """Test that a forall body that doesn't return leaves a fall-through."""
     i = Identifier("i")
-    from fhy_lang.lang.ast import DeclarationStatement  # local import to keep top tidy
 
     decl = DeclarationStatement(
         variable_name=i,

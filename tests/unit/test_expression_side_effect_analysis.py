@@ -4,6 +4,7 @@ from fhy_core import (
     Identifier,
     Provenance,
 )
+
 from fhy_lang.lang.ast import (
     BinaryExpression,
     BinaryOperation,

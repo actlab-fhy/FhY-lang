@@ -8,6 +8,7 @@ from fhy_core import (
     Provenance,
     TypeQualifier,
 )
+
 from fhy_lang.lang.ast import (
     BinaryExpression,
     BinaryOperation,

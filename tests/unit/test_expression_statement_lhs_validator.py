@@ -2,12 +2,14 @@
 
 import pytest
 from fhy_core import (
+    DiagnosticLevel,
     Identifier,
     NumericalType,
     Provenance,
     TypeQualifier,
     ValidationFailedError,
 )
+
 from fhy_lang.lang.ast import (
     Argument,
     ArrayAccessExpression,
@@ -15,6 +17,7 @@ from fhy_lang.lang.ast import (
     BinaryOperation,
     DeclarationStatement,
     ExpressionStatement,
+    FunctionExpression,
     IdentifierExpression,
     IntLiteral,
     Module,
@@ -377,11 +380,6 @@ def test_fails_with_nested_array_access_lhs(int32: NumericalType):
 
 def test_warns_on_bare_value_expression_statement(int32: NumericalType):
     """Test that an expression statement with no LHS and a non-call RHS warns."""
-    from fhy_core import DiagnosticLevel
-    from fhy_lang.lang.ast.passes.expression_statement_lhs_validator import (
-        ExpressionStatementLHSValidator,
-    )
-
     main = Identifier("main")
     program_ast = Module(
         statements=(
@@ -409,12 +407,6 @@ def test_warns_on_bare_value_expression_statement(int32: NumericalType):
 
 def test_does_not_warn_on_function_call_statement(int32: NumericalType):
     """Test that a bare function-call expression statement does not warn."""
-    from fhy_core import DiagnosticLevel
-    from fhy_lang.lang.ast import FunctionExpression
-    from fhy_lang.lang.ast.passes.expression_statement_lhs_validator import (
-        ExpressionStatementLHSValidator,
-    )
-
     main = Identifier("main")
     other = Identifier("other")
     program_ast = Module(

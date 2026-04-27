@@ -33,6 +33,7 @@ from fhy_core import (
 from fhy_core import (
     UnaryExpression as CoreUnaryExpression,
 )
+
 from fhy_lang.lang import FhYSyntaxError
 from fhy_lang.lang.ast import node as ast_node
 from fhy_lang.lang.ast.passes import collect_identifiers
@@ -206,11 +207,11 @@ def _is_expressions_exactly_equal(
 def _assert_expressions_exactly_equal(
     expr1: ast_node.Expression, expr2: ast_node.Expression, what_it_is: str
 ) -> None:
-    assert _is_expressions_exactly_equal(
-        expr1, expr2
-    ), f"Expected {what_it_is} expressions to be exactly equal \
-(expected: {pformat_ast(expr1, show_id=True)}, \
-actual: {pformat_ast(expr2, show_id=True)})"
+    assert _is_expressions_exactly_equal(expr1, expr2), (
+        f"Expected {what_it_is} expressions to be exactly equal "
+        f"(expected: {pformat_ast(expr1, show_id=True)}, "
+        f"actual: {pformat_ast(expr2, show_id=True)})"
+    )
 
 
 def _is_core_expressions_exactly_equal(
@@ -357,7 +358,7 @@ def _assert_is_expected_index_type(
     index_type: IndexType,
     expected_low: CoreExpression,
     expected_high: CoreExpression,
-    expected_stride: CoreExpression | None,
+    expected_stride: CoreExpression,
 ) -> None:
     assert_type(index_type, IndexType, "index type")
     assert_type(index_type.lower_bound, CoreExpression, "index type lower bound")
@@ -370,12 +371,11 @@ def _assert_is_expected_index_type(
         "Expected upper bound to be equal "
         + f"(expected: {expected_high}, actual: {index_type.upper_bound})"
     )
-    if expected_stride is not None:
-        assert_type(index_type.stride, CoreExpression, "index type stride")
-        assert _is_core_expressions_exactly_equal(index_type.stride, expected_stride), (
-            "Expected stride to be equal "
-            + f"(expected: {expected_stride}, actual: {index_type.stride})"
-        )
+    assert_type(index_type.stride, CoreExpression, "index type stride")
+    assert _is_core_expressions_exactly_equal(index_type.stride, expected_stride), (
+        "Expected stride to be equal "
+        + f"(expected: {expected_stride}, actual: {index_type.stride})"
+    )
 
 
 def _assert_is_expected_declaration_statement(
@@ -844,7 +844,7 @@ def test_index_variable_declaration_statement(construct_ast):
         index_type.base_type,
         CoreLiteralExpression(1),
         CoreIdentifierExpression(identifier_map["N"]),
-        None,
+        CoreLiteralExpression(1),
     )
 
 
