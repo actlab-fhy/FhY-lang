@@ -14,15 +14,15 @@ from fhy_core import (
     VariableSymbolTableFrame,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     DeclarationStatement,
     Module,
     Procedure,
     QualifiedType,
 )
-from fhy_lang.lang.ast.passes import build_symbol_table
-from fhy_lang.lang.ast.passes.symbol_table_builder import FhYSymbolTableBuilderError
+from fhy_lang.ast.passes import build_symbol_table
+from fhy_lang.ast.passes.symbol_table_builder import FhYSymbolTableBuilderError
 
 
 def test_empty_module(empty_module_ast):

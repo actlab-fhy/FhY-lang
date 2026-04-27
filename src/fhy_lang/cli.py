@@ -9,9 +9,8 @@ import typer
 from fhy_core import SerializationFormat as CoreSerializationFormat
 from fhy_core import StrEnum, SymbolTable, add_file_handler, get_logger
 
-from fhy_lang import __version__
+from fhy_lang import ASTModule, __version__, pformat_ast
 from fhy_lang.driver import CompilationOptions, Workspace, compile_fhy
-from fhy_lang.lang import ASTModule, pformat_ast
 
 app = typer.Typer(
     name="FhY Language and Frontend",

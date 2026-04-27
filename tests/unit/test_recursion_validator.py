@@ -9,7 +9,7 @@ from fhy_core import (
     ValidationFailedError,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     ExpressionStatement,
     FunctionExpression,
@@ -21,7 +21,7 @@ from fhy_lang.lang.ast import (
     ReturnStatement,
     Statement,
 )
-from fhy_lang.lang.ast.passes import RecursionValidator
+from fhy_lang.ast.passes import RecursionValidator
 
 from .utils import run_validator
 

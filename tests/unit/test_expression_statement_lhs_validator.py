@@ -10,7 +10,7 @@ from fhy_core import (
     ValidationFailedError,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     ArrayAccessExpression,
     BinaryExpression,
@@ -24,7 +24,7 @@ from fhy_lang.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy_lang.lang.ast.passes import (
+from fhy_lang.ast.passes import (
     ExpressionStatementLHSValidator,
 )
 

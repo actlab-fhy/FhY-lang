@@ -8,7 +8,7 @@ from fhy_core import (
     parse_expression,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     DeclarationStatement,
     ForAllStatement,
     IdentifierExpression,
@@ -17,7 +17,7 @@ from fhy_lang.lang.ast import (
     ReturnStatement,
     SelectionStatement,
 )
-from fhy_lang.lang.ast.cfg import (
+from fhy_lang.ast.cfg import (
     CFGEdgeKind,
     CFGNodeKind,
     build_cfg,

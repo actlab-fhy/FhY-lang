@@ -9,7 +9,7 @@ from fhy_core import (
     TypeQualifier,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     BinaryExpression,
     BinaryOperation,
     DeclarationStatement,
@@ -21,7 +21,7 @@ from fhy_lang.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy_lang.lang.ast.passes import (
+from fhy_lang.ast.passes import (
     DeadCodeEliminationPass,
     build_symbol_table,
 )

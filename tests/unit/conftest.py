@@ -19,7 +19,7 @@ from fhy_core import (
     LiteralExpression as CoreLiteralExpression,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     ArrayAccessExpression,
     BinaryExpression,
@@ -33,7 +33,7 @@ from fhy_lang.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy_lang.lang.converter.from_fhy_source import from_fhy_source as fhy_source
+from fhy_lang.converter.from_fhy_source import from_fhy_source as fhy_source
 
 
 @pytest.fixture

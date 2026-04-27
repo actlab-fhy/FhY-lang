@@ -6,12 +6,12 @@ from fhy_core import (
     TypeQualifier,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     IdentifierExpression,
     Module,
     SelectionStatement,
 )
-from fhy_lang.lang.ast.passes import (
+from fhy_lang.ast.passes import (
     LivenessAnalysis,
     LivenessResult,
 )

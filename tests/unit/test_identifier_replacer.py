@@ -11,8 +11,8 @@ from fhy_core import (
 )
 from fhy_core import IdentifierExpression as CoreIdentifierExpression
 
-from fhy_lang.lang import replace_identifiers
-from fhy_lang.lang.ast import (
+from fhy_lang import replace_identifiers
+from fhy_lang.ast import (
     Argument,
     ArrayAccessExpression,
     BinaryExpression,

@@ -6,7 +6,7 @@ from fhy_core import (
     TypeQualifier,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     BinaryExpression,
     BinaryOperation,
     ComplexLiteral,
@@ -19,7 +19,7 @@ from fhy_lang.lang.ast import (
     UnaryExpression,
     UnaryOperation,
 )
-from fhy_lang.lang.ast.passes import ConstantFoldingPass
+from fhy_lang.ast.passes import ConstantFoldingPass
 
 from .utils import (
     make_argument,

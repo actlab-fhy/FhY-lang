@@ -21,7 +21,7 @@ from fhy_core import (
     ValidationFailedError,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     DeclarationStatement,
     ForAllStatement,
@@ -34,7 +34,7 @@ from fhy_lang.lang.ast import (
     ReturnStatement,
     SelectionStatement,
 )
-from fhy_lang.lang.ast.passes import ReturnValidator
+from fhy_lang.ast.passes import ReturnValidator
 
 from .utils import run_validator
 

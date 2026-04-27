@@ -10,7 +10,7 @@ from fhy_core import (
 )
 from fhy_core import IdentifierExpression as CoreIdentifierExpression
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     ArrayAccessExpression,
     DeclarationStatement,
@@ -22,7 +22,7 @@ from fhy_lang.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy_lang.lang.ast.passes.identifier_collector import (
+from fhy_lang.ast.passes.identifier_collector import (
     collect_identifiers,
 )
 

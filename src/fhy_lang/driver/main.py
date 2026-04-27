@@ -4,7 +4,7 @@ import logging
 
 from fhy_core import SymbolTable, get_logger
 
-from fhy_lang.lang import ASTModule, validate_ast
+from fhy_lang import ASTModule, validate_ast
 
 from .ast_program_builder import build_ast_program
 from .compilation_options import CompilationOptions

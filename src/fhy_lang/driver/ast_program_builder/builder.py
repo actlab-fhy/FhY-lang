@@ -9,7 +9,7 @@ from fhy_core import (
     get_logger,
 )
 
-from fhy_lang.lang import ASTModule, from_fhy_source
+from fhy_lang import ASTModule, from_fhy_source
 
 from ..compilation_options import CompilationOptions
 from ..workspace import Workspace

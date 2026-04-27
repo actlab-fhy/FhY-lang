@@ -154,7 +154,7 @@ cython_debug/
 
 # ANTLR generated files
 .antlr
-src/fhy_lang/lang/parser/FhY*
+src/fhy_lang/parser/FhY*
 
 # PyCharm
 #  JetBrains specific template is maintained in a separate JetBrains.gitignore that can

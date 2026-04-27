@@ -11,7 +11,7 @@ from fhy_core import (
     ValidationManager,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     DeclarationStatement,
     ExpressionStatement,
@@ -30,7 +30,7 @@ def run_validator(validator: CompilerPass[Any, Any], module: Module) -> None:
     :class:`~fhy_core.pass_infrastructure.ValidationManager` so every
     "run one validator in isolation" call goes through the same
     diagnostic-aggregation machinery as the production pipelines in
-    :mod:`fhy_lang.lang.ast.validate`. The cast is always safe at runtime
+    :mod:`fhy_lang.ast.validate`. The cast is always safe at runtime
     because a :class:`Module` is a :class:`Node`.
 
     Args:

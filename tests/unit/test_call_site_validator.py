@@ -18,7 +18,7 @@ from fhy_core import (
     IdentifierExpression as CoreIdentifierExpression,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     ArrayAccessExpression,
     BinaryExpression,
@@ -34,11 +34,11 @@ from fhy_lang.lang.ast import (
     QualifiedType,
     Statement,
 )
-from fhy_lang.lang.ast.passes import (
+from fhy_lang.ast.passes import (
     CallSiteValidator,
     build_symbol_table,
 )
-from fhy_lang.lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
+from fhy_lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
 
 from .utils import run_validator
 

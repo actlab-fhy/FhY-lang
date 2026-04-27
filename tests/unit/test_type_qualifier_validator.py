@@ -9,7 +9,7 @@ from fhy_core import (
     ValidationFailedError,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     ArrayAccessExpression,
     DeclarationStatement,
@@ -21,7 +21,7 @@ from fhy_lang.lang.ast import (
     Procedure,
     QualifiedType,
 )
-from fhy_lang.lang.ast.passes import TypeQualifierValidator, build_symbol_table
+from fhy_lang.ast.passes import TypeQualifierValidator, build_symbol_table
 
 from .utils import run_validator
 

@@ -10,7 +10,7 @@ from fhy_core import LiteralExpression as CoreLiteralExpression
 from fhy_core import UnaryExpression as CoreUnaryExpression
 from fhy_core import UnaryOperation as CoreUnaryOperation
 
-from fhy_lang.lang import (
+from fhy_lang import (
     ASTBinaryExpression,
     ASTBinaryOperation,
     ASTComplexLiteral,

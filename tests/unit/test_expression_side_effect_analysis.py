@@ -5,15 +5,15 @@ from fhy_core import (
     Provenance,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     BinaryExpression,
     BinaryOperation,
     FunctionExpression,
     IdentifierExpression,
     IntLiteral,
 )
-from fhy_lang.lang.ast.passes import ExpressionSideEffectAnalysis
-from fhy_lang.lang.builtins import (
+from fhy_lang.ast.passes import ExpressionSideEffectAnalysis
+from fhy_lang.builtins import (
     BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS,
 )
 

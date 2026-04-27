@@ -14,7 +14,7 @@ from fhy_core import (
     IdentifierExpression as CoreIdentifierExpression,
 )
 
-from fhy_lang.lang.ast import (
+from fhy_lang.ast import (
     Argument,
     IdentifierExpression,
     IntLiteral,
@@ -24,7 +24,7 @@ from fhy_lang.lang.ast import (
     QualifiedType,
     ReturnStatement,
 )
-from fhy_lang.lang.ast.passes import OperationValidator
+from fhy_lang.ast.passes import OperationValidator
 
 from .utils import run_validator
 
