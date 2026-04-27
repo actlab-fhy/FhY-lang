@@ -23,6 +23,9 @@ from fhy_core import (
     TypeQualifier,
     get_logger,
 )
+from fhy_core import (
+    LiteralExpression as CoreLiteralExpression,
+)
 
 from fhy_lang.lang import ast
 from fhy_lang.lang.ast.passes import convert_ast_expression_to_core_expression
@@ -727,14 +730,12 @@ class ParseTreeConverter(FhYVisitor):
 
     def visitIndex_type(self, ctx: FhYParser.Index_typeContext) -> IndexType:
         low, high, stride = self.visitRange(ctx.range_())
-
-        # TODO: use the IR expressions when implemented
         return IndexType(
-            lower_bound=convert_ast_expression_to_core_expression(low),
-            upper_bound=convert_ast_expression_to_core_expression(high),
-            stride=convert_ast_expression_to_core_expression(stride)
+            convert_ast_expression_to_core_expression(low),
+            convert_ast_expression_to_core_expression(high),
+            convert_ast_expression_to_core_expression(stride)
             if stride
-            else None,
+            else CoreLiteralExpression(1),
         )
 
     def visitRange(

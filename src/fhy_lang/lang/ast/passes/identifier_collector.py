@@ -44,8 +44,7 @@ def _collect_identifiers_from_index_type(
     identifiers: set[Identifier] = set()
     identifiers.update(collect_core_identifiers(index_type.lower_bound))
     identifiers.update(collect_core_identifiers(index_type.upper_bound))
-    if index_type.stride is not None:
-        identifiers.update(collect_core_identifiers(index_type.stride))
+    identifiers.update(collect_core_identifiers(index_type.stride))
     return identifiers
 
 

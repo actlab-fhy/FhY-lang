@@ -13,6 +13,7 @@ from fhy_core import (
     TypeQualifier,
     VariableSymbolTableFrame,
 )
+
 from fhy_lang.lang.ast import (
     Argument,
     DeclarationStatement,

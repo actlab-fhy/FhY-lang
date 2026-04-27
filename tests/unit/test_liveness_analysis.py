@@ -5,6 +5,7 @@ from fhy_core import (
     Provenance,
     TypeQualifier,
 )
+
 from fhy_lang.lang.ast import (
     IdentifierExpression,
     Module,
@@ -108,7 +109,7 @@ def test_live_out_of_for_all_body_includes_loop_carried_uses(
     forall_vector_sum_module_ast,
 ):
     """Test a ForAll body must see loop-carried values in live_out."""
-    program_ast, a, b, i, acc, N = forall_vector_sum_module_ast
+    program_ast, _, _, _, acc, _ = forall_vector_sum_module_ast
 
     result = _run_liveness_analysis(program_ast)
 
