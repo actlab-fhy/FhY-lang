@@ -43,8 +43,8 @@ def assert_sequence_type(obj: Any, expected_type: type, what_it_is: str) -> None
 
     """
     assert all(isinstance(x, expected_type) for x in obj), (
-        f'Expected all {what_it_is} to be "{expected_type.__name__}", \
-got "{list_to_types(obj)}".'
+        f'Expected all {what_it_is} to be "{expected_type.__name__}", '
+        f'got "{list_to_types(obj)}".'
     )
 
 
