@@ -33,7 +33,6 @@ __all__ = [
     "ASTReturnStatement",
     "ASTSelectionStatement",
     "ASTStatement",
-    "ASTStatement",
     "ASTTernaryExpression",
     "ASTTransformer",
     "ASTTupleAccessExpression",
