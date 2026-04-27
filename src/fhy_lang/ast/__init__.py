@@ -3,7 +3,6 @@
 __all__ = [
     "Argument",
     "ArrayAccessExpression",
-    "BasePass",
     "BinaryExpression",
     "BinaryOperation",
     "ComplexLiteral",
@@ -36,7 +35,6 @@ __all__ = [
     "UnaryOperation",
     "ValidationFailedError",
     "ValidationReport",
-    "Visitor",
     "build_semantic_validation_manager",
     "build_structural_validation_manager",
     "build_symbol_table",
@@ -84,6 +82,7 @@ from .node import (
 )
 from .passes import (
     FhYSymbolTableBuilderError,
+    Transformer,
     build_symbol_table,
     collect_identifiers,
     collect_indices,

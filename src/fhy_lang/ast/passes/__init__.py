@@ -18,6 +18,7 @@ __all__ = [
     "RecursionValidator",
     "ReductionValidator",
     "ReturnValidator",
+    "Transformer",
     "TupleAccessValidator",
     "TypeChecker",
     "TypeQualifierValidator",
@@ -50,6 +51,7 @@ from .recursion_validator import RecursionValidator
 from .reduction_validator import ReductionValidator
 from .return_validator import ReturnValidator
 from .symbol_table_builder import FhYSymbolTableBuilderError, build_symbol_table
+from .transformer import Transformer
 from .tuple_access_validator import TupleAccessValidator
 from .type_checker import TypeChecker
 from .type_qualifier_validator import TypeQualifierValidator
