@@ -506,7 +506,7 @@ class ArrayAccessExpression(Expression, HasOperandsMixin[Expression]):
     def serialize_data_to_dict(self) -> SerializedDict:
         data = super().serialize_data_to_dict()
         data["array_expression"] = self.array_expression.serialize_to_dict()
-        data["indices"] = tuple(index.serialize_to_dict() for index in self.indices)
+        data["indices"] = [index.serialize_to_dict() for index in self.indices]
         return data
 
     @classmethod
