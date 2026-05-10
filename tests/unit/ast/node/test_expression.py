@@ -153,7 +153,7 @@ def test_float_literal_round_trips_through_serialization():
     assert restored.value == 3.14
 
 
-def test_float_literal_deserialize_data_accepts_integer_value(monkeypatch):
+def test_float_literal_deserialize_data_accepts_integer_value():
     """Test deserialization coerces an integer ``value`` to ``float``."""
     payload = FloatLiteral(value=1.0).serialize_data_to_dict()
     payload["value"] = 2
@@ -162,6 +162,29 @@ def test_float_literal_deserialize_data_accepts_integer_value(monkeypatch):
 
     assert isinstance(restored.value, float)
     assert restored.value == 2.0
+
+
+@pytest.mark.parametrize(
+    "value", [float("nan"), float("inf"), -float("inf")], ids=["nan", "+inf", "-inf"]
+)
+def test_float_literal_deserialize_data_rejects_non_finite_value_with_value_error(
+    value: float,
+):
+    """Test non-finite payload values surface as ``DeserializationValueError``."""
+    payload = FloatLiteral(value=1.0).serialize_data_to_dict()
+    payload["value"] = value
+
+    with pytest.raises(DeserializationValueError):
+        FloatLiteral.deserialize_data_from_dict(payload)
+
+
+def test_float_literal_deserialize_data_rejects_overflowing_int_with_value_error():
+    """Test integer payloads too large for ``float`` raise the value error."""
+    payload = FloatLiteral(value=1.0).serialize_data_to_dict()
+    payload["value"] = 10**400
+
+    with pytest.raises(DeserializationValueError):
+        FloatLiteral.deserialize_data_from_dict(payload)
 
 
 def test_float_literal_deserialize_data_rejects_bool_value():
@@ -257,6 +280,27 @@ def test_complex_literal_deserialize_data_accepts_integer_real_and_imag():
     assert restored.value == complex(3.0, 4.0)
     assert isinstance(restored.value.real, float)
     assert isinstance(restored.value.imag, float)
+
+
+@pytest.mark.parametrize(
+    "real, imag",
+    [
+        (float("nan"), 0.0),
+        (0.0, float("inf")),
+        (-float("inf"), 0.0),
+    ],
+    ids=["real-nan", "imag-+inf", "real--inf"],
+)
+def test_complex_literal_deserialize_data_rejects_non_finite_with_value_error(
+    real: float, imag: float
+):
+    """Test non-finite real/imag payloads surface as ``DeserializationValueError``."""
+    payload = ComplexLiteral(value=complex(1.0, 2.0)).serialize_data_to_dict()
+    payload["real"] = real
+    payload["imag"] = imag
+
+    with pytest.raises(DeserializationValueError):
+        ComplexLiteral.deserialize_data_from_dict(payload)
 
 
 @pytest.mark.parametrize("field", ["real", "imag"])

@@ -747,10 +747,15 @@ class FloatLiteral(Literal):
             raise DeserializationDictStructureError(
                 cls, _FloatLiteralData.__annotations__, data
             )
-        return cls(
-            value=float(data["value"]),
-            provenance=deserialize_node_provenance(data),
-        )
+        try:
+            return cls(
+                value=float(data["value"]),
+                provenance=deserialize_node_provenance(data),
+            )
+        except (ValueError, OverflowError) as exc:
+            raise DeserializationValueError(
+                cls, "value", "a finite float", data["value"]
+            ) from exc
 
 
 class _ComplexLiteralData(_LiteralData):
@@ -805,7 +810,15 @@ class ComplexLiteral(Literal):
             raise DeserializationDictStructureError(
                 cls, _ComplexLiteralData.__annotations__, data
             )
-        return cls(
-            value=complex(float(data["real"]), float(data["imag"])),
-            provenance=deserialize_node_provenance(data),
-        )
+        try:
+            return cls(
+                value=complex(float(data["real"]), float(data["imag"])),
+                provenance=deserialize_node_provenance(data),
+            )
+        except (ValueError, OverflowError) as exc:
+            raise DeserializationValueError(
+                cls,
+                "real/imag",
+                "finite floats",
+                (data["real"], data["imag"]),
+            ) from exc

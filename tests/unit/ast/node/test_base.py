@@ -5,10 +5,13 @@ and provenance round-trip via the simplest concrete ``Node`` subclass
 (``Argument``).
 """
 
+from dataclasses import FrozenInstanceError
+
 import pytest
 from fhy_core import (
     CoreDataType,
     DeserializationDictStructureError,
+    FrozenMutationError,
     Identifier,
     NumericalType,
     PrimitiveDataType,
@@ -100,7 +103,7 @@ def test_argument_is_frozen_against_attribute_assignment():
     """Test ``Argument`` is frozen — assigning to a field raises."""
     argument = _build_argument()
 
-    with pytest.raises(Exception):  # FrozenInstanceError or FrozenMutationError
+    with pytest.raises((FrozenInstanceError, FrozenMutationError)):
         argument.name = Identifier("y")  # type: ignore[misc]
 
 
