@@ -24,7 +24,12 @@ _logger = get_logger(__name__)
 
 
 class ThrowingErrorListener(ErrorListener):  # type: ignore[misc]
-    """An Overly Verbose, Descriptive Antlr Error Listener for Reasons."""
+    """ANTLR error listener that surfaces parser diagnostics as FhY errors.
+
+    Overrides ANTLR's default error listener to raise FhYSyntaxError on lex
+    or parse errors and to log ambiguity, full-context, and context-sensitivity
+    reports at debug level.
+    """
 
     def __init__(self, log: logging.Logger = _logger) -> None:
         super().__init__()
@@ -41,10 +46,10 @@ class ThrowingErrorListener(ErrorListener):  # type: ignore[misc]
     ) -> None:
         text = self.get_text(recognizer, None, None)
         context = type(recognizer._ctx).__name__
-        message = f'context={context}(Line {line}:{column}) input="{offendingSymbol}" '
-        # result = ParseTreeConverter().visit(recognizer._ctx)
-        # message += f'text="{text}" - msg={msg} - ast={result}'
-        message += f'text="{text}" - msg={msg}'
+        message = (
+            f'context={context}(Line {line}:{column}) input="{offendingSymbol}" '
+            f'text="{text}" - msg={msg}'
+        )
 
         self.logger.error(message)
 
@@ -116,7 +121,7 @@ class ThrowingErrorListener(ErrorListener):  # type: ignore[misc]
         configs: ATNConfigSet,
     ) -> str:
         decision = self.get_decision(recognizer, dfa)
-        conflict = self.get_conflict(recognizer, configs)
+        conflict = {i.alt for i in configs}
         text = self.get_text(recognizer, startIndex, stopIndex)
         if (ctx := recognizer._ctx) is None:
             context = ""
@@ -154,12 +159,6 @@ class ThrowingErrorListener(ErrorListener):  # type: ignore[misc]
 
         return name
 
-    def get_conflict(self, reportedAlts: set[int], configs: ATNConfigSet) -> set[int]:
-        if reportedAlts is None:
-            return reportedAlts
-
-        return {i.alt for i in configs}
-
 
 def create_lexer(input_str: str) -> FhYLexer:
     """Construct the FhyLexer from input string source code."""
@@ -176,7 +175,6 @@ def create_parser(input_str: str) -> FhYParser:
     lexer = create_lexer(input_str)
     token_stream = CommonTokenStream(lexer)
     parser = FhYParser(token_stream)
-    # parser._errHandler = BailErrorStrategy()
     parser.removeErrorListeners()
     parser.addErrorListener(ThrowingErrorListener(_logger))
 
@@ -193,16 +191,20 @@ def from_fhy_source(
     fhy_source_content: str,
     provenance: Provenance,
 ) -> ast.Module:
-    """Convert FhY source code into corresponding AST module representation.
+    """Convert FhY source code into the corresponding AST module representation.
 
     Args:
         fhy_source_content: FhY source code text.
         provenance: Provenance of the source code.
-        logger: Inject a logger to control debugging information during
-            parsing.
 
     Returns:
         AST module representation of input source code.
+
+    Raises:
+        FhYSyntaxError: Lex, parse, or semantic-shape error in the source.
+        NotImplementedError: Source uses a feature that is not yet supported
+            (imports, selection statements, function declarations, function
+            indices, dtype template parameters).
 
     """
     _logger.debug("Lexing and parsing FhY source (%d chars).", len(fhy_source_content))
