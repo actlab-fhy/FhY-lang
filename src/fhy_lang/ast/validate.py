@@ -57,8 +57,8 @@ def _as_module_validator(
     which declares their input as ``Node`` even though at runtime they are
     always invoked with a :class:`Module`. The :class:`ValidationManager`
     pipeline is parameterised by the concrete IR type it runs over, so this
-    helper performs the matching type-level narrowing via a single ``cast``
-    — the runtime dispatch is unchanged because ``Module`` is a ``Node``.
+    helper performs the matching type-level narrowing via a single ``cast``;
+    the runtime dispatch is unchanged because ``Module`` is a ``Node``.
 
     """
     return cast("CompilerPass[Module, Any]", validator)
@@ -73,7 +73,7 @@ def build_structural_validation_manager(
     assumes: every assignment has a sensible LHS, every forall and
     reduction has well-formed index expressions, every call site resolves,
     and operations have scalar argument / return shapes. These passes run
-    before any type- or semantic-level analysis — if they fail, later
+    before any type- or semantic-level analysis; if they fail, later
     passes would likely crash or produce spurious diagnostics.
 
     Args:

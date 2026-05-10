@@ -42,6 +42,7 @@ __all__ = [
     "CompilationOptions",
     "FhYSymbolTableBuilderError",
     "FhYSyntaxError",
+    "TupleType",
     "ValidationFailedError",
     "ValidationReport",
     "Workspace",
@@ -111,3 +112,4 @@ from .builtins import (
 )
 from .converter import FhYSyntaxError, from_fhy_source
 from .driver import CompilationOptions, Workspace, compile_fhy
+from .types import TupleType

@@ -1,24 +1,21 @@
 """Tests conversion of FhY source code from CST to AST."""
 
-from collections.abc import Sequence
+from collections.abc import Callable
+from types import SimpleNamespace
 
 import pytest
 from fhy_core import (
-    BinaryExpression as CoreBinaryExpression,
-)
-from fhy_core import (
     CoreDataType,
     DataType,
+    FileProvenance,
     Identifier,
     IndexType,
     NumericalType,
     PrimitiveDataType,
-    Stack,
+    Provenance,
     TemplateDataType,
-    TupleType,
     Type,
     TypeQualifier,
-    VisitablePass,
 )
 from fhy_core import (
     Expression as CoreExpression,
@@ -29,178 +26,22 @@ from fhy_core import (
 from fhy_core import (
     LiteralExpression as CoreLiteralExpression,
 )
-from fhy_core import (
-    UnaryExpression as CoreUnaryExpression,
-)
 
-from fhy_lang import FhYSyntaxError
+from fhy_lang import FhYSyntaxError, TupleType
 from fhy_lang.ast import node as ast_node
 from fhy_lang.ast.passes import collect_identifiers
 from fhy_lang.ast.pprint import pformat_ast
+from fhy_lang.converter.from_parse_tree import _get_source_info
 
 from ..utils import assert_name, assert_sequence_type, assert_type
 
-# TODO: switch to using structural equivalence
-
-# TODO: make all identifier name equality not in terms of name hint after scope and
-#       loading identifiers with table is implemented
-
-
-# TODO: Use expression only base pass when implemented
-class ExpressionExactEqualityGetter(VisitablePass[ast_node.Expression, bool]):
-    """Pass to determine if two expressions are exactly equal."""
-
-    _stack: Stack[ast_node.Expression | Sequence[ast_node.Expression]]
-
-    def __init__(self, other: ast_node.Expression) -> None:
-        self._stack = Stack[ast_node.Expression]()
-        self._stack.push(other)
-
-    def get_noop_output(self, ir: ast_node.Expression) -> bool:
-        return True
-
-    def visit_sequence(self, node: Sequence[ast_node.Expression]) -> bool:
-        other = self._stack.pop()
-        if not isinstance(other, Sequence):
-            return False
-        if len(node) != len(other):
-            return False
-        for expression, other_expression in zip(node, other):
-            self._stack.push(other_expression)
-            if not self.visit(expression):
-                return False
-        return True
-
-    def visit_unary_expression(self, node: ast_node.UnaryExpression) -> bool:
-        other = self._stack.pop()
-        if not isinstance(other, ast_node.UnaryExpression):
-            return False
-        else:
-            if node.operation != other.operation:
-                return False
-            self._stack.push(other.expression)
-            return self.visit(node.expression)
-
-    def visit_binary_expression(self, node: ast_node.BinaryExpression) -> bool:
-        other = self._stack.pop()
-        if not isinstance(other, ast_node.BinaryExpression):
-            return False
-        else:
-            if node.operation != other.operation:
-                return False
-            self._stack.push(other.right)
-            is_right_equal = self.visit(node.right)
-            self._stack.push(other.left)
-            is_left_equal = self.visit(node.left)
-            return is_left_equal and is_right_equal
-
-    def visit_ternary_expression(self, node: ast_node.TernaryExpression) -> bool:
-        other = self._stack.pop()
-        if not isinstance(other, ast_node.TernaryExpression):
-            return False
-        else:
-            self._stack.push(other.false)
-            is_false_equal = self.visit(node.false)
-            self._stack.push(other.true)
-            is_true_equal = self.visit(node.true)
-            self._stack.push(other.condition)
-            is_condition_equal = self.visit(node.condition)
-            return is_condition_equal and is_true_equal and is_false_equal
-
-    def visit_function_expression(self, node: ast_node.FunctionExpression) -> bool:
-        other = self._stack.pop()
-        if not isinstance(other, ast_node.FunctionExpression):
-            return False
-        else:
-            self._stack.push(other.function)
-            is_function_equal = self.visit(node.function)
-            self._stack.push(other.indices)
-            is_indices_equal = self.visit_sequence(node.indices)
-            self._stack.push(other.template_types)
-            is_template_types_equal = len(node.template_types) == len(
-                other.template_types
-            ) and all(
-                template_type.is_structurally_equivalent(other_template_type)
-                for template_type, other_template_type in zip(
-                    node.template_types, other.template_types
-                )
-            )
-            self._stack.push(other.args)
-            is_args_equal = self.visit_sequence(node.args)
-            return (
-                is_function_equal
-                and is_indices_equal
-                and is_template_types_equal
-                and is_args_equal
-            )
-
-    def visit_array_access_expression(
-        self, node: ast_node.ArrayAccessExpression
-    ) -> bool:
-        other = self._stack.pop()
-        if not isinstance(other, ast_node.ArrayAccessExpression):
-            return False
-        else:
-            self._stack.push(other.array_expression)
-            is_array_expression_equal = self.visit(node.array_expression)
-            self._stack.push(other.indices)
-            is_indices_equal = self.visit_sequence(node.indices)
-            return is_array_expression_equal and is_indices_equal
-
-    def visit_tuple_expression(self, node: ast_node.TupleExpression) -> bool:
-        other = self._stack.pop()
-        if not isinstance(other, ast_node.TupleExpression):
-            return False
-        else:
-            self._stack.push(other.expressions)
-            return self.visit_sequence(node.expressions)
-
-    def visit_tuple_access_expression(
-        self, node: ast_node.TupleAccessExpression
-    ) -> bool:
-        other = self._stack.pop()
-        if not isinstance(other, ast_node.TupleAccessExpression):
-            return False
-        else:
-            self._stack.push(other.tuple_expression)
-            is_tuple_expression_equal = self.visit(node.tuple_expression)
-            self._stack.push(other.element_index)
-            is_element_index_equal = self.visit(node.element_index)
-            return is_tuple_expression_equal and is_element_index_equal
-
-    def visit_identifier_expression(self, node: ast_node.IdentifierExpression) -> bool:
-        other = self._stack.pop()
-        if not isinstance(other, ast_node.IdentifierExpression):
-            return False
-        else:
-            return node.identifier == other.identifier
-
-    def visit_int_literal(self, node: ast_node.IntLiteral) -> bool:
-        other = self._stack.pop()
-        if not isinstance(other, ast_node.IntLiteral):
-            return False
-        else:
-            return node.value == other.value
-
-    def visit_float_literal(self, node: ast_node.FloatLiteral) -> bool:
-        other = self._stack.pop()
-        if not isinstance(other, ast_node.FloatLiteral):
-            return False
-        else:
-            return node.value == other.value
-
-    def visit_complex_literal(self, node: ast_node.ComplexLiteral) -> bool:
-        other = self._stack.pop()
-        if not isinstance(other, ast_node.ComplexLiteral):
-            return False
-        else:
-            return node.value == other.value
+_ConstructAst = Callable[[str], ast_node.Module]
 
 
 def _is_expressions_exactly_equal(
     expr1: ast_node.Expression, expr2: ast_node.Expression
 ) -> bool:
-    return ExpressionExactEqualityGetter(expr2)(expr1)
+    return expr1.is_structurally_equivalent(expr2)
 
 
 def _assert_expressions_exactly_equal(
@@ -215,34 +56,8 @@ def _assert_expressions_exactly_equal(
 
 def _is_core_expressions_exactly_equal(
     expression1: CoreExpression, expression2: CoreExpression
-) -> None:
-    if isinstance(expression1, CoreLiteralExpression) and isinstance(
-        expression2, CoreLiteralExpression
-    ):
-        return expression1.value == expression2.value
-    elif isinstance(expression1, CoreIdentifierExpression) and isinstance(
-        expression2, CoreIdentifierExpression
-    ):
-        return expression1.identifier == expression2.identifier
-    elif isinstance(expression1, CoreUnaryExpression) and isinstance(
-        expression2, CoreUnaryExpression
-    ):
-        return (
-            expression1.operation == expression2.operation
-            and _is_core_expressions_exactly_equal(
-                expression1.operand, expression2.operand
-            )
-        )
-    elif isinstance(expression1, CoreBinaryExpression) and isinstance(
-        expression2, CoreBinaryExpression
-    ):
-        return (
-            expression1.operation == expression2.operation
-            and _is_core_expressions_exactly_equal(expression1.left, expression2.left)
-            and _is_core_expressions_exactly_equal(expression1.right, expression2.right)
-        )
-    else:
-        return False
+) -> bool:
+    return expression1.is_structurally_equivalent(expression2)
 
 
 def _create_identifier_map(node: ast_node.Node) -> dict[str, Identifier]:
@@ -270,6 +85,26 @@ def _assert_is_expected_import(node: ast_node.Node, expected_import: str) -> Non
     assert_name(node.name, expected_import, what_it_is="imported name")
 
 
+def _assert_is_expected_function_like(
+    node: ast_node.Node,
+    expected_cls: type[ast_node.Procedure] | type[ast_node.Operation],
+    expected_name: Identifier,
+    expected_num_templates: int,
+    expected_num_args: int,
+    expected_num_statements: int,
+) -> None:
+    label = expected_cls.__name__.lower()
+    assert_type(node, expected_cls, "AST node")
+    assert_type(node.name, Identifier, f"{label} name")
+    assert_name(node.name, expected_name, what_it_is=f"{label} name")
+    assert_sequence_type(node.templates, TemplateDataType, f"{label} templates")
+    assert len(node.templates) == expected_num_templates
+    assert_sequence_type(node.args, ast_node.Argument, f"{label} arguments")
+    assert len(node.args) == expected_num_args
+    assert_sequence_type(node.body, ast_node.Statement, f"{label} statements")
+    assert len(node.body) == expected_num_statements
+
+
 def _assert_is_expected_procedure(
     node: ast_node.Node,
     expected_name: Identifier,
@@ -277,15 +112,14 @@ def _assert_is_expected_procedure(
     expected_num_args: int,
     expected_num_statements: int,
 ) -> None:
-    assert_type(node, ast_node.Procedure, "AST node")
-    assert_type(node.name, Identifier, "procedure name")
-    assert_name(node.name, expected_name, what_it_is="procedure name")
-    assert_sequence_type(node.templates, TemplateDataType, "procedure templates")
-    assert len(node.templates) == expected_num_templates
-    assert_sequence_type(node.args, ast_node.Argument, "procedure arguments")
-    assert len(node.args) == expected_num_args
-    assert_sequence_type(node.body, ast_node.Statement, "procedure statements")
-    assert len(node.body) == expected_num_statements
+    _assert_is_expected_function_like(
+        node,
+        ast_node.Procedure,
+        expected_name,
+        expected_num_templates,
+        expected_num_args,
+        expected_num_statements,
+    )
 
 
 def _assert_is_expected_operation(
@@ -295,15 +129,14 @@ def _assert_is_expected_operation(
     expected_num_args: int,
     expected_num_statements: int,
 ) -> None:
-    assert_type(node, ast_node.Operation, "AST node")
-    assert_type(node.name, Identifier, "operation name")
-    assert_name(node.name, expected_name, what_it_is="operation name")
-    assert_sequence_type(node.templates, TemplateDataType, "procedure templates")
-    assert len(node.templates) == expected_num_templates
-    assert_sequence_type(node.args, ast_node.Argument, "operation arguments")
-    assert len(node.args) == expected_num_args
-    assert_sequence_type(node.body, ast_node.Statement, "operation statements")
-    assert len(node.body) == expected_num_statements
+    _assert_is_expected_function_like(
+        node,
+        ast_node.Operation,
+        expected_name,
+        expected_num_templates,
+        expected_num_args,
+        expected_num_statements,
+    )
 
 
 def _assert_is_expected_qualified_type(
@@ -332,12 +165,9 @@ def _assert_is_expected_shape(
     assert_sequence_type(shape, CoreExpression, "shape")
     assert len(shape) == len(expected_shape)
     for i, shape_component in enumerate(shape):
-        (
-            _is_core_expressions_exactly_equal(shape_component, expected_shape[i]),
-            (
-                f"Expected shape component {i} to be equal "
-                + f"(expected: {expected_shape[i]}, actual: {shape_component})"
-            ),
+        assert _is_core_expressions_exactly_equal(shape_component, expected_shape[i]), (
+            f"Expected shape component {i} to be equal "
+            f"(expected: {expected_shape[i]}, actual: {shape_component})"
         )
 
 
@@ -425,7 +255,7 @@ def _assert_is_expected_return_statement(
 # ====
 # CORE
 # ====
-def test_empty_file(construct_ast):
+def test_empty_file(construct_ast: _ConstructAst) -> None:
     """Test that an empty file is converted correctly."""
     source: str = ""
     ast = construct_ast(source)
@@ -444,7 +274,7 @@ def test_empty_file(construct_ast):
         ("proc foo<>[](){}",),  # proc with both empty template and index types
     ],
 )
-def test_empty_procedure(construct_ast, source: str):
+def test_empty_procedure(construct_ast: _ConstructAst, source: str) -> None:
     """Test that an empty procedure is converted correctly."""
     ast = construct_ast(source)
     _assert_is_expected_module(ast, 1)
@@ -474,7 +304,9 @@ def test_empty_procedure(construct_ast, source: str):
         ("return_value",),
     ],
 )
-def test_empty_procedure_with_scalar_argument(construct_ast, name: str):
+def test_empty_procedure_with_scalar_argument(
+    construct_ast: _ConstructAst, name: str
+) -> None:
     """Test an empty procedure with a single scalar argument and argument names."""
     source: str = f"proc foo(input int32 {name}){{}}"
     ast = construct_ast(source)
@@ -504,8 +336,10 @@ def test_empty_procedure_with_scalar_argument(construct_ast, name: str):
     ],
 )
 def test_empty_procedure_with_scalar_argument_qualifiers(
-    construct_ast, type_qualifier: str, expected_type_qualifier: TypeQualifier
-):
+    construct_ast: _ConstructAst,
+    type_qualifier: str,
+    expected_type_qualifier: TypeQualifier,
+) -> None:
     """Test an empty procedure with a single scalar argument with varying
     type qualifiers.
     """
@@ -544,8 +378,10 @@ def test_empty_procedure_with_scalar_argument_qualifiers(
     ],
 )
 def test_empty_procedure_with_scalar_argument_data_types(
-    construct_ast, data_type: str, expected_core_data_type: CoreDataType
-):
+    construct_ast: _ConstructAst,
+    data_type: str,
+    expected_core_data_type: CoreDataType,
+) -> None:
     """Test an empty procedure with a single scalar argument with varying
     data types.
     """
@@ -566,7 +402,7 @@ def test_empty_procedure_with_scalar_argument_data_types(
     _assert_is_expected_numerical_type(arg_base_type, expected_core_data_type, [])
 
 
-def test_empty_procedure_with_array_argument(construct_ast):
+def test_empty_procedure_with_array_argument(construct_ast: _ConstructAst) -> None:
     """Test an empty procedure containing an array argument."""
     source: str = "proc foo(input int32[m, n] x){}"
     ast = construct_ast(source)
@@ -602,7 +438,7 @@ def test_empty_procedure_with_array_argument(construct_ast):
         # and index types
     ],
 )
-def test_empty_operation(construct_ast, source: str):
+def test_empty_operation(construct_ast: _ConstructAst, source: str) -> None:
     """Test that an empty operation is converted correctly."""
     ast = construct_ast(source)
     identifier_map = _create_identifier_map(ast)
@@ -611,7 +447,7 @@ def test_empty_operation(construct_ast, source: str):
     _assert_is_expected_operation(operation, identifier_map["bar"], 0, 0, 0)
 
 
-def test_empty_operation_return_type(construct_ast):
+def test_empty_operation_return_type(construct_ast: _ConstructAst) -> None:
     """Test that an empty operation with a return type is converted correctly."""
     source: str = "op foo(input int32[n, m] x) -> output int32[n, m] {}"
     ast = construct_ast(source)
@@ -641,8 +477,8 @@ def test_empty_operation_return_type(construct_ast):
     _assert_is_expected_shape(
         return_type_shape,
         [
-            ast_node.IdentifierExpression(identifier=identifier_map["n"]),
-            ast_node.IdentifierExpression(identifier=identifier_map["m"]),
+            CoreIdentifierExpression(identifier_map["n"]),
+            CoreIdentifierExpression(identifier_map["m"]),
         ],
     )
 
@@ -651,7 +487,9 @@ def test_empty_operation_return_type(construct_ast):
     ["templates"],
     [(["T"],), (["T", "K"],), (["V", "Ex", "F"],)],
 )
-def test_operation_template_types(construct_ast, templates: list[str]):
+def test_operation_template_types(
+    construct_ast: _ConstructAst, templates: list[str]
+) -> None:
     """Test that an empty operation with template types is returned correctly."""
     source: str = f"op foo<{', '.join(templates)}>(input int32 x) \
 -> output int32 {{}}"
@@ -669,7 +507,7 @@ def test_operation_template_types(construct_ast, templates: list[str]):
         assert_name(j.data_type, identifier_map[k], what_it_is="template type")
 
 
-def test_operation_template_type_body(construct_ast):
+def test_operation_template_type_body(construct_ast: _ConstructAst) -> None:
     """Test that an template type identifiers are equivalent."""
     source: str = "op foo<T>(input T[n, m] x) -> output int32[n, m] {temp T[n, m] A;}"
     ast = construct_ast(source)
@@ -699,7 +537,7 @@ def test_operation_template_type_body(construct_ast):
     )
 
 
-def test_operation_template_type_call(construct_ast):
+def test_operation_template_type_call(construct_ast: _ConstructAst) -> None:
     """Test that a template type can be instantiated and used in a call."""
     source: str = """
     op foo<T>(input T[N1, M1] a) -> output T[N1, M1] {
@@ -750,7 +588,7 @@ def test_operation_template_type_call(construct_ast):
 # # STATEMENTS
 # # ==========
 @pytest.mark.xfail(reason="Import statements are not supported.")
-def test_absolute_import(construct_ast):
+def test_absolute_import(construct_ast: _ConstructAst) -> None:
     """Test absolute import statement is converted correctly."""
     source: str = "import foo.bar;"
     ast = construct_ast(source)
@@ -761,7 +599,7 @@ def test_absolute_import(construct_ast):
     _assert_is_expected_import(statement, identifier_map["foo.bar"])
 
 
-def test_declaration_statement_without_assignment(construct_ast):
+def test_declaration_statement_without_assignment(construct_ast: _ConstructAst) -> None:
     """Test converting a single declaration statement without assignment."""
     source: str = "temp int32 i;"
     ast: ast_node.Module = construct_ast(source)
@@ -775,7 +613,7 @@ def test_declaration_statement_without_assignment(construct_ast):
     _assert_is_expected_shape(qualified.base_type.shape, [])
 
 
-def test_declaration_statement_with_assignment(construct_ast):
+def test_declaration_statement_with_assignment(construct_ast: _ConstructAst) -> None:
     """Test converting a single declaration statement with assignment."""
     source: str = "temp int32 i = 5;"
     ast: ast_node.Module = construct_ast(source)
@@ -790,7 +628,7 @@ def test_declaration_statement_with_assignment(construct_ast):
     )
 
 
-def test_array_declaration_statement(construct_ast):
+def test_array_declaration_statement(construct_ast: _ConstructAst) -> None:
     """Test converting a single array declaration statement."""
     source: str = "temp int32[A, B] c;"
     ast: ast_node.Module = construct_ast(source)
@@ -804,13 +642,13 @@ def test_array_declaration_statement(construct_ast):
     _assert_is_expected_shape(
         array_type.base_type.shape,
         [
-            ast_node.IdentifierExpression(identifier=identifier_map["A"]),
-            ast_node.IdentifierExpression(identifier=identifier_map["B"]),
+            CoreIdentifierExpression(identifier_map["A"]),
+            CoreIdentifierExpression(identifier_map["B"]),
         ],
     )
 
 
-def test_index_variable_declaration_statement(construct_ast):
+def test_index_variable_declaration_statement(construct_ast: _ConstructAst) -> None:
     """Test converting a single index variable declaration statement."""
     source: str = "temp index[1:N] i;"
     ast: ast_node.Module = construct_ast(source)
@@ -829,7 +667,7 @@ def test_index_variable_declaration_statement(construct_ast):
     )
 
 
-def test_expression_statement_without_assignment(construct_ast):
+def test_expression_statement_without_assignment(construct_ast: _ConstructAst) -> None:
     """Test converting a simple binary expression statements."""
     source = "5 + 5;"
     ast: ast_node.Module = construct_ast(source)
@@ -847,7 +685,7 @@ def test_expression_statement_without_assignment(construct_ast):
     )
 
 
-def test_expression_statement_with_assignment(construct_ast):
+def test_expression_statement_with_assignment(construct_ast: _ConstructAst) -> None:
     """Test converting a simple binary expression statement with assignment."""
     source = "A = 5 + 5;"
     ast: ast_node.Module = construct_ast(source)
@@ -867,7 +705,7 @@ def test_expression_statement_with_assignment(construct_ast):
 
 
 @pytest.mark.xfail(reason="Selection statements are not supported.")
-def test_selection_statement(construct_ast):
+def test_selection_statement(construct_ast: _ConstructAst) -> None:
     """Test conversion of an if (selection) statement."""
     source: str = "if (1) {i = 1;} else {j = 1;}"
     ast: ast_node.Module = construct_ast(source)
@@ -899,7 +737,7 @@ def test_selection_statement(construct_ast):
     )
 
 
-def test_for_all_statement(construct_ast):
+def test_for_all_statement(construct_ast: _ConstructAst) -> None:
     """Test conversion of a forall statement."""
     source: str = "forall (i) {}"
     ast: ast_node.Module = construct_ast(source)
@@ -918,7 +756,7 @@ def test_for_all_statement(construct_ast):
     assert len(statement.body) == 0
 
 
-def test_return_statement(construct_ast):
+def test_return_statement(construct_ast: _ConstructAst) -> None:
     """Test a conversion of a return statement."""
     source: str = "return i;"  # Semantically Incorrect.
     ast: ast_node.Module = construct_ast(source)
@@ -936,7 +774,9 @@ def test_return_statement(construct_ast):
 # EXPRESSIONS
 # ===========
 @pytest.mark.parametrize(["operator"], [(op,) for op in ast_node.UnaryOperation])
-def test_unary_expression(construct_ast, operator: ast_node.UnaryOperation):
+def test_unary_expression(
+    construct_ast: _ConstructAst, operator: ast_node.UnaryOperation
+) -> None:
     """Test conversion of a unary expression with correct operator."""
     source: str = f"temp int32 i = {operator.value}5;"
     ast: ast_node.Module = construct_ast(source)
@@ -955,7 +795,9 @@ def test_unary_expression(construct_ast, operator: ast_node.UnaryOperation):
 
 
 @pytest.mark.parametrize(["operator"], [(op,) for op in ast_node.BinaryOperation])
-def test_binary_expressions(construct_ast, operator: ast_node.BinaryOperation):
+def test_binary_expressions(
+    construct_ast: _ConstructAst, operator: ast_node.BinaryOperation
+) -> None:
     """Test conversion of binary expressions with correct operators."""
     source: str = f"temp float32 i = 5 {operator.value} 6;"  # Semantically Incorrect
     ast: ast_node.Module = construct_ast(source)
@@ -974,7 +816,7 @@ def test_binary_expressions(construct_ast, operator: ast_node.BinaryOperation):
     )
 
 
-def test_ternary_expressions(construct_ast):
+def test_ternary_expressions(construct_ast: _ConstructAst) -> None:
     """Test converting a ternary expression."""
     source: str = "temp float32 i = 5 < 6 ? 7 : 8;"
     ast: ast_node.Module = construct_ast(source)
@@ -998,7 +840,7 @@ def test_ternary_expressions(construct_ast):
 
 
 @pytest.mark.parametrize(["name"], [("A",), ("A1",), ("A_",)])
-def test_tuple_access_expression(construct_ast, name: str):
+def test_tuple_access_expression(construct_ast: _ConstructAst, name: str) -> None:
     """Test conversion of a tuple access expression."""
     source: str = f"x = {name}.1;"
     ast: ast_node.Module = construct_ast(source)
@@ -1019,7 +861,7 @@ def test_tuple_access_expression(construct_ast, name: str):
     )
 
 
-def test_tuple_access_function_expression(construct_ast):
+def test_tuple_access_function_expression(construct_ast: _ConstructAst) -> None:
     """Test conversion of a tuple access expression returned from an operation."""
     source: str = "x = f().1;"
     ast: ast_node.Module = construct_ast(source)
@@ -1060,7 +902,9 @@ def test_tuple_access_function_expression(construct_ast):
         ("temp int32 i = module.method<>[](A);", 1, "module.method"),
     ],
 )
-def test_function_expression(construct_ast, source: str, nargs: int, name: str):
+def test_function_expression(
+    construct_ast: _ConstructAst, source: str, nargs: int, name: str
+) -> None:
     """Test conversion of a function call expression with a declaration statement."""
     ast: ast_node.Module = construct_ast(source)
 
@@ -1089,7 +933,9 @@ def test_function_expression(construct_ast, source: str, nargs: int, name: str):
         ("foo<>[]();",),  # both template types and index
     ],
 )
-def test_function_expression_as_expression_statement(construct_ast, source: str):
+def test_function_expression_as_expression_statement(
+    construct_ast: _ConstructAst, source: str
+) -> None:
     """Test conversion of a function call expression as an expression statement."""
     ast: ast_node.Module = construct_ast(source)
 
@@ -1105,7 +951,7 @@ def test_function_expression_as_expression_statement(construct_ast, source: str)
     )
 
 
-def test_tensor_access_expression(construct_ast):
+def test_tensor_access_expression(construct_ast: _ConstructAst) -> None:
     """Test conversion of a tensor access expression."""
     source: str = "A[i] = 1;"  # Semantically Invalid
     ast: ast_node.Module = construct_ast(source)
@@ -1125,7 +971,7 @@ def test_tensor_access_expression(construct_ast):
     )
 
 
-def test_tuple_expression(construct_ast):
+def test_tuple_expression(construct_ast: _ConstructAst) -> None:
     """Test conversion of a tuple expression."""
     source: str = "b = (a,);"
     ast: ast_node.Module = construct_ast(source)
@@ -1152,7 +998,7 @@ def test_tuple_expression(construct_ast):
         ("output tuple[int32[m, n], int32,] i;",),
     ],
 )
-def test_tuple_type(construct_ast, source: str):
+def test_tuple_type(construct_ast: _ConstructAst, source: str) -> None:
     """Test conversion of a tuple type."""
     ast: ast_node.Module = construct_ast(source)
 
@@ -1189,7 +1035,7 @@ def test_tuple_type(construct_ast, source: str):
         ("0O7;", 7),
     ],
 )
-def test_int_literal(construct_ast, source: str, value: int):
+def test_int_literal(construct_ast: _ConstructAst, source: str, value: int) -> None:
     """Test conversion of int literals in different formats."""
     ast: ast_node.Module = construct_ast(source)
 
@@ -1212,7 +1058,7 @@ def test_int_literal(construct_ast, source: str, value: int):
         ("1.2e3;", 1200.0),
     ],
 )
-def test_float_literal(construct_ast, source: str, value: float):
+def test_float_literal(construct_ast: _ConstructAst, source: str, value: float) -> None:
     """Test conversion of float literals in different formats."""
     ast: ast_node.Module = construct_ast(source)
 
@@ -1235,7 +1081,9 @@ def test_float_literal(construct_ast, source: str, value: float):
         (".2j;", 0.2j),
     ],
 )
-def test_complex_literal(construct_ast, source: str, value: complex):
+def test_complex_literal(
+    construct_ast: _ConstructAst, source: str, value: complex
+) -> None:
     """Test conversion of complex literals in different formats."""
     ast: ast_node.Module = construct_ast(source)
 
@@ -1251,7 +1099,7 @@ def test_complex_literal(construct_ast, source: str, value: complex):
 # =============
 # MISCELLANEOUS
 # =============
-def test_line_comment(construct_ast):
+def test_line_comment(construct_ast: _ConstructAst) -> None:
     """Test that comments are skipped during conversion, creating an empty module."""
     source: str = "# this is a comment!"
     ast = construct_ast(source)
@@ -1261,43 +1109,27 @@ def test_line_comment(construct_ast):
 # ===============
 # EXPECTED ERRORS
 # ===============
-def test_syntax_error_no_argument_name(construct_ast):
+def test_syntax_error_no_argument_name(construct_ast: _ConstructAst) -> None:
     """Test that FhYSyntaxError is raised when a function argument has no name."""
     source: str = "op foo(input int32[m,n]) -> output int32 {}"
-    with pytest.raises(FhYSyntaxError):
-        ast = construct_ast(source)
+    with pytest.raises(FhYSyntaxError, match="Function Argument Name not Provided"):
+        construct_ast(source)
 
 
-def test_syntax_error_no_procedure_name(construct_ast):
-    """Test that FhYSyntaxError is raised when a procedure has no name."""
-    source: str = "proc () {}"
-    # NOTE: This raises the ANTLR Syntax Error, not from our visitor class.
-    #       This means we do not gain coverage in parse tree converter for this case.
-    with pytest.raises(FhYSyntaxError):
-        ast = construct_ast(source)
-
-
-def test_syntax_error_no_operation_name(construct_ast):
-    """Test that FhYSyntaxError is raised when an operation has no name."""
-    source: str = "op (input int32[m,n] A) -> output int32 {}"
-    # NOTE: This raises the ANTLR Syntax Error, not from our visitor class.
-    #       This means we do not gain coverage in parse tree converter for this case.
-    with pytest.raises(FhYSyntaxError):
-        ast = construct_ast(source)
-
-
-def test_syntax_error_no_operation_return_type(construct_ast):
+def test_syntax_error_no_operation_return_type(construct_ast: _ConstructAst) -> None:
     """Test that FhYSyntaxError is raised when an operation has no return type."""
     source: str = "op func(input int32[m,n] A) {}"
-    with pytest.raises(FhYSyntaxError):
-        ast = construct_ast(source)
+    with pytest.raises(
+        FhYSyntaxError, match="Operation Functions Require Return Types"
+    ):
+        construct_ast(source)
 
 
-def test_invalid_function_keyword(construct_ast):
+def test_invalid_function_keyword(construct_ast: _ConstructAst) -> None:
     """Test that FhYSyntaxError is raised when a function uses an invalid keyword."""
     source: str = "def foo(input int32[m,n] A) -> output int32[m,n] {}"
     with pytest.raises(FhYSyntaxError):
-        ast = construct_ast(source)
+        construct_ast(source)
 
 
 @pytest.mark.parametrize(
@@ -1307,7 +1139,122 @@ def test_invalid_function_keyword(construct_ast):
         ("lorem ipsum dolor sit amet",),  # No Semicolon
     ],
 )
-def test_gibberish(construct_ast, source: str):
+def test_gibberish(construct_ast: _ConstructAst, source: str) -> None:
     """Test gibberish (unrecognized text per the grammar) raises FhYSyntaxError."""
     with pytest.raises(FhYSyntaxError):
-        ast = construct_ast(source)
+        construct_ast(source)
+
+
+# ============================
+# INDEX TYPE STRIDE
+# ============================
+def test_index_variable_with_stride(construct_ast: _ConstructAst) -> None:
+    """Test conversion of an index type with an explicit stride expression."""
+    source: str = "temp index[1:N:2] i;"
+    ast: ast_node.Module = construct_ast(source)
+
+    identifier_map = _create_identifier_map(ast)
+    _assert_is_expected_module(ast, 1)
+    statement = ast.statements[0]
+    _assert_is_expected_declaration_statement(statement, identifier_map["i"], None)
+    index_type = statement.variable_type
+    _assert_is_expected_qualified_type(index_type, TypeQualifier.TEMP, IndexType)
+    _assert_is_expected_index_type(
+        index_type.base_type,
+        CoreLiteralExpression(1),
+        CoreIdentifierExpression(identifier_map["N"]),
+        CoreLiteralExpression(2),
+    )
+
+
+# ==================================
+# UNSUPPORTED FEATURES
+# ==================================
+@pytest.mark.parametrize(
+    ["source"],
+    [
+        ("proc foo[i]() {}",),
+        ("proc foo[i, j]() {}",),
+        ("op foo[i]() -> output int32 {}",),
+        ("op foo[i, j]() -> output int32 {}",),
+    ],
+)
+def test_function_with_indices_raises_not_implemented(
+    construct_ast: _ConstructAst, source: str
+) -> None:
+    """Test that a function with non-empty index list raises NotImplementedError."""
+    with pytest.raises(NotImplementedError, match="indices"):
+        construct_ast(source)
+
+
+# ====================
+# PROVENANCE
+# ====================
+def test_provenance_unknown_when_constructed_with_unknown_provenance(
+    construct_ast: _ConstructAst,
+) -> None:
+    """Test nodes carry Provenance.unknown() for an unknown parse provenance."""
+    source: str = "temp int32 i = 5;"
+    ast: ast_node.Module = construct_ast(source)
+
+    assert ast.provenance == Provenance.unknown()
+    statement = ast.statements[0]
+    assert statement.provenance == Provenance.unknown()
+
+
+def test_get_source_info_walks_parent_chain_to_find_tokens() -> None:
+    """Test _get_source_info walks ancestors until it finds a token-bearing context."""
+    grandparent = SimpleNamespace(
+        start=SimpleNamespace(line=1, column=0),
+        stop=SimpleNamespace(line=1, column=10),
+        parentCtx=None,
+    )
+    parent = SimpleNamespace(start=None, stop=None, parentCtx=grandparent)
+    child = SimpleNamespace(start=None, stop=None, parentCtx=parent)
+
+    provenance = _get_source_info(child, FileProvenance("test.fhy"))
+
+    assert isinstance(provenance, FileProvenance)
+    assert provenance.span.start_position.line == 1
+    assert provenance.span.start_position.column == 1
+    assert provenance.span.end_position.line == 1
+    assert provenance.span.end_position.column == 11
+
+
+def test_get_source_info_returns_unknown_when_no_ancestor_has_tokens() -> None:
+    """Test _get_source_info returns unknown when no ctx in the chain has tokens."""
+    parent = SimpleNamespace(start=None, stop=None, parentCtx=None)
+    child = SimpleNamespace(start=None, stop=None, parentCtx=parent)
+
+    provenance = _get_source_info(child, FileProvenance("test.fhy"))
+
+    assert provenance == Provenance.unknown()
+
+
+def test_get_source_info_returns_unknown_for_non_file_provenance() -> None:
+    """Test _get_source_info returns unknown when parse provenance is non-file."""
+    ctx = SimpleNamespace(
+        start=SimpleNamespace(line=1, column=0),
+        stop=SimpleNamespace(line=1, column=10),
+        parentCtx=None,
+    )
+
+    provenance = _get_source_info(ctx, Provenance.unknown())
+
+    assert provenance == Provenance.unknown()
+
+
+# ===================================
+# BUILT-IN TYPE IDENTIFIER IDENTITY
+# ===================================
+def test_built_in_type_identifier_identity_is_shared_across_parses(
+    construct_ast: _ConstructAst,
+) -> None:
+    """Test built-in type names resolve to the same Identifier object across parses."""
+    ast1: ast_node.Module = construct_ast("int32;")
+    ast2: ast_node.Module = construct_ast("int32;")
+
+    expr1 = ast1.statements[0].right
+    expr2 = ast2.statements[0].right
+
+    assert expr1.identifier is expr2.identifier

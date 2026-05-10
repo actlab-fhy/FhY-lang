@@ -3,13 +3,13 @@
 The validator orchestrates two independent analyses that share a
 validator entry point but are otherwise decoupled:
 
-1. Scalar identifier definite assignment — a forward MUST dataflow over
+1. Scalar identifier definite assignment: a forward MUST dataflow over
    each function's CFG that tracks which variables have been definitely
    assigned at every control-flow point. It enforces that scalar
    OUTPUT arguments are written on every path and that every read of a
    TEMP (or an OUTPUT being read) is preceded by a definite assignment.
 
-2. Shape-symbolic coverage of OUTPUT arrays — a recursive walk over
+2. Shape-symbolic coverage of OUTPUT arrays: a recursive walk over
    each function's body that, for every OUTPUT array argument, builds
    a Z3-friendly boolean predicate over fresh point variables
    asserting "this index position is written on every path", and uses
@@ -82,6 +82,7 @@ from fhy_lang.ast.node import (
     SelectionStatement,
     Statement,
 )
+from fhy_lang.ast.shape import narrow_shape
 
 from .ast_to_core_expression_converter import (
     convert_ast_expression_to_core_expression,
@@ -182,7 +183,7 @@ class _ScalarDefiniteAssignmentAnalysis:
     """Forward MUST dataflow for scalar-identifier definite assignment.
 
     Treats an array-indexed LHS as a full definition of its base
-    identifier — the canonical FhY idiom for per-element initialization
+    identifier; this is the canonical FhY idiom for per-element initialization
     inside a ``forall``. The stronger shape-sensitive coverage check
     for OUTPUT arrays is performed separately by
     :class:`_ArrayCoverageAnalysis`.
@@ -408,7 +409,7 @@ class _WriteRegion:
 class _Coverage:
     """Must-coverage state threaded through the recursive body walk.
 
-    Immutable by design — the walk produces a new :class:`_Coverage`
+    Immutable by design: the walk produces a new :class:`_Coverage`
     at every step rather than mutating in place, so the merge at a
     :class:`SelectionStatement` is a straightforward intersection of
     two independently derived values.
@@ -489,7 +490,7 @@ class _ArrayCoverageAnalysis:
       when the LHS is the array identifier);
     - a bare procedure call with an OUTPUT argument bound to the
       target contributes similarly;
-    - a :class:`ForAllStatement` is traversed straight-line — an
+    - a :class:`ForAllStatement` is traversed straight-line; an
       index variable's declared range is already baked into the
       hypercube of any inner write, so the loop structure itself
       does not affect coverage;
@@ -517,8 +518,8 @@ class _ArrayCoverageAnalysis:
         self._symbol_table = symbol_table
         self._argument = argument
         self._target = argument.name
-        self._shape = base_type.shape
-        self._points = self._make_fresh_points(argument.name, len(base_type.shape))
+        self._shape = narrow_shape(base_type.shape)
+        self._points = self._make_fresh_points(argument.name, len(self._shape))
 
     def run(self) -> _ArrayCoverageResult:
         coverage = self._analyze_block(self._function.body, _Coverage.create_empty())

@@ -1,4 +1,9 @@
-"""Qualified type AST node."""
+"""``QualifiedType`` AST node. Pairs a ``Type`` with a ``TypeQualifier``.
+
+Implements ``HasTypeMixin[Type]``: ``get_type`` returns the ``base_type``.
+Deserialization rejects unknown ``TypeQualifier`` values with
+``DeserializationValueError``.
+"""
 
 from dataclasses import dataclass
 from typing import TypeGuard
@@ -65,16 +70,17 @@ class QualifiedType(Node, HasTypeMixin[Type]):
             raise DeserializationDictStructureError(
                 cls, _QualifiedTypeData.__annotations__, data
             )
-        type_qualifier = data["type_qualifier"]
-        if type_qualifier not in TypeQualifier._value2member_map_:
+        try:
+            type_qualifier = TypeQualifier(data["type_qualifier"])
+        except ValueError as exc:
             raise DeserializationValueError(
                 cls,
                 "type_qualifier",
                 "a valid type qualifier",
-                type_qualifier,
-            )
+                data["type_qualifier"],
+            ) from exc
         return cls(
             base_type=Type.deserialize_from_dict(data["base_type"]),
-            type_qualifier=TypeQualifier(type_qualifier),
+            type_qualifier=type_qualifier,
             provenance=deserialize_node_provenance(data),
         )

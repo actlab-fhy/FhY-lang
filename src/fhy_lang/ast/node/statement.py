@@ -1,4 +1,24 @@
-"""Statement nodes for the statements in the FhY language."""
+"""Statement nodes for the FhY language.
+
+Concrete statement nodes:
+
+- ``Import``, ``DeclarationStatement``, ``ExpressionStatement``,
+  ``ReturnStatement``
+- ``ForAllStatement``, ``SelectionStatement``
+- Function-shaped statements (``Function`` subclasses): ``Procedure``,
+  ``Operation``, ``Native``
+- ``Argument`` (parameter binding for the function-shaped statements)
+
+Each concrete class implements the four ``Node`` contracts: structural
+equivalence (id-based for ``Identifier``-typed fields, see ``Node``),
+wrapped serialization round-trip, ``get_visit_children`` for the AST
+visitor, and the relevant fhy-core mixins (``HasIdentifierMixin``).
+
+Templates of ``Procedure`` and ``Operation`` are excluded from
+``get_visit_children``. They participate in structural equivalence but
+are not part of the AST visitor walk. Passes that need template
+parameters must access ``templates`` directly.
+"""
 
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -46,15 +66,7 @@ def _is_valid_import_data(data: SerializedDict) -> TypeGuard[_ImportData]:
 @register_serializable(type_id="fhy_ast_import")
 @dataclass(frozen=True, kw_only=True)
 class Import(Statement):
-    """Import statement node.
-
-    Args:
-        name (Identifier): Name of imported object.
-
-    Attributes:
-        name (Identifier): Name of imported object
-
-    """
+    """Import statement node."""
 
     name: Identifier
 

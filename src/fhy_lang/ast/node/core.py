@@ -1,4 +1,11 @@
-"""Core AST nodes for FhY language constructs."""
+"""Core AST nodes for the FhY language.
+
+Defines ``Module`` plus the abstract families ``Statement``,
+``Expression``, and ``Function``. The family-level data ``TypedDict``s
+and ``is_valid_*_data`` validators are public at the module level for
+sibling ``node`` modules to compose against. They are not re-exported
+from ``fhy_lang.ast``.
+"""
 
 __all__ = [
     "Expression",
@@ -59,7 +66,7 @@ def _is_valid_module_data(data: SerializedDict) -> TypeGuard[_ModuleData]:
 class Module(Node, HasIdentifierMixin):
     """FhY module AST node."""
 
-    name: Identifier = field(default=Identifier("module"))
+    name: Identifier = field(default_factory=lambda: Identifier("module"))
     statements: tuple["Statement", ...] = field(default_factory=tuple)
 
     def get_identifier(self) -> Identifier:
@@ -136,8 +143,8 @@ def is_valid_function_data(data: SerializedDict) -> TypeGuard[FunctionData]:
 class Function(Statement, HasIdentifierMixin, ABC):
     """Abstract FhY function node.
 
-    Used as a base for the function nodes such as procedures and operations.
-
+    Base class for the function-shaped statement nodes (procedures,
+    operations, natives).
     """
 
     name: Identifier

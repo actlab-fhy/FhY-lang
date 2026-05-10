@@ -4,12 +4,12 @@ import logging
 import re
 from collections import ChainMap
 from collections.abc import Sequence
-from typing import Any
 
 from antlr4 import ParserRuleContext  # type: ignore[import-untyped]
 from fhy_core import (
     CoreDataType,
     DataType,
+    FileProvenance,
     Identifier,
     IndexType,
     NumericalType,
@@ -18,7 +18,6 @@ from fhy_core import (
     Provenance,
     Span,
     TemplateDataType,
-    TupleType,
     Type,
     TypeQualifier,
     get_logger,
@@ -29,45 +28,36 @@ from fhy_core import (
 
 from fhy_lang import ast
 from fhy_lang.ast.passes import convert_ast_expression_to_core_expression
-from fhy_lang.builtins import BUILTIN_LANG_IDENTIFIERS
+from fhy_lang.builtins import BUILTIN_LANG_IDENTIFIERS, BUILTIN_TYPE_IDENTIFIERS
 from fhy_lang.parser import FhYParser, FhYVisitor
+from fhy_lang.types import TupleType
 
-from .error import FhYSyntaxError
+from .error import FhYInternalError, FhYSyntaxError
 
 _logger: logging.Logger = get_logger(__name__)
 
 
 def _get_source_info(
-    ctx: ParserRuleContext, parse_tree_provenance: Provenance, parent: bool = False
+    ctx: ParserRuleContext, parse_tree_provenance: Provenance
 ) -> Provenance:
-    start = ctx.start
-    stop = ctx.stop
-
-    if all((start, stop)):
-        if parse_tree_provenance.span is not None:
-            return parse_tree_provenance.with_span(
-                Span(
-                    file_path=parse_tree_provenance.span.file_path,
-                    start_position=Position(start.line, start.column + 1),
-                    end_position=Position(stop.line, stop.column + 1),
-                )
-            )
-        else:
-            return Provenance.unknown()
-    elif not parent and (parent_ctx := getattr(ctx, "parentCtx", None)) is not None:
-        return _get_source_info(parent_ctx, parse_tree_provenance, True)
-    else:
+    if not isinstance(parse_tree_provenance, FileProvenance):
         return Provenance.unknown()
 
+    current: ParserRuleContext | None = ctx
+    while current is not None:
+        start = current.start
+        stop = current.stop
+        if start is not None and stop is not None:
+            return FileProvenance(
+                parse_tree_provenance.file_path,
+                Span(
+                    start_position=Position(start.line, start.column + 1),
+                    end_position=Position(stop.line, stop.column + 1),
+                ),
+            )
+        current = getattr(current, "parentCtx", None)
 
-def _get_src_pos_msg(span: Span | None) -> str:
-    if span is None:
-        return ""
-    start = span.start_position
-    end = span.end_position
-    if start is None or end is None:
-        return ""
-    return f"Lines {start.line}:{start.column} - {end.line}:{end.column}"
+    return Provenance.unknown()
 
 
 def _initialize_builtin_identifiers() -> dict[str, Identifier]:
@@ -86,24 +76,19 @@ def _grab_identifier(name: str, scope: ChainMap[str, Identifier]) -> Identifier:
 
 
 def _initialize_builtin_types() -> dict[str, Identifier]:
-    return {t.value: Identifier(t.value) for t in CoreDataType}
+    return dict(BUILTIN_TYPE_IDENTIFIERS)
 
 
 class ParseTreeConverter(FhYVisitor):
-    """Constructs an AST representation from a FhY Concrete Syntax Tree Node Visitor.
+    """ANTLR visitor that lowers a FhY concrete syntax tree into the AST.
 
-    Args:
-        source (optional, Source): Define code module source path or namespace.
+    Uses a ChainMap to manage lexical scopes during conversion, ensuring that
+    identifier references within a scope resolve to a single shared Identifier
+    object rather than allocating fresh ones on every encounter.
 
-    Notes:
-        This class uses a visitor pattern to collect relevant information in the
-        construction of ASTNode(s), by visiting relevant children in the concrete syntax
-        tree. During Construction, we use a basic chainmap to primitively control basic
-        scoping contexts. In particular, the scope is used to determine whether a
-        variable has been previously declared before assigning an Identifier. Otherwise,
-        a variable would would be assigned multiple IDs every time we encounter it
-        (independent of scope).
-
+    Method names follow ANTLR's `visitX` convention (CamelCase prefix plus the
+    grammar rule name in snake_case); this is dictated by the generated visitor
+    base class and cannot be changed locally.
     """
 
     _parse_tree_provenance: Provenance
@@ -151,35 +136,21 @@ class ParseTreeConverter(FhYVisitor):
         self, ctx: FhYParser.Import_statementContext
     ) -> ast.Import:
         raise NotImplementedError("Import statements are not supported.")
-        # identifier_expression_ctx: FhYParser.Identifier_expressionContext = (
-        #     ctx.identifier_expression()
-        # )
-        # name_hint_components: list[str] = []
-        # for module_name in identifier_expression_ctx.IDENTIFIER():
-        #     name_hint_components.append(module_name.getText())
-        # name_hint: str = ".".join(name_hint_components)
-        # provenance: Provenance = self._get_provenance(ctx)
-
-        # return ast.Import(name=self._get_identifier(name_hint), provenance=provenance)
 
     def visitFunction_declaration(
         self, ctx: FhYParser.Function_declarationContext
-    ) -> Any:
-        # TODO: Implement
+    ) -> ast.Operation | ast.Procedure:
         provenance: Provenance = self._get_provenance(ctx)
-        text: str = _get_src_pos_msg(provenance.span)
+        text: str = str(provenance)
         raise NotImplementedError(f"Function Declarations are not supported. {text}")
 
     def visitFunction_definition(
         self, ctx: FhYParser.Function_definitionContext
     ) -> ast.Operation | ast.Procedure:
-        # TODO: consider getting function name here as the open scope needed to be moved
-        #       to function header so the function name is still in the parent scope
         (
             keyword,
             name,
             template,
-            _indices,
             args,
             return_type,
         ) = self.visitFunction_header(ctx.function_header())
@@ -193,7 +164,7 @@ class ParseTreeConverter(FhYVisitor):
         if keyword == "proc":
             if return_type is not None:
                 pos = self._get_provenance(ctx.function_header().qualified_type())
-                text: str = _get_src_pos_msg(pos.span)
+                text: str = str(pos)
                 raise FhYSyntaxError(f"Procedures do not have return types. {text}")
 
             return ast.Procedure(
@@ -207,7 +178,7 @@ class ParseTreeConverter(FhYVisitor):
         elif keyword == "op":
             if return_type is None:
                 provenance = self._get_provenance(ctx.function_header())
-                text = _get_src_pos_msg(provenance.span)
+                text = str(provenance)
                 raise FhYSyntaxError(
                     f"Operation Functions Require Return Types. {text}"
                 )
@@ -222,13 +193,9 @@ class ParseTreeConverter(FhYVisitor):
             )
 
         else:
-            # NOTE: Defined Function Keywords are required by Antlr to parse the source
-            #       code to meet the classification of "Function_definition". Meaning,
-            #       we have no way to reach this code. Out of an abundance of caution:
-            text = _get_src_pos_msg(provenance.span)
-            raise FhYSyntaxError(
-                f"Invalid Function Keyword Provided. {text}: {keyword}"
-            )
+            # Defensive guard: FUNCTION_KEYWORD is restricted to "proc" or "op".
+            text = str(provenance)
+            raise FhYInternalError(f"invalid function keyword '{keyword}' at {text}")
 
     def visitFunction_header(
         self, ctx: FhYParser.Function_headerContext
@@ -237,21 +204,20 @@ class ParseTreeConverter(FhYVisitor):
         Identifier,
         list[TemplateDataType],
         list[ast.Argument],
-        list[ast.Argument],
         ast.QualifiedType | None,
     ]:
         provenance: Provenance = self._get_provenance(ctx)
 
-        # NOTE: Predefined Function Keywords required for parsing Function.
+        # Defensive guard: ANTLR's grammar requires FUNCTION_KEYWORD here.
         if (kw_ctx := ctx.FUNCTION_KEYWORD()) is None:
-            text: str = _get_src_pos_msg(provenance.span)
-            raise FhYSyntaxError(f"Function Keyword Missing. {text}")
+            text: str = str(provenance)
+            raise FhYInternalError(f"function keyword missing at {text}")
         keyword: str = kw_ctx.getText()
 
-        # NOTE: This error is raised by Antlr during construction of CST.
+        # Defensive guard: ANTLR rejects unnamed function declarations during parsing.
         if (name_ctx := ctx.IDENTIFIER()) is None:
-            text = _get_src_pos_msg(provenance.span)
-            raise FhYSyntaxError(f"Function Name Missing. {text}")
+            text = str(provenance)
+            raise FhYInternalError(f"function name missing at {text}")
 
         name_hint: str = name_ctx.getText()
         name: Identifier = self._get_identifier(name_hint)
@@ -264,10 +230,9 @@ class ParseTreeConverter(FhYVisitor):
             initial = self.visitIdentifier_list(template_ctx)
             templates.extend(TemplateDataType(t) for t in initial)
 
-        # TODO: Implement Support for Function indices
-        indices: list[ast.Argument] = []
-        if (index_ctx := ctx.function_indices) is not None:
-            indices.extend(self.visitFunction_args(index_ctx))
+        if (index_ctx := ctx.function_indices) is not None and index_ctx.function_arg():
+            text = str(provenance)
+            raise NotImplementedError(f"Function indices are not supported. {text}")
 
         # Visit args after template types, to register potential types beforehand
         args_ctx: FhYParser.Function_argsContext = ctx.function_args(0)
@@ -277,7 +242,7 @@ class ParseTreeConverter(FhYVisitor):
         if (return_type_ctx := ctx.qualified_type()) is not None:
             return_type = self.visitQualified_type(return_type_ctx)
 
-        return keyword, name, templates, indices, args, return_type
+        return keyword, name, templates, args, return_type
 
     def visitFunction_args(
         self, ctx: FhYParser.Function_argsContext
@@ -296,7 +261,7 @@ class ParseTreeConverter(FhYVisitor):
         qualified_type: ast.QualifiedType
         qualified_type = self.visitQualified_type(ctx.qualified_type())
         if (_id := ctx.IDENTIFIER()) is None:
-            text = _get_src_pos_msg(provenance.span)
+            text = str(provenance)
             raise FhYSyntaxError(f"Function Argument Name not Provided. {text}")
 
         name_hint: str = _id.getText()
@@ -329,11 +294,10 @@ class ParseTreeConverter(FhYVisitor):
         qualified_type: ast.QualifiedType
         qualified_type = self.visitQualified_type(ctx.qualified_type())
 
-        # NOTE: This validation step is performed for type safety. A statement without
-        #       an Identifier would make a valid Expression Statement.
+        # Defensive guard: ANTLR routes unnamed declarations to expression_statement.
         if (_id := ctx.IDENTIFIER()) is None:
-            text: str = _get_src_pos_msg(provenance.span)
-            raise FhYSyntaxError(f"Variable Name not Declared. {text}")
+            text: str = str(provenance)
+            raise FhYInternalError(f"variable name missing in declaration at {text}")
 
         name_hint: str = _id.getText()
         name: Identifier = self._get_identifier(name_hint)
@@ -367,21 +331,6 @@ class ParseTreeConverter(FhYVisitor):
         self, ctx: FhYParser.Selection_statementContext
     ) -> ast.SelectionStatement:
         raise NotImplementedError("Selection statements are not supported.")
-        # provenance: Provenance = self._get_provenance(ctx)
-        # condition_ctx: FhYParser.ExpressionContext = ctx.expression()
-        # condition: ast.Expression = self.visitExpression(condition_ctx)
-
-        # true_body_ctx: FhYParser.ScopeContext = ctx.scope(0)
-        # true_body: list[ast.Statement] = self.visitScope(true_body_ctx)
-
-        # false_body: list[ast.Statement] = []
-        # if (false_body_ctx := ctx.scope(1)) is not None:
-        #     false_body = self.visitScope(false_body_ctx)
-
-        # return ast.SelectionStatement(
-        #     condition=condition, true_body=true_body, false_body=false_body,
-        #     provenance=provenance
-        # )
 
     def visitIteration_statement(
         self, ctx: FhYParser.Iteration_statementContext
@@ -504,8 +453,9 @@ class ParseTreeConverter(FhYVisitor):
             return primitive_expression
 
         else:
-            text = _get_src_pos_msg(provenance.span)
-            raise FhYSyntaxError(f"Invalid Primitive Expression. {text}")
+            # Defensive guard: ANTLR's expression rule covers every alternative above.
+            text = str(provenance)
+            raise FhYInternalError(f"unrecognized expression shape at {text}")
 
     def visitPrimitive_expression(
         self, ctx: FhYParser.Primitive_expressionContext
@@ -521,13 +471,12 @@ class ParseTreeConverter(FhYVisitor):
             if not index_text.startswith(".") or not re.search(
                 r"^\.[0-9][0-9_]*$", index_text
             ):
-                lines = _get_src_pos_msg(provenance.span)
+                lines = str(provenance)
                 raise FhYSyntaxError(f'Invalid Tuple Accessor "{index_text}": {lines}')
 
             return ast.TupleAccessExpression(
                 provenance=provenance,
                 tuple_expression=expression,
-                # TODO: Need to get the span of the element index.
                 element_index=ast.IntLiteral(
                     provenance=provenance, value=int(index_text[1:])
                 ),
@@ -587,8 +536,9 @@ class ParseTreeConverter(FhYVisitor):
             return atom_expression
 
         else:
-            text: str = _get_src_pos_msg(provenance.span)
-            raise FhYSyntaxError(f"Invalid Primitive Expression. {text}")
+            # Defensive guard: primitive_expression rule covers every alternative.
+            text: str = str(provenance)
+            raise FhYInternalError(f"unrecognized primitive expression shape at {text}")
 
     def visitAtom(
         self, ctx: FhYParser.AtomContext
@@ -599,11 +549,13 @@ class ParseTreeConverter(FhYVisitor):
         id_express: FhYParser.Identifier_expressionContext | None
 
         if (tup := ctx.tuple_()) is not None:
-            expressions: Sequence[ast.Expression] = self.visitExpression_list(tup)
+            expressions: tuple[ast.Expression, ...] = tuple(
+                self.visitExpression(e) for e in tup.expression()
+            )
 
             return ast.TupleExpression(
                 provenance=provenance,
-                expressions=expressions,  # type: ignore[arg-type]
+                expressions=expressions,
             )
 
         elif (literal := ctx.literal()) is not None:
@@ -613,8 +565,9 @@ class ParseTreeConverter(FhYVisitor):
             return self.visitIdentifier_expression(id_express)
 
         else:
-            text: str = _get_src_pos_msg(provenance.span)
-            raise NotImplementedError(f"Unsupported Atom Context. {text}")
+            # Defensive guard: atom rule is tuple | identifier_expression | literal.
+            text: str = str(provenance)
+            raise FhYInternalError(f"unrecognized atom context at {text}")
 
     def visitIdentifier_expression(
         self, ctx: FhYParser.Identifier_expressionContext
@@ -666,8 +619,9 @@ class ParseTreeConverter(FhYVisitor):
             return complex_literal
 
         else:
-            text = _get_src_pos_msg(provenance.span)
-            raise NotImplementedError(f"Unsupported Type Literal. {text}")
+            # Defensive guard: grammar's literal rule is INT | FLOAT | COMPLEX.
+            text = str(provenance)
+            raise FhYInternalError(f"unrecognized literal type at {text}")
 
     # =====================
     # TYPE VISITORS
@@ -677,13 +631,11 @@ class ParseTreeConverter(FhYVisitor):
     ) -> ast.QualifiedType:
         provenance: Provenance = self._get_provenance(ctx)
 
-        type_qualifier: TypeQualifier | None = None
-        if (type_qualifier_ctx := ctx.IDENTIFIER()) is not None:
-            type_qualifier = TypeQualifier(type_qualifier_ctx.getText())
-
-        else:
-            text: str = _get_src_pos_msg(provenance.span)
-            raise FhYSyntaxError(f"No Type Qualifier Provided. {text}")
+        if (type_qualifier_ctx := ctx.IDENTIFIER()) is None:
+            # Defensive guard: ANTLR requires a type qualifier on every qualified_type.
+            text: str = str(provenance)
+            raise FhYInternalError(f"type qualifier missing at {text}")
+        type_qualifier: TypeQualifier = TypeQualifier(type_qualifier_ctx.getText())
 
         base_type = self.visitType(ctx.type_())
 
@@ -708,17 +660,14 @@ class ParseTreeConverter(FhYVisitor):
 
     def visitDtype(self, ctx: FhYParser.DtypeContext) -> DataType:
         text: str = ctx.IDENTIFIER().getText()
-        # res: list[Expressions] = []
         if ctx.expression_list() is not None:
-            # res = list(self.visitExpression_list(ctx.expression_list()))
             raise NotImplementedError(
                 "Template types with custom parameters are not yet supported."
             )
 
         try:
             return PrimitiveDataType(CoreDataType(text))
-
-        except (KeyError, ValueError):
+        except ValueError:
             return TemplateDataType(self._get_identifier(text))
 
     def visitDtype_list(self, ctx: FhYParser.Dtype_listContext) -> list[DataType]:
@@ -775,9 +724,11 @@ def from_parse_tree(
         The AST module.
 
     Raises:
-        NotImplementedError: Attempted use of unsupported features of FhY language.
         FhYSyntaxError: Syntax error(s) found in FhY source code.
-        FhYASTBuildError: AST failed to build from CST. Exact reason unknown.
+        NotImplementedError: Attempted use of unsupported features of FhY language.
+        FhYInternalError: A converter defensive guard was reached that the
+            grammar should have prevented; indicates a converter or grammar
+            bug rather than user error.
 
     """
     converter = ParseTreeConverter(provenance)

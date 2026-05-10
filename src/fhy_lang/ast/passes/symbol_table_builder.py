@@ -22,6 +22,7 @@ from fhy_core import (
     SymbolTableFrame,
     Type,
     TypeQualifier,
+    UnknownProvenance,
     VariableSymbolTableFrame,
     get_logger,
     register_error,
@@ -41,20 +42,16 @@ from fhy_lang.ast.node import (
     Operation,
     Procedure,
 )
+from fhy_lang.ast.shape import narrow_shape
 from fhy_lang.builtins import BUILTIN_LANG_IDENTIFIERS, BUILTINS_NAMESPACE_NAME
 
 _logger: logging.Logger = get_logger(__name__)
 
 
 def _format_provenance_location(provenance: Provenance | None) -> str | None:
-    if provenance is None:
+    if provenance is None or isinstance(provenance, UnknownProvenance):
         return None
-    elif provenance.span is not None:
-        return str(provenance.span)
-    elif provenance.origins:
-        return str(provenance.origins[0])
-    else:
-        return None
+    return str(provenance)
 
 
 @register_error
@@ -211,7 +208,7 @@ class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
 
     def _add_implicit_shape_parameters(self, numerical_type: NumericalType) -> None:
         shape_dimension_identifiers: set[Identifier] = set()
-        for shape in numerical_type.shape:
+        for shape in narrow_shape(numerical_type.shape):
             shape_dimension_identifiers.update(collect_core_identifiers(shape))
 
         for dimension in shape_dimension_identifiers:

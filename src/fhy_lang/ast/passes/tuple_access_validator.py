@@ -10,7 +10,6 @@ from fhy_core import (
     DiagnosticLevel,
     SymbolTableError,
     SymbolTableFrame,
-    TupleType,
     VariableSymbolTableFrame,
     get_logger,
     register_pass,
@@ -23,6 +22,7 @@ from fhy_lang.ast.node import (
     TupleAccessExpression,
     TupleExpression,
 )
+from fhy_lang.types import TupleType
 
 from .analysis_pass_with_symbol_table import AnalysisPassWithSymbolTable
 from .utils import format_diagnostic_message

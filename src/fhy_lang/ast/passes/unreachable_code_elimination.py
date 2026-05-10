@@ -2,7 +2,7 @@
 
 Removes statements that the control flow graph proves cannot be reached.
 Concretely this covers statements following a :class:`ReturnStatement`
-in a function body — including trailing statements inside a branch of a
+in a function body, including trailing statements inside a branch of a
 ``SelectionStatement`` whose both branches unconditionally return, and
 statements following a ``forall`` whose body unconditionally returns.
 

@@ -1,5 +1,25 @@
-"""Expression nodes for the expressions in the FhY language."""
+"""Expression nodes for the FhY language.
 
+Concrete expression nodes:
+
+- ``UnaryExpression``, ``BinaryExpression``, ``TernaryExpression``
+- ``ArrayAccessExpression``, ``TupleAccessExpression``, ``TupleExpression``
+- ``FunctionExpression``
+- ``IdentifierExpression``
+- Literals: ``IntLiteral``, ``FloatLiteral``, ``ComplexLiteral``
+
+Each concrete class implements the four ``Node`` contracts: structural
+equivalence (id-based for ``Identifier``-typed fields, see ``Node``),
+wrapped serialization round-trip, ``get_visit_children`` for the AST
+visitor, and ``HasOperandsMixin.get_operands`` where applicable.
+
+Templates and ``DataType`` parameters of ``FunctionExpression`` are
+excluded from ``get_visit_children``. They participate in structural
+equivalence but are not part of the AST visitor walk. Passes that need
+to traverse template parameters must access ``template_types`` directly.
+"""
+
+import math
 from abc import ABC
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -18,7 +38,7 @@ from fhy_core import (
     register_serializable,
 )
 
-from .base import deserialize_node_provenance, is_valid_node_data
+from .base import deserialize_node_provenance
 from .core import Expression, ExpressionData, is_valid_expression_data
 
 
@@ -92,13 +112,14 @@ class UnaryExpression(Expression, HasOperandsMixin[Expression]):
             raise DeserializationDictStructureError(
                 cls, _UnaryExpressionData.__annotations__, data
             )
-        operation = data["operation"]
-        if operation not in UnaryOperation._value2member_map_:
+        try:
+            operation = UnaryOperation(data["operation"])
+        except ValueError as exc:
             raise DeserializationValueError(
-                cls, "operation", "a valid unary operation", operation
-            )
+                cls, "operation", "a valid unary operation", data["operation"]
+            ) from exc
         return cls(
-            operation=UnaryOperation(operation),
+            operation=operation,
             expression=Expression.deserialize_from_dict(data["expression"]),
             provenance=deserialize_node_provenance(data),
         )
@@ -175,7 +196,7 @@ def _is_valid_binary_expression_data(
         and is_serialized_dict(data["left"])
         and "right" in data
         and is_serialized_dict(data["right"])
-        and is_valid_node_data(data)
+        and is_valid_expression_data(data)
     )
 
 
@@ -216,13 +237,14 @@ class BinaryExpression(Expression, HasOperandsMixin[Expression]):
             raise DeserializationDictStructureError(
                 cls, _BinaryExpressionData.__annotations__, data
             )
-        operation = data["operation"]
-        if operation not in BinaryOperation._value2member_map_:
+        try:
+            operation = BinaryOperation(data["operation"])
+        except ValueError as exc:
             raise DeserializationValueError(
-                cls, "operation", "a valid binary operation", operation
-            )
+                cls, "operation", "a valid binary operation", data["operation"]
+            ) from exc
         return cls(
-            operation=BinaryOperation(operation),
+            operation=operation,
             left=Expression.deserialize_from_dict(data["left"]),
             right=Expression.deserialize_from_dict(data["right"]),
             provenance=deserialize_node_provenance(data),
@@ -318,11 +340,8 @@ class TupleAccessExpression(Expression, HasOperandsMixin[Expression]):
     tuple_expression: Expression
     element_index: "IntLiteral"
 
-    def get_operands(self) -> tuple[Expression, Expression]:
-        return (
-            self.tuple_expression,
-            self.element_index,
-        )
+    def get_operands(self) -> tuple[Expression, "IntLiteral"]:
+        return (self.tuple_expression, self.element_index)
 
     def get_visit_children(self) -> Sequence[Visitable]:
         return (self.tuple_expression, self.element_index)
@@ -338,11 +357,7 @@ class TupleAccessExpression(Expression, HasOperandsMixin[Expression]):
     def serialize_data_to_dict(self) -> SerializedDict:
         data = super().serialize_data_to_dict()
         data["tuple_expression"] = self.tuple_expression.serialize_to_dict()
-        data["element_index"] = (
-            self.element_index.serialize_to_dict()
-            if self.element_index is not None
-            else None
-        )
+        data["element_index"] = self.element_index.serialize_to_dict()
         return data
 
     @classmethod
@@ -645,7 +660,6 @@ def _is_valid_literal_data(data: SerializedDict) -> TypeGuard[_LiteralData]:
     return is_valid_expression_data(data)
 
 
-@dataclass(frozen=True, kw_only=True)
 class Literal(Expression, ABC):
     """Abstract expression node to define concrete values."""
 
@@ -697,7 +711,8 @@ class _FloatLiteralData(_LiteralData):
 def _is_valid_float_literal_data(data: SerializedDict) -> TypeGuard[_FloatLiteralData]:
     return (
         "value" in data
-        and isinstance(data["value"], float)
+        and isinstance(data["value"], (int, float))
+        and not isinstance(data["value"], bool)
         and _is_valid_literal_data(data)
     )
 
@@ -708,6 +723,10 @@ class FloatLiteral(Literal):
     """FhY floating point literal AST node."""
 
     value: float
+
+    def __post_init__(self) -> None:
+        if not math.isfinite(self.value):
+            raise ValueError(f"FloatLiteral.value must be finite; got {self.value!r}.")
 
     def is_structurally_equivalent(self, other: object) -> bool:
         return (
@@ -727,7 +746,15 @@ class FloatLiteral(Literal):
             raise DeserializationDictStructureError(
                 cls, _FloatLiteralData.__annotations__, data
             )
-        return cls(value=data["value"], provenance=deserialize_node_provenance(data))
+        try:
+            return cls(
+                value=float(data["value"]),
+                provenance=deserialize_node_provenance(data),
+            )
+        except (ValueError, OverflowError) as exc:
+            raise DeserializationValueError(
+                cls, "value", "a finite float", data["value"]
+            ) from exc
 
 
 class _ComplexLiteralData(_LiteralData):
@@ -740,9 +767,11 @@ def _is_valid_complex_literal_data(
 ) -> TypeGuard[_ComplexLiteralData]:
     return (
         "real" in data
-        and isinstance(data["real"], float)
+        and isinstance(data["real"], (int, float))
+        and not isinstance(data["real"], bool)
         and "imag" in data
-        and isinstance(data["imag"], float)
+        and isinstance(data["imag"], (int, float))
+        and not isinstance(data["imag"], bool)
         and _is_valid_literal_data(data)
     )
 
@@ -753,6 +782,13 @@ class ComplexLiteral(Literal):
     """FhY complex literal AST node."""
 
     value: complex
+
+    def __post_init__(self) -> None:
+        if not (math.isfinite(self.value.real) and math.isfinite(self.value.imag)):
+            raise ValueError(
+                f"ComplexLiteral.value must have finite real and imaginary "
+                f"components; got {self.value!r}."
+            )
 
     def is_structurally_equivalent(self, other: object) -> bool:
         return (
@@ -773,7 +809,15 @@ class ComplexLiteral(Literal):
             raise DeserializationDictStructureError(
                 cls, _ComplexLiteralData.__annotations__, data
             )
-        return cls(
-            value=complex(data["real"], data["imag"]),
-            provenance=deserialize_node_provenance(data),
-        )
+        try:
+            return cls(
+                value=complex(float(data["real"]), float(data["imag"])),
+                provenance=deserialize_node_provenance(data),
+            )
+        except (ValueError, OverflowError) as exc:
+            raise DeserializationValueError(
+                cls,
+                "real/imag",
+                "finite floats",
+                (data["real"], data["imag"]),
+            ) from exc
