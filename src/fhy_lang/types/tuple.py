@@ -1,21 +1,11 @@
-"""Algorithm-IR types owned by FhY-lang.
+"""Heterogeneous fixed-arity product type for the algorithm IR.
 
-The :class:`TupleType` class and its dispatcher handlers live here rather than
-in :mod:`fhy_core` because tuples are an algorithm-IR-only concept: the
-algorithm-to-capability lowering pass decomposes them, and capability and
-hardware IRs never see a :class:`TupleType`. ``fhy_core`` ships only the
-universal type vocabulary; layer-specific types register against its
-dispatchers from the consuming package.
-
-Importing this module has the side effect of registering handlers on
-:func:`fhy_core.is_structurally_equivalent`, :func:`fhy_core.bind_template`,
-:func:`fhy_core.substitute_template`, and :func:`fhy_core.unify` for
-:class:`TupleType` arguments.
+Defines :class:`TupleType` and registers the four dispatcher handlers that
+plug it into ``fhy_core``'s open type-system dispatchers. Importing this
+module installs the handlers as a side effect of class registration.
 """
 
-__all__ = [
-    "TupleType",
-]
+__all__ = ["TupleType"]
 
 from collections.abc import Sequence
 from typing import TypedDict, TypeGuard
@@ -52,10 +42,8 @@ def _is_valid_tuple_type_data(data: SerializedDict) -> TypeGuard[_TupleTypeData]
 class TupleType(Type):
     """Heterogeneous fixed-arity product type.
 
-    Models DSL constructs like ``(a, b) = svd(matrix)`` where a single
-    operation produces multiple typed results bundled together. Eliminated by
-    the algorithm-to-capability lowering pass; capability and hardware IRs
-    never see this type.
+    Models FhY constructs where a single operation produces multiple typed
+    results bundled together.
     """
 
     _types: tuple[Type, ...]
@@ -81,7 +69,7 @@ class TupleType(Type):
         return cls([Type.deserialize_from_dict(ty_dict) for ty_dict in data["types"]])
 
     def __str__(self) -> str:
-        return f"({format_comma_separated_list(self._types)})"
+        return f"({format_comma_separated_list(self._types, str_func=str)})"
 
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._types!r})"
