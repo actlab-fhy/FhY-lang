@@ -1,7 +1,11 @@
 """Built-in identifiers for FhY reductions."""
 
-from fhy_core import Identifier
+import logging
+
+from fhy_core import Identifier, get_logger
 from frozendict import frozendict
+
+_logger: logging.Logger = get_logger(__name__)
 
 BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS: frozendict[str, Identifier] = frozendict(
     {
@@ -10,4 +14,10 @@ BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS: frozendict[str, Identifier] = frozendict
         "min": Identifier("min"),
         "max": Identifier("max"),
     }
+)
+
+_logger.debug(
+    "Registered FhY built-in reductions: %d [%s].",
+    len(BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS),
+    ", ".join(sorted(BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS)),
 )
