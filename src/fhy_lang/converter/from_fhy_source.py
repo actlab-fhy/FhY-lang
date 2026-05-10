@@ -205,6 +205,9 @@ def from_fhy_source(
         NotImplementedError: Source uses a feature that is not yet supported
             (imports, selection statements, function declarations, function
             indices, dtype template parameters).
+        FhYInternalError: A converter defensive guard was reached that the
+            grammar should have prevented; indicates a converter or grammar
+            bug rather than user error.
 
     """
     _logger.debug("Lexing and parsing FhY source (%d chars).", len(fhy_source_content))

@@ -195,9 +195,7 @@ class ParseTreeConverter(FhYVisitor):
         else:
             # Defensive guard: FUNCTION_KEYWORD is restricted to "proc" or "op".
             text = str(provenance)
-            raise FhYInternalError(
-                f"Invalid Function Keyword Provided. {text}: {keyword}"
-            )
+            raise FhYInternalError(f"invalid function keyword '{keyword}' at {text}")
 
     def visitFunction_header(
         self, ctx: FhYParser.Function_headerContext
@@ -213,13 +211,13 @@ class ParseTreeConverter(FhYVisitor):
         # Defensive guard: ANTLR's grammar requires FUNCTION_KEYWORD here.
         if (kw_ctx := ctx.FUNCTION_KEYWORD()) is None:
             text: str = str(provenance)
-            raise FhYInternalError(f"Function Keyword Missing. {text}")
+            raise FhYInternalError(f"function keyword missing at {text}")
         keyword: str = kw_ctx.getText()
 
         # Defensive guard: ANTLR rejects unnamed function declarations during parsing.
         if (name_ctx := ctx.IDENTIFIER()) is None:
             text = str(provenance)
-            raise FhYInternalError(f"Function Name Missing. {text}")
+            raise FhYInternalError(f"function name missing at {text}")
 
         name_hint: str = name_ctx.getText()
         name: Identifier = self._get_identifier(name_hint)
@@ -299,7 +297,7 @@ class ParseTreeConverter(FhYVisitor):
         # Defensive guard: ANTLR routes unnamed declarations to expression_statement.
         if (_id := ctx.IDENTIFIER()) is None:
             text: str = str(provenance)
-            raise FhYInternalError(f"Variable Name not Declared. {text}")
+            raise FhYInternalError(f"variable name missing in declaration at {text}")
 
         name_hint: str = _id.getText()
         name: Identifier = self._get_identifier(name_hint)
@@ -457,7 +455,7 @@ class ParseTreeConverter(FhYVisitor):
         else:
             # Defensive guard: ANTLR's expression rule covers every alternative above.
             text = str(provenance)
-            raise FhYInternalError(f"Invalid Primitive Expression. {text}")
+            raise FhYInternalError(f"unrecognized expression shape at {text}")
 
     def visitPrimitive_expression(
         self, ctx: FhYParser.Primitive_expressionContext
@@ -540,7 +538,7 @@ class ParseTreeConverter(FhYVisitor):
         else:
             # Defensive guard: primitive_expression rule covers every alternative.
             text: str = str(provenance)
-            raise FhYInternalError(f"Invalid Primitive Expression. {text}")
+            raise FhYInternalError(f"unrecognized primitive expression shape at {text}")
 
     def visitAtom(
         self, ctx: FhYParser.AtomContext
@@ -569,7 +567,7 @@ class ParseTreeConverter(FhYVisitor):
         else:
             # Defensive guard: atom rule is tuple | identifier_expression | literal.
             text: str = str(provenance)
-            raise FhYInternalError(f"Unsupported Atom Context. {text}")
+            raise FhYInternalError(f"unrecognized atom context at {text}")
 
     def visitIdentifier_expression(
         self, ctx: FhYParser.Identifier_expressionContext
@@ -623,7 +621,7 @@ class ParseTreeConverter(FhYVisitor):
         else:
             # Defensive guard: grammar's literal rule is INT | FLOAT | COMPLEX.
             text = str(provenance)
-            raise FhYInternalError(f"Unsupported Type Literal. {text}")
+            raise FhYInternalError(f"unrecognized literal type at {text}")
 
     # =====================
     # TYPE VISITORS
@@ -636,7 +634,7 @@ class ParseTreeConverter(FhYVisitor):
         if (type_qualifier_ctx := ctx.IDENTIFIER()) is None:
             # Defensive guard: ANTLR requires a type qualifier on every qualified_type.
             text: str = str(provenance)
-            raise FhYInternalError(f"No Type Qualifier Provided. {text}")
+            raise FhYInternalError(f"type qualifier missing at {text}")
         type_qualifier: TypeQualifier = TypeQualifier(type_qualifier_ctx.getText())
 
         base_type = self.visitType(ctx.type_())
@@ -726,9 +724,11 @@ def from_parse_tree(
         The AST module.
 
     Raises:
-        NotImplementedError: Attempted use of unsupported features of FhY language.
         FhYSyntaxError: Syntax error(s) found in FhY source code.
-        FhYASTBuildError: AST failed to build from CST. Exact reason unknown.
+        NotImplementedError: Attempted use of unsupported features of FhY language.
+        FhYInternalError: A converter defensive guard was reached that the
+            grammar should have prevented; indicates a converter or grammar
+            bug rather than user error.
 
     """
     converter = ParseTreeConverter(provenance)
