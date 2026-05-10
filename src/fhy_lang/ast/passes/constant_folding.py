@@ -31,7 +31,6 @@ from fhy_core import (
     IndexType,
     NumericalType,
     Provenance,
-    TupleType,
     Type,
     get_logger,
     register_pass,
@@ -51,6 +50,7 @@ from fhy_lang.ast.node import (
     UnaryExpression,
     UnaryOperation,
 )
+from fhy_lang.types import TupleType
 
 from .transformer import Transformer
 

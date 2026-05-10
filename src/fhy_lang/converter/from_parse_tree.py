@@ -18,7 +18,6 @@ from fhy_core import (
     Provenance,
     Span,
     TemplateDataType,
-    TupleType,
     Type,
     TypeQualifier,
     get_logger,
@@ -31,6 +30,7 @@ from fhy_lang import ast
 from fhy_lang.ast.passes import convert_ast_expression_to_core_expression
 from fhy_lang.builtins import BUILTIN_LANG_IDENTIFIERS
 from fhy_lang.parser import FhYParser, FhYVisitor
+from fhy_lang.types import TupleType
 
 from .error import FhYSyntaxError
 

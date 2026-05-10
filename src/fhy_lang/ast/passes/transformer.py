@@ -13,7 +13,6 @@ from fhy_core import (
     PrimitiveDataType,
     Stack,
     TemplateDataType,
-    TupleType,
     Type,
     TypeQualifier,
     VisitablePass,
@@ -47,6 +46,7 @@ from fhy_lang.ast.node import (
     UnaryExpression,
 )
 from fhy_lang.builtins import BUILTINS_NAMESPACE_NAME
+from fhy_lang.types import TupleType
 
 Statements = Statement | list[Statement]
 _T = TypeVar("_T", bound=Node)

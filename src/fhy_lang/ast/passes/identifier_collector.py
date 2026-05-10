@@ -10,7 +10,6 @@ from fhy_core import (
     NumericalType,
     PrimitiveDataType,
     TemplateDataType,
-    TupleType,
     Type,
     register_pass,
 )
@@ -27,6 +26,7 @@ from fhy_lang.ast.node import (
     Procedure,
     QualifiedType,
 )
+from fhy_lang.types import TupleType
 
 
 def _collect_identifiers_from_numerical_type(

@@ -36,5 +36,5 @@ repos:
         additional_dependencies:
           - frozendict
           - networkx
-          - fhy-core>=0.1.1
+          - fhy-core>=0.1.2
           - pytest

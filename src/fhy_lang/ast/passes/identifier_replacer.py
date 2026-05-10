@@ -7,13 +7,13 @@ from fhy_core import (
     IndexType,
     NumericalType,
     TemplateDataType,
-    TupleType,
     Type,
     register_pass,
 )
 from fhy_core import replace_identifiers as replace_core_identifiers
 
 from fhy_lang.ast.node import Node
+from fhy_lang.types import TupleType
 
 from .transformer import Transformer
 

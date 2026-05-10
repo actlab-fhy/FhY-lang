@@ -12,7 +12,6 @@ from fhy_core import (
     NumericalType,
     PrimitiveDataType,
     TemplateDataType,
-    TupleType,
     Type,
     VisitablePass,
     pformat_expression,
@@ -21,6 +20,7 @@ from fhy_core import (
 
 from fhy_lang import ast
 from fhy_lang.ast.node import Node
+from fhy_lang.types import TupleType
 
 
 @register_pass(
