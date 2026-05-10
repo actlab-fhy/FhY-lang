@@ -6,11 +6,11 @@ from fhy_core import (
     Identifier,
     NumericalType,
     PrimitiveDataType,
-    TupleType,
     TypeQualifier,
     ValidationFailedError,
 )
 
+from fhy_lang import TupleType
 from fhy_lang.ast import (
     DeclarationStatement,
     ExpressionStatement,

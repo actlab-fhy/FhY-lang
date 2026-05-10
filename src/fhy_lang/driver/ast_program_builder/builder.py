@@ -3,8 +3,8 @@
 import logging
 
 from fhy_core import (
+    FileProvenance,
     Position,
-    Provenance,
     Span,
     get_logger,
 )
@@ -41,17 +41,19 @@ class _ASTProgramBuilder:
         )
         if len(lines) == 0:
             _logger.warning("Source file %s is empty.", self._workspace.source_file)
-            span = Span(file_path=self._workspace.source_file)
+            span: Span | None = None
         else:
             span = Span(
-                file_path=self._workspace.source_file,
                 start_position=Position(line=1, column=1),
                 end_position=Position(
                     line=len(lines),
                     column=len(lines[-1]),
                 ),
             )
-        return from_fhy_source(source_text, Provenance(span=span))
+        return from_fhy_source(
+            source_text,
+            FileProvenance(self._workspace.source_file, span),
+        )
 
 
 def build_ast_program(workspace: Workspace, options: CompilationOptions) -> ASTModule:

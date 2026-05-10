@@ -31,7 +31,6 @@ from fhy_core import (
     IndexType,
     NumericalType,
     Provenance,
-    TupleType,
     Type,
     get_logger,
     register_pass,
@@ -51,6 +50,8 @@ from fhy_lang.ast.node import (
     UnaryExpression,
     UnaryOperation,
 )
+from fhy_lang.ast.shape import narrow_shape
+from fhy_lang.types import TupleType
 
 from .transformer import Transformer
 
@@ -408,7 +409,7 @@ class ConstantFoldingPass(Transformer):
             return type_node
 
     def _simplify_numerical_type(self, type_node: NumericalType) -> NumericalType:
-        original_shape = tuple(type_node.shape)
+        original_shape = tuple(narrow_shape(type_node.shape))
         simplified_shape = tuple(simplify_expression(dim) for dim in original_shape)
         if _core_expression_tuples_equal(original_shape, simplified_shape):
             return type_node

@@ -45,6 +45,7 @@ from fhy_lang.ast.node import (
     Expression,
     IdentifierExpression,
 )
+from fhy_lang.ast.shape import narrow_shape
 
 from .analysis_pass_with_symbol_table import AnalysisPassWithSymbolTable
 from .ast_to_core_expression_converter import (
@@ -129,7 +130,7 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
         ):
             self._report_non_vector_access(node, array_name, frame)
             return
-        shape = frame.type.shape
+        shape = narrow_shape(frame.type.shape)
         if len(node.indices) != len(shape):
             self._report_rank_mismatch(node, array_name, shape)
             return

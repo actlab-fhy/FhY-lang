@@ -15,7 +15,6 @@ from fhy_core import (
     PrimitiveDataType,
     Stack,
     TemplateDataType,
-    TupleType,
     Type,
     TypeQualifier,
     VisitablePass,
@@ -33,7 +32,7 @@ from fhy_core import (
     UnaryExpression as CoreUnaryExpression,
 )
 
-from fhy_lang import FhYSyntaxError
+from fhy_lang import FhYSyntaxError, TupleType
 from fhy_lang.ast import node as ast_node
 from fhy_lang.ast.passes import collect_identifiers
 from fhy_lang.ast.pprint import pformat_ast
