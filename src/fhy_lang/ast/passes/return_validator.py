@@ -4,7 +4,7 @@ Two rules, symmetric across FhY's two function kinds:
 
 - An :class:`Operation` returns a value. Every control-flow path through
   its body must reach a :class:`ReturnStatement`. This is stronger than
-  "the body contains a return somewhere" — an operation whose ``return``
+  "the body contains a return somewhere": an operation whose ``return``
   lives only inside one branch of a selection (or whose return is
   unreachable after an earlier fall-through) is ill-formed.
 
@@ -62,7 +62,7 @@ class ReturnValidator(AnalysisVisitablePass[Node]):
     a :class:`ReturnStatement` is reported as an error, with the return
     statement's own provenance. This relies on the CFG: unreachable
     returns (e.g. dead code after an earlier return) are not emitted
-    into the CFG and therefore not reported here — they're the
+    into the CFG and therefore not reported here; they are the
     responsibility of a separate unreachable-statement check.
 
     """

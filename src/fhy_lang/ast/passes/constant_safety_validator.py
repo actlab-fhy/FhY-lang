@@ -2,7 +2,7 @@
 
 Currently flags division, floor-division, and modulo operations whose
 right-hand operand reduces to a compile-time literal zero. The check is
-purely structural — it does not constant-fold arbitrary expressions, only
+purely structural: it does not constant-fold arbitrary expressions, only
 recognizes literal zero, negated literal zero, and nested negations of
 literal zero. More precise reasoning belongs to a future constant-folding
 optimization pass.

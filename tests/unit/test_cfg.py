@@ -115,7 +115,7 @@ def test_for_all_statement_has_loop_back_and_loop_exit_edges(int32):
     # The body's tail closes the loop with a LOOP_BACK edge to the header
     # and leaves the loop with a LOOP_EXIT edge. FhY forall is assumed to
     # execute at least once, so the LOOP_EXIT edge originates at the body
-    # tail rather than the header — this keeps the body's must-definitions
+    # tail rather than the header; this keeps the body's must-definitions
     # flowing to whatever follows the loop.
     incoming_kinds = {kind for _, kind in cfg.get_incoming_edges(header)}
     assert CFGEdgeKind.LOOP_BACK in incoming_kinds
@@ -160,7 +160,7 @@ def test_return_statement_terminates_control_flow(int32):
 
     # The unreachable statement following `return` should not be in the CFG.
     statement_nodes = [n for n in cfg.nodes if n.kind == CFGNodeKind.STATEMENT]
-    # decl, assign, return — 3 statement nodes; the 4th (unreachable) is skipped.
+    # decl, assign, return: 3 statement nodes; the 4th (unreachable) is skipped.
     assert len(statement_nodes) == 3
 
 

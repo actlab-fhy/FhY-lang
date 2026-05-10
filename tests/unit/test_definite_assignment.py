@@ -236,7 +236,7 @@ def test_procedure_call_with_output_arg_assigns_through(int32):
             make_argument(b, TypeQualifier.OUTPUT, int32),
         ),
         body=(
-            # `write_y(a, b);` — bare procedure call writes to its OUTPUT
+            # `write_y(a, b);`: bare procedure call writes to its OUTPUT
             # argument `b`, so `b` becomes definitely assigned afterwards.
             ExpressionStatement(
                 left=None,
@@ -253,7 +253,7 @@ def test_procedure_call_with_output_arg_assigns_through(int32):
     program_ast = Module(statements=(callee, caller))
     symbol_table = build_symbol_table(program_ast)
 
-    # Should not raise — b is written by the procedure call.
+    # Should not raise: b is written by the procedure call.
     run_validator(DefiniteAssignmentValidator(symbol_table), program_ast)
 
 

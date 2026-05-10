@@ -148,7 +148,7 @@ class _CFGBuilder:
             # FhY forall is bounded and assumed to execute at least once, so
             # the LOOP_EXIT edge leaving the loop originates at the body
             # tail rather than the header. This preserves the body's
-            # must-definitions on the path out of the loop — a header-sourced
+            # must-definitions on the path out of the loop; a header-sourced
             # LOOP_EXIT would model a zero-trip path that FhY's semantics
             # forbid and would render definite-assignment unsound for
             # writes inside the body.
