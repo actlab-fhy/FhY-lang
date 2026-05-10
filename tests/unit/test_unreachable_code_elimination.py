@@ -107,7 +107,7 @@ def test_removes_unreachable_tail_only_inside_returning_branch(int32):
         condition=_make_identifier_expr(c),
         true_body=(
             ReturnStatement(expression=_make_identifier_expr(a)),
-            true_unreachable,  # unreachable — after the return
+            true_unreachable,  # unreachable: after the return
         ),
         false_body=(make_identifier_assignment(r, a),),
     )
@@ -153,7 +153,7 @@ def test_removes_statements_after_selection_when_both_branches_return(int32):
         ),
         body=(
             selection,
-            # unreachable — both branches of the selection return
+            # unreachable: both branches of the selection return
             make_identifier_assignment(Identifier("z"), a),
         ),
         return_type_base=int32,

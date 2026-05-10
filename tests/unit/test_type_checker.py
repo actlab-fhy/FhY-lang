@@ -1153,7 +1153,7 @@ def test_fails_on_int_literal_overflowing_declared_type():
 
 
 def test_valid_int_literal_fits_declared_type_via_promotion():
-    """Test `int32 t = 5;` validates — literal 5 fits uint8 and promotes to int32."""
+    """Test `int32 t = 5;` validates: literal 5 fits uint8 and promotes to int32."""
     op = Identifier("f")
     a, t = Identifier("a"), Identifier("t")
 
@@ -1377,6 +1377,6 @@ def test_valid_call_site_literal_shape_match_with_promotion():
     program_ast = Module(statements=(callee, caller))
     symbol_table = build_symbol_table(program_ast)
 
-    # Should not raise — arg data type int32 promotes to the declared
+    # Should not raise: arg data type int32 promotes to the declared
     # int64 parameter type; shapes match on literal 3 == 3.
     run_validator(TypeChecker(symbol_table), program_ast)
