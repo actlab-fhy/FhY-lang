@@ -82,6 +82,7 @@ from fhy_lang.ast.node import (
     SelectionStatement,
     Statement,
 )
+from fhy_lang.ast.shape import narrow_shape
 
 from .ast_to_core_expression_converter import (
     convert_ast_expression_to_core_expression,
@@ -517,7 +518,7 @@ class _ArrayCoverageAnalysis:
         self._symbol_table = symbol_table
         self._argument = argument
         self._target = argument.name
-        self._shape = base_type.shape
+        self._shape = narrow_shape(base_type.shape)
         self._points = self._make_fresh_points(argument.name, len(base_type.shape))
 
     def run(self) -> _ArrayCoverageResult:

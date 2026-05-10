@@ -20,6 +20,7 @@ from fhy_core import (
 
 from fhy_lang import ast
 from fhy_lang.ast.node import Node
+from fhy_lang.ast.shape import narrow_shape
 from fhy_lang.types import TupleType
 
 
@@ -261,7 +262,7 @@ class ASTPrettyFormatter(VisitablePass[Node, str]):
         else:
             shape = ", ".join(
                 pformat_expression(dim, show_id=self._show_id)
-                for dim in numerical_type.shape
+                for dim in narrow_shape(numerical_type.shape)
             )
             shape = f"[{shape}]"
 

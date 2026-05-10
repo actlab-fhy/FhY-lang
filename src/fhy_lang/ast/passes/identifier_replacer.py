@@ -13,6 +13,7 @@ from fhy_core import (
 from fhy_core import replace_identifiers as replace_core_identifiers
 
 from fhy_lang.ast.node import Node
+from fhy_lang.ast.shape import narrow_shape
 from fhy_lang.types import TupleType
 
 from .transformer import Transformer
@@ -33,7 +34,7 @@ class _IdentifierReplacer(Transformer):
             self.visit_data_type(node.data_type),
             shape=[
                 replace_core_identifiers(dimension, self._identifier_map)
-                for dimension in node.shape
+                for dimension in narrow_shape(node.shape)
             ],
         )
 

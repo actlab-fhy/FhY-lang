@@ -19,18 +19,13 @@ __all__ = [
     "format_location_prefix",
 ]
 
-from fhy_core import Provenance
+from fhy_core import Provenance, UnknownProvenance
 
 
 def _format_location(provenance: Provenance | None) -> str | None:
-    if provenance is None:
+    if provenance is None or isinstance(provenance, UnknownProvenance):
         return None
-    elif provenance.span is not None:
-        return str(provenance.span)
-    elif provenance.origins:
-        return str(provenance.origins[0])
-    else:
-        return None
+    return str(provenance)
 
 
 def format_diagnostic_message(
@@ -61,12 +56,13 @@ def format_diagnostic_message(
 
 
 def format_location_prefix(provenance: Provenance | None) -> str:
-    """Return ``"<span>: "`` when a span is known and ``""`` otherwise.
+    """Return ``"<provenance>: "`` when one is known and ``""`` otherwise.
 
     Used for WARNING diagnostics that do not need a category tag but still
     benefit from a visible source location.
 
     """
-    if provenance is None or provenance.span is None:
+    location = _format_location(provenance)
+    if location is None:
         return ""
-    return f"{provenance.span}: "
+    return f"{location}: "

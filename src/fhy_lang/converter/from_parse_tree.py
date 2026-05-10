@@ -10,6 +10,7 @@ from antlr4 import ParserRuleContext  # type: ignore[import-untyped]
 from fhy_core import (
     CoreDataType,
     DataType,
+    FileProvenance,
     Identifier,
     IndexType,
     NumericalType,
@@ -44,13 +45,13 @@ def _get_source_info(
     stop = ctx.stop
 
     if all((start, stop)):
-        if parse_tree_provenance.span is not None:
-            return parse_tree_provenance.with_span(
+        if isinstance(parse_tree_provenance, FileProvenance):
+            return FileProvenance(
+                parse_tree_provenance.file_path,
                 Span(
-                    file_path=parse_tree_provenance.span.file_path,
                     start_position=Position(start.line, start.column + 1),
                     end_position=Position(stop.line, stop.column + 1),
-                )
+                ),
             )
         else:
             return Provenance.unknown()
@@ -58,16 +59,6 @@ def _get_source_info(
         return _get_source_info(parent_ctx, parse_tree_provenance, True)
     else:
         return Provenance.unknown()
-
-
-def _get_src_pos_msg(span: Span | None) -> str:
-    if span is None:
-        return ""
-    start = span.start_position
-    end = span.end_position
-    if start is None or end is None:
-        return ""
-    return f"Lines {start.line}:{start.column} - {end.line}:{end.column}"
 
 
 def _initialize_builtin_identifiers() -> dict[str, Identifier]:
@@ -167,7 +158,7 @@ class ParseTreeConverter(FhYVisitor):
     ) -> Any:
         # TODO: Implement
         provenance: Provenance = self._get_provenance(ctx)
-        text: str = _get_src_pos_msg(provenance.span)
+        text: str = str(provenance)
         raise NotImplementedError(f"Function Declarations are not supported. {text}")
 
     def visitFunction_definition(
@@ -193,7 +184,7 @@ class ParseTreeConverter(FhYVisitor):
         if keyword == "proc":
             if return_type is not None:
                 pos = self._get_provenance(ctx.function_header().qualified_type())
-                text: str = _get_src_pos_msg(pos.span)
+                text: str = str(pos)
                 raise FhYSyntaxError(f"Procedures do not have return types. {text}")
 
             return ast.Procedure(
@@ -207,7 +198,7 @@ class ParseTreeConverter(FhYVisitor):
         elif keyword == "op":
             if return_type is None:
                 provenance = self._get_provenance(ctx.function_header())
-                text = _get_src_pos_msg(provenance.span)
+                text = str(provenance)
                 raise FhYSyntaxError(
                     f"Operation Functions Require Return Types. {text}"
                 )
@@ -225,7 +216,7 @@ class ParseTreeConverter(FhYVisitor):
             # NOTE: Defined Function Keywords are required by Antlr to parse the source
             #       code to meet the classification of "Function_definition". Meaning,
             #       we have no way to reach this code. Out of an abundance of caution:
-            text = _get_src_pos_msg(provenance.span)
+            text = str(provenance)
             raise FhYSyntaxError(
                 f"Invalid Function Keyword Provided. {text}: {keyword}"
             )
@@ -244,13 +235,13 @@ class ParseTreeConverter(FhYVisitor):
 
         # NOTE: Predefined Function Keywords required for parsing Function.
         if (kw_ctx := ctx.FUNCTION_KEYWORD()) is None:
-            text: str = _get_src_pos_msg(provenance.span)
+            text: str = str(provenance)
             raise FhYSyntaxError(f"Function Keyword Missing. {text}")
         keyword: str = kw_ctx.getText()
 
         # NOTE: This error is raised by Antlr during construction of CST.
         if (name_ctx := ctx.IDENTIFIER()) is None:
-            text = _get_src_pos_msg(provenance.span)
+            text = str(provenance)
             raise FhYSyntaxError(f"Function Name Missing. {text}")
 
         name_hint: str = name_ctx.getText()
@@ -296,7 +287,7 @@ class ParseTreeConverter(FhYVisitor):
         qualified_type: ast.QualifiedType
         qualified_type = self.visitQualified_type(ctx.qualified_type())
         if (_id := ctx.IDENTIFIER()) is None:
-            text = _get_src_pos_msg(provenance.span)
+            text = str(provenance)
             raise FhYSyntaxError(f"Function Argument Name not Provided. {text}")
 
         name_hint: str = _id.getText()
@@ -332,7 +323,7 @@ class ParseTreeConverter(FhYVisitor):
         # NOTE: This validation step is performed for type safety. A statement without
         #       an Identifier would make a valid Expression Statement.
         if (_id := ctx.IDENTIFIER()) is None:
-            text: str = _get_src_pos_msg(provenance.span)
+            text: str = str(provenance)
             raise FhYSyntaxError(f"Variable Name not Declared. {text}")
 
         name_hint: str = _id.getText()
@@ -504,7 +495,7 @@ class ParseTreeConverter(FhYVisitor):
             return primitive_expression
 
         else:
-            text = _get_src_pos_msg(provenance.span)
+            text = str(provenance)
             raise FhYSyntaxError(f"Invalid Primitive Expression. {text}")
 
     def visitPrimitive_expression(
@@ -521,7 +512,7 @@ class ParseTreeConverter(FhYVisitor):
             if not index_text.startswith(".") or not re.search(
                 r"^\.[0-9][0-9_]*$", index_text
             ):
-                lines = _get_src_pos_msg(provenance.span)
+                lines = str(provenance)
                 raise FhYSyntaxError(f'Invalid Tuple Accessor "{index_text}": {lines}')
 
             return ast.TupleAccessExpression(
@@ -587,7 +578,7 @@ class ParseTreeConverter(FhYVisitor):
             return atom_expression
 
         else:
-            text: str = _get_src_pos_msg(provenance.span)
+            text: str = str(provenance)
             raise FhYSyntaxError(f"Invalid Primitive Expression. {text}")
 
     def visitAtom(
@@ -613,7 +604,7 @@ class ParseTreeConverter(FhYVisitor):
             return self.visitIdentifier_expression(id_express)
 
         else:
-            text: str = _get_src_pos_msg(provenance.span)
+            text: str = str(provenance)
             raise NotImplementedError(f"Unsupported Atom Context. {text}")
 
     def visitIdentifier_expression(
@@ -666,7 +657,7 @@ class ParseTreeConverter(FhYVisitor):
             return complex_literal
 
         else:
-            text = _get_src_pos_msg(provenance.span)
+            text = str(provenance)
             raise NotImplementedError(f"Unsupported Type Literal. {text}")
 
     # =====================
@@ -682,7 +673,7 @@ class ParseTreeConverter(FhYVisitor):
             type_qualifier = TypeQualifier(type_qualifier_ctx.getText())
 
         else:
-            text: str = _get_src_pos_msg(provenance.span)
+            text: str = str(provenance)
             raise FhYSyntaxError(f"No Type Qualifier Provided. {text}")
 
         base_type = self.visitType(ctx.type_())

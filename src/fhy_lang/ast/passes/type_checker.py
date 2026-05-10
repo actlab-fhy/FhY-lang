@@ -67,6 +67,7 @@ from fhy_lang.ast.node import (
     UnaryExpression,
     UnaryOperation,
 )
+from fhy_lang.ast.shape import narrow_shape
 from fhy_lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
 
 from .analysis_pass_with_symbol_table import AnalysisPassWithSymbolTable
@@ -158,7 +159,9 @@ def _is_assignable(target: Type, source: Type) -> bool:
         return True
     elif not isinstance(target, NumericalType) or not isinstance(source, NumericalType):
         return False
-    elif not _are_shapes_equivalent(target.shape, source.shape):
+    elif not _are_shapes_equivalent(
+        narrow_shape(target.shape), narrow_shape(source.shape)
+    ):
         return False
     elif not isinstance(target.data_type, PrimitiveDataType) or not isinstance(
         source.data_type, PrimitiveDataType
@@ -194,7 +197,9 @@ def _is_callable_with(param_type: Type, actual_type: Type) -> bool:
         actual_type, NumericalType
     ):
         return False
-    if not _are_shapes_call_compatible(param_type.shape, actual_type.shape):
+    if not _are_shapes_call_compatible(
+        narrow_shape(param_type.shape), narrow_shape(actual_type.shape)
+    ):
         return False
     if not isinstance(param_type.data_type, PrimitiveDataType) or not isinstance(
         actual_type.data_type, PrimitiveDataType
@@ -603,7 +608,9 @@ class TypeChecker(AnalysisPassWithSymbolTable):
                 f"{left.type} and {right.type}.",
                 expression.provenance,
             )
-        if not _are_shapes_equivalent(left.type.shape, right.type.shape):
+        if not _are_shapes_equivalent(
+            narrow_shape(left.type.shape), narrow_shape(right.type.shape)
+        ):
             raise _TypeCheckError(
                 "Binary expression operand shapes are not structurally "
                 f"equivalent: {left.type.shape} vs {right.type.shape}.",
@@ -645,7 +652,9 @@ class TypeChecker(AnalysisPassWithSymbolTable):
                 f"{true_branch.type} and {false_branch.type}.",
                 expression.provenance,
             )
-        if not _are_shapes_equivalent(true_branch.type.shape, false_branch.type.shape):
+        if not _are_shapes_equivalent(
+            narrow_shape(true_branch.type.shape), narrow_shape(false_branch.type.shape)
+        ):
             raise _TypeCheckError(
                 "Ternary expression branch shapes are not structurally "
                 f"equivalent: {true_branch.type.shape} vs "
