@@ -48,7 +48,15 @@ type = ["mypy", "types-networkx"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = "-n auto -rA"
+addopts = "-n auto -rfEs --strict-markers --durations=20 -m 'not slow'"
+markers = [
+    "slow: takes more than ~1s; excluded from default run",
+    "very_slow: takes more than ~30s; nightly only",
+    "subprocess: spawns a Python subprocess",
+    "z3: requires the z3-solver package",
+    "integration: exercises multiple modules together",
+    "network: requires network access",
+]
 
 [tool.coverage.run]
 parallel = true

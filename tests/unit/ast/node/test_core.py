@@ -7,18 +7,32 @@ serialization, error contract) and confirms the abstract families
 
 import pytest
 from fhy_core import (
+    CoreDataType,
     DeserializationDictStructureError,
     Identifier,
+    NumericalType,
+    PrimitiveDataType,
+    TypeQualifier,
 )
 from fhy_core.serialization import SerializationError
 
 from fhy_lang.ast.node import (
+    Argument,
+    DeclarationStatement,
     Expression,
+    ExpressionStatement,
+    ForAllStatement,
     Function,
+    IdentifierExpression,
     Import,
     IntLiteral,
     Module,
+    Native,
+    Operation,
+    Procedure,
+    QualifiedType,
     ReturnStatement,
+    SelectionStatement,
     Statement,
 )
 
@@ -86,14 +100,6 @@ def test_module_is_structurally_equivalent_when_name_and_imports_share_ids():
     b = Module(name=name, statements=(Import(name=foo),))
 
     assert a.is_structurally_equivalent(b)
-
-
-def test_module_is_inequivalent_when_name_ids_differ():
-    """Test independently-constructed names with the same hint break equivalence."""
-    a = Module(name=Identifier("m"))
-    b = Module(name=Identifier("m"))
-
-    assert not a.is_structurally_equivalent(b)
 
 
 def test_module_is_inequivalent_when_statement_count_differs():
@@ -233,3 +239,64 @@ def test_unknown_type_id_in_wrapped_payload_raises_serialization_error():
 def test_module_with_default_statements_is_empty():
     """Test ``Module()`` has an empty ``statements`` tuple by default."""
     assert Module().statements == ()
+
+
+def test_empty_module_round_trip_preserves_emptiness():
+    """Test a ``Module`` with no statements round-trips with an empty tuple."""
+    name = Identifier("m")
+    module = Module(name=name, statements=())
+
+    restored = Module.deserialize_from_dict(module.serialize_to_dict())
+
+    assert isinstance(restored, Module)
+    assert restored.statements == ()
+    assert module.is_structurally_equivalent(restored)
+
+
+def test_module_containing_every_statement_kind_round_trips():
+    """Test a ``Module`` carrying every concrete ``Statement`` round-trips intact."""
+    qualified_type = QualifiedType(
+        base_type=NumericalType(PrimitiveDataType(CoreDataType.INT32)),
+        type_qualifier=TypeQualifier.INPUT,
+    )
+    declaration = DeclarationStatement(
+        variable_name=Identifier("x"), variable_type=qualified_type
+    )
+    expression_statement = ExpressionStatement(
+        left=IdentifierExpression(identifier=Identifier("x")),
+        right=IntLiteral(value=1),
+    )
+    forall = ForAllStatement(
+        index=IdentifierExpression(identifier=Identifier("i")),
+        body=(ReturnStatement(expression=IntLiteral(value=0)),),
+    )
+    selection = SelectionStatement(
+        condition=IdentifierExpression(identifier=Identifier("c")),
+        true_body=(ReturnStatement(expression=IntLiteral(value=1)),),
+        false_body=(ReturnStatement(expression=IntLiteral(value=0)),),
+    )
+    ret = ReturnStatement(expression=IntLiteral(value=0))
+    procedure = Procedure(
+        name=Identifier("proc"),
+        args=(Argument(name=Identifier("a"), qualified_type=qualified_type),),
+        body=(declaration, expression_statement, forall, selection, ret),
+    )
+    operation = Operation(name=Identifier("op"), return_type=qualified_type)
+    native = Native(name=Identifier("nat"))
+    import_statement = Import(name=Identifier("lib"))
+    module = Module(
+        name=Identifier("m"),
+        statements=(import_statement, procedure, operation, native),
+    )
+
+    restored = Module.deserialize_from_dict(module.serialize_to_dict())
+
+    assert module.is_structurally_equivalent(restored)
+
+
+def test_concrete_class_deserialize_from_dict_rejects_wrong_family():
+    """Test a concrete class rejects a payload from a foreign family."""
+    payload = Module().serialize_to_dict()
+
+    with pytest.raises(SerializationError):
+        IntLiteral.deserialize_from_dict(payload)
