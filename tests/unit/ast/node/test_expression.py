@@ -39,11 +39,13 @@ from fhy_lang.ast.node import expression as expression_module
 # ===========================================================================
 
 
-def _int(value: int) -> IntLiteral:
+def _make_int_literal(value: int) -> IntLiteral:
+    """Build an ``IntLiteral`` node with the given value."""
     return IntLiteral(value=value)
 
 
-def _identifier_expression(name: str = "x") -> IdentifierExpression:
+def _make_identifier_expression(name: str = "x") -> IdentifierExpression:
+    """Build an ``IdentifierExpression`` whose identifier has the given name."""
     return IdentifierExpression(identifier=Identifier(name))
 
 
@@ -337,31 +339,43 @@ def test_identifier_expression_deserialize_rejects_missing_identifier():
 
 def test_unary_expression_equivalent_when_operation_and_operand_match():
     """Test unary expressions with matching operation and operand are equivalent."""
-    a = UnaryExpression(operation=UnaryOperation.NEGATION, expression=_int(1))
-    b = UnaryExpression(operation=UnaryOperation.NEGATION, expression=_int(1))
+    a = UnaryExpression(
+        operation=UnaryOperation.NEGATION, expression=_make_int_literal(1)
+    )
+    b = UnaryExpression(
+        operation=UnaryOperation.NEGATION, expression=_make_int_literal(1)
+    )
 
     assert a.is_structurally_equivalent(b)
 
 
 def test_unary_expression_inequivalent_when_operation_differs():
     """Test differing unary operations break equivalence."""
-    a = UnaryExpression(operation=UnaryOperation.NEGATION, expression=_int(1))
-    b = UnaryExpression(operation=UnaryOperation.LOGICAL_NOT, expression=_int(1))
+    a = UnaryExpression(
+        operation=UnaryOperation.NEGATION, expression=_make_int_literal(1)
+    )
+    b = UnaryExpression(
+        operation=UnaryOperation.LOGICAL_NOT, expression=_make_int_literal(1)
+    )
 
     assert not a.is_structurally_equivalent(b)
 
 
 def test_unary_expression_inequivalent_when_operand_differs():
     """Test differing operand breaks equivalence."""
-    a = UnaryExpression(operation=UnaryOperation.NEGATION, expression=_int(1))
-    b = UnaryExpression(operation=UnaryOperation.NEGATION, expression=_int(2))
+    a = UnaryExpression(
+        operation=UnaryOperation.NEGATION, expression=_make_int_literal(1)
+    )
+    b = UnaryExpression(
+        operation=UnaryOperation.NEGATION, expression=_make_int_literal(2)
+    )
 
     assert not a.is_structurally_equivalent(b)
 
 
 def test_unary_expression_get_operands_returns_inner_expression():
     """Test ``UnaryExpression.get_operands`` returns a 1-tuple of the inner."""
-    inner = _int(1)
+    inner = _make_int_literal(1)
     unary = UnaryExpression(operation=UnaryOperation.NEGATION, expression=inner)
 
     assert unary.get_operands() == (inner,)
@@ -369,7 +383,7 @@ def test_unary_expression_get_operands_returns_inner_expression():
 
 def test_unary_expression_get_visit_children_returns_inner_expression():
     """Test ``UnaryExpression.get_visit_children`` walks only the inner expression."""
-    inner = _int(1)
+    inner = _make_int_literal(1)
     unary = UnaryExpression(operation=UnaryOperation.NEGATION, expression=inner)
 
     assert tuple(unary.get_visit_children()) == (inner,)
@@ -377,7 +391,9 @@ def test_unary_expression_get_visit_children_returns_inner_expression():
 
 def test_unary_expression_round_trips_through_serialization():
     """Test ``UnaryExpression`` survives serialization round-trip."""
-    expression = UnaryExpression(operation=UnaryOperation.NEGATION, expression=_int(1))
+    expression = UnaryExpression(
+        operation=UnaryOperation.NEGATION, expression=_make_int_literal(1)
+    )
 
     restored = Expression.deserialize_from_dict(expression.serialize_to_dict())
 
@@ -388,7 +404,7 @@ def test_unary_expression_round_trips_through_serialization():
 def test_unary_expression_deserialize_rejects_unknown_operation():
     """Test an unknown operation string raises ``DeserializationValueError``."""
     payload = UnaryExpression(
-        operation=UnaryOperation.NEGATION, expression=_int(1)
+        operation=UnaryOperation.NEGATION, expression=_make_int_literal(1)
     ).serialize_data_to_dict()
     payload["operation"] = "??"
 
@@ -399,7 +415,7 @@ def test_unary_expression_deserialize_rejects_unknown_operation():
 def test_unary_expression_deserialize_rejects_missing_operation():
     """Test missing ``operation`` raises ``DeserializationDictStructureError``."""
     payload = UnaryExpression(
-        operation=UnaryOperation.NEGATION, expression=_int(1)
+        operation=UnaryOperation.NEGATION, expression=_make_int_literal(1)
     ).serialize_data_to_dict()
     payload.pop("operation")
 
@@ -415,10 +431,14 @@ def test_unary_expression_deserialize_rejects_missing_operation():
 def test_binary_expression_equivalent_when_operation_and_operands_match():
     """Test binary expressions with matching operation and operands are equivalent."""
     a = BinaryExpression(
-        operation=BinaryOperation.ADDITION, left=_int(1), right=_int(2)
+        operation=BinaryOperation.ADDITION,
+        left=_make_int_literal(1),
+        right=_make_int_literal(2),
     )
     b = BinaryExpression(
-        operation=BinaryOperation.ADDITION, left=_int(1), right=_int(2)
+        operation=BinaryOperation.ADDITION,
+        left=_make_int_literal(1),
+        right=_make_int_literal(2),
     )
 
     assert a.is_structurally_equivalent(b)
@@ -427,10 +447,14 @@ def test_binary_expression_equivalent_when_operation_and_operands_match():
 def test_binary_expression_inequivalent_when_operation_differs():
     """Test differing binary operations break equivalence."""
     a = BinaryExpression(
-        operation=BinaryOperation.ADDITION, left=_int(1), right=_int(2)
+        operation=BinaryOperation.ADDITION,
+        left=_make_int_literal(1),
+        right=_make_int_literal(2),
     )
     b = BinaryExpression(
-        operation=BinaryOperation.SUBTRACTION, left=_int(1), right=_int(2)
+        operation=BinaryOperation.SUBTRACTION,
+        left=_make_int_literal(1),
+        right=_make_int_literal(2),
     )
 
     assert not a.is_structurally_equivalent(b)
@@ -439,10 +463,14 @@ def test_binary_expression_inequivalent_when_operation_differs():
 def test_binary_expression_inequivalent_when_left_differs():
     """Test differing left operand breaks equivalence."""
     a = BinaryExpression(
-        operation=BinaryOperation.ADDITION, left=_int(1), right=_int(2)
+        operation=BinaryOperation.ADDITION,
+        left=_make_int_literal(1),
+        right=_make_int_literal(2),
     )
     b = BinaryExpression(
-        operation=BinaryOperation.ADDITION, left=_int(99), right=_int(2)
+        operation=BinaryOperation.ADDITION,
+        left=_make_int_literal(99),
+        right=_make_int_literal(2),
     )
 
     assert not a.is_structurally_equivalent(b)
@@ -451,10 +479,14 @@ def test_binary_expression_inequivalent_when_left_differs():
 def test_binary_expression_inequivalent_when_right_differs():
     """Test differing right operand breaks equivalence."""
     a = BinaryExpression(
-        operation=BinaryOperation.ADDITION, left=_int(1), right=_int(2)
+        operation=BinaryOperation.ADDITION,
+        left=_make_int_literal(1),
+        right=_make_int_literal(2),
     )
     b = BinaryExpression(
-        operation=BinaryOperation.ADDITION, left=_int(1), right=_int(99)
+        operation=BinaryOperation.ADDITION,
+        left=_make_int_literal(1),
+        right=_make_int_literal(99),
     )
 
     assert not a.is_structurally_equivalent(b)
@@ -462,7 +494,7 @@ def test_binary_expression_inequivalent_when_right_differs():
 
 def test_binary_expression_get_operands_returns_left_and_right():
     """Test ``BinaryExpression.get_operands`` returns ``(left, right)``."""
-    left, right = _int(1), _int(2)
+    left, right = _make_int_literal(1), _make_int_literal(2)
     binary = BinaryExpression(
         operation=BinaryOperation.ADDITION, left=left, right=right
     )
@@ -473,7 +505,9 @@ def test_binary_expression_get_operands_returns_left_and_right():
 def test_binary_expression_round_trips_through_serialization():
     """Test ``BinaryExpression`` survives serialization round-trip."""
     expression = BinaryExpression(
-        operation=BinaryOperation.MULTIPLICATION, left=_int(3), right=_int(4)
+        operation=BinaryOperation.MULTIPLICATION,
+        left=_make_int_literal(3),
+        right=_make_int_literal(4),
     )
 
     restored = Expression.deserialize_from_dict(expression.serialize_to_dict())
@@ -485,7 +519,9 @@ def test_binary_expression_round_trips_through_serialization():
 def test_binary_expression_deserialize_rejects_unknown_operation():
     """Test unknown operation raises ``DeserializationValueError``."""
     payload = BinaryExpression(
-        operation=BinaryOperation.ADDITION, left=_int(1), right=_int(2)
+        operation=BinaryOperation.ADDITION,
+        left=_make_int_literal(1),
+        right=_make_int_literal(2),
     ).serialize_data_to_dict()
     payload["operation"] = "<<>>"
 
@@ -501,7 +537,9 @@ def test_binary_expression_validator_delegates_to_expression_data_check(monkeypa
     payload.
     """
     payload = BinaryExpression(
-        operation=BinaryOperation.ADDITION, left=_int(1), right=_int(2)
+        operation=BinaryOperation.ADDITION,
+        left=_make_int_literal(1),
+        right=_make_int_literal(2),
     ).serialize_data_to_dict()
 
     monkeypatch.setattr(
@@ -519,8 +557,16 @@ def test_binary_expression_validator_delegates_to_expression_data_check(monkeypa
 
 def test_ternary_expression_equivalent_when_all_branches_match():
     """Test ternary expressions with matching condition/true/false are equivalent."""
-    a = TernaryExpression(condition=_int(0), true=_int(1), false=_int(2))
-    b = TernaryExpression(condition=_int(0), true=_int(1), false=_int(2))
+    a = TernaryExpression(
+        condition=_make_int_literal(0),
+        true=_make_int_literal(1),
+        false=_make_int_literal(2),
+    )
+    b = TernaryExpression(
+        condition=_make_int_literal(0),
+        true=_make_int_literal(1),
+        false=_make_int_literal(2),
+    )
 
     assert a.is_structurally_equivalent(b)
 
@@ -528,9 +574,13 @@ def test_ternary_expression_equivalent_when_all_branches_match():
 @pytest.mark.parametrize("field", ["condition", "true", "false"])
 def test_ternary_expression_inequivalent_when_one_branch_differs(field: str):
     """Test differing condition / true / false breaks equivalence."""
-    base = {"condition": _int(0), "true": _int(1), "false": _int(2)}
+    base = {
+        "condition": _make_int_literal(0),
+        "true": _make_int_literal(1),
+        "false": _make_int_literal(2),
+    }
     other = dict(base)
-    other[field] = _int(99)
+    other[field] = _make_int_literal(99)
 
     assert not TernaryExpression(**base).is_structurally_equivalent(
         TernaryExpression(**other)
@@ -539,7 +589,11 @@ def test_ternary_expression_inequivalent_when_one_branch_differs(field: str):
 
 def test_ternary_expression_get_visit_children_returns_three_branches_in_order():
     """Test ``TernaryExpression.get_visit_children`` walks condition, true, false."""
-    condition, true, false = _int(0), _int(1), _int(2)
+    condition, true, false = (
+        _make_int_literal(0),
+        _make_int_literal(1),
+        _make_int_literal(2),
+    )
     ternary = TernaryExpression(condition=condition, true=true, false=false)
 
     assert tuple(ternary.get_visit_children()) == (condition, true, false)
@@ -547,7 +601,11 @@ def test_ternary_expression_get_visit_children_returns_three_branches_in_order()
 
 def test_ternary_expression_round_trips_through_serialization():
     """Test ``TernaryExpression`` survives a wrapped round-trip."""
-    expression = TernaryExpression(condition=_int(0), true=_int(1), false=_int(2))
+    expression = TernaryExpression(
+        condition=_make_int_literal(0),
+        true=_make_int_literal(1),
+        false=_make_int_literal(2),
+    )
 
     restored = Expression.deserialize_from_dict(expression.serialize_to_dict())
 
@@ -561,24 +619,24 @@ def test_ternary_expression_round_trips_through_serialization():
 
 def test_tuple_expression_equivalent_when_elements_match():
     """Test tuple expressions with matching elements are equivalent."""
-    a = TupleExpression(expressions=(_int(1), _int(2)))
-    b = TupleExpression(expressions=(_int(1), _int(2)))
+    a = TupleExpression(expressions=(_make_int_literal(1), _make_int_literal(2)))
+    b = TupleExpression(expressions=(_make_int_literal(1), _make_int_literal(2)))
 
     assert a.is_structurally_equivalent(b)
 
 
 def test_tuple_expression_inequivalent_when_lengths_differ():
     """Test differing tuple lengths break equivalence."""
-    a = TupleExpression(expressions=(_int(1), _int(2)))
-    b = TupleExpression(expressions=(_int(1),))
+    a = TupleExpression(expressions=(_make_int_literal(1), _make_int_literal(2)))
+    b = TupleExpression(expressions=(_make_int_literal(1),))
 
     assert not a.is_structurally_equivalent(b)
 
 
 def test_tuple_expression_inequivalent_when_an_element_differs():
     """Test a single mismatched element breaks equivalence."""
-    a = TupleExpression(expressions=(_int(1), _int(2)))
-    b = TupleExpression(expressions=(_int(1), _int(99)))
+    a = TupleExpression(expressions=(_make_int_literal(1), _make_int_literal(2)))
+    b = TupleExpression(expressions=(_make_int_literal(1), _make_int_literal(99)))
 
     assert not a.is_structurally_equivalent(b)
 
@@ -593,7 +651,7 @@ def test_tuple_expression_with_no_elements_is_equivalent_to_self():
 
 def test_tuple_expression_get_operands_returns_inner_tuple():
     """Test ``TupleExpression.get_operands`` returns the elements tuple."""
-    elements = (_int(1), _int(2))
+    elements = (_make_int_literal(1), _make_int_literal(2))
     tuple_expr = TupleExpression(expressions=elements)
 
     assert tuple_expr.get_operands() == elements
@@ -601,7 +659,9 @@ def test_tuple_expression_get_operands_returns_inner_tuple():
 
 def test_tuple_expression_round_trips_through_serialization():
     """Test ``TupleExpression`` survives a wrapped round-trip."""
-    expression = TupleExpression(expressions=(_int(1), _int(2)))
+    expression = TupleExpression(
+        expressions=(_make_int_literal(1), _make_int_literal(2))
+    )
 
     restored = Expression.deserialize_from_dict(expression.serialize_to_dict())
 
@@ -617,10 +677,12 @@ def test_tuple_expression_round_trips_through_serialization():
 def test_tuple_access_expression_equivalent_when_tuple_and_index_match():
     """Test tuple-access expressions with matching parts are equivalent."""
     a = TupleAccessExpression(
-        tuple_expression=_identifier_expression("t"), element_index=_int(0)
+        tuple_expression=_make_identifier_expression("t"),
+        element_index=_make_int_literal(0),
     )
     b = TupleAccessExpression(
-        tuple_expression=_identifier_expression("t"), element_index=_int(0)
+        tuple_expression=_make_identifier_expression("t"),
+        element_index=_make_int_literal(0),
     )
 
     # Identifiers in tuple_expression are independent → inequivalent.
@@ -629,26 +691,34 @@ def test_tuple_access_expression_equivalent_when_tuple_and_index_match():
 
 def test_tuple_access_expression_equivalent_when_sharing_inner_identifier():
     """Test a shared inner ``IdentifierExpression`` is equivalent across nodes."""
-    inner = _identifier_expression("t")
-    a = TupleAccessExpression(tuple_expression=inner, element_index=_int(0))
-    b = TupleAccessExpression(tuple_expression=inner, element_index=_int(0))
+    inner = _make_identifier_expression("t")
+    a = TupleAccessExpression(
+        tuple_expression=inner, element_index=_make_int_literal(0)
+    )
+    b = TupleAccessExpression(
+        tuple_expression=inner, element_index=_make_int_literal(0)
+    )
 
     assert a.is_structurally_equivalent(b)
 
 
 def test_tuple_access_expression_inequivalent_when_index_differs():
     """Test differing ``element_index`` breaks equivalence."""
-    inner = _identifier_expression("t")
-    a = TupleAccessExpression(tuple_expression=inner, element_index=_int(0))
-    b = TupleAccessExpression(tuple_expression=inner, element_index=_int(1))
+    inner = _make_identifier_expression("t")
+    a = TupleAccessExpression(
+        tuple_expression=inner, element_index=_make_int_literal(0)
+    )
+    b = TupleAccessExpression(
+        tuple_expression=inner, element_index=_make_int_literal(1)
+    )
 
     assert not a.is_structurally_equivalent(b)
 
 
 def test_tuple_access_expression_get_operands_returns_tuple_and_index():
     """Test ``get_operands`` returns ``(tuple_expression, element_index)``."""
-    inner = _identifier_expression("t")
-    index = _int(2)
+    inner = _make_identifier_expression("t")
+    index = _make_int_literal(2)
 
     tuple_access = TupleAccessExpression(tuple_expression=inner, element_index=index)
 
@@ -658,8 +728,8 @@ def test_tuple_access_expression_get_operands_returns_tuple_and_index():
 def test_tuple_access_expression_round_trips_through_serialization():
     """Test ``TupleAccessExpression`` survives a round-trip."""
     expression = TupleAccessExpression(
-        tuple_expression=_identifier_expression("t"),
-        element_index=_int(3),
+        tuple_expression=_make_identifier_expression("t"),
+        element_index=_make_int_literal(3),
     )
 
     restored = Expression.deserialize_from_dict(expression.serialize_to_dict())
@@ -674,26 +744,32 @@ def test_tuple_access_expression_round_trips_through_serialization():
 
 def test_array_access_expression_equivalent_when_array_and_indices_match():
     """Test array accesses sharing the array expression and indices are equivalent."""
-    array = _identifier_expression("a")
-    a = ArrayAccessExpression(array_expression=array, indices=(_int(0), _int(1)))
-    b = ArrayAccessExpression(array_expression=array, indices=(_int(0), _int(1)))
+    array = _make_identifier_expression("a")
+    a = ArrayAccessExpression(
+        array_expression=array, indices=(_make_int_literal(0), _make_int_literal(1))
+    )
+    b = ArrayAccessExpression(
+        array_expression=array, indices=(_make_int_literal(0), _make_int_literal(1))
+    )
 
     assert a.is_structurally_equivalent(b)
 
 
 def test_array_access_expression_inequivalent_when_index_count_differs():
     """Test differing index counts break equivalence."""
-    array = _identifier_expression("a")
-    a = ArrayAccessExpression(array_expression=array, indices=(_int(0),))
-    b = ArrayAccessExpression(array_expression=array, indices=(_int(0), _int(1)))
+    array = _make_identifier_expression("a")
+    a = ArrayAccessExpression(array_expression=array, indices=(_make_int_literal(0),))
+    b = ArrayAccessExpression(
+        array_expression=array, indices=(_make_int_literal(0), _make_int_literal(1))
+    )
 
     assert not a.is_structurally_equivalent(b)
 
 
 def test_array_access_expression_get_operands_returns_array_then_indices():
     """Test ``get_operands`` returns ``(array_expression, *indices)``."""
-    array = _identifier_expression("a")
-    i0, i1 = _int(0), _int(1)
+    array = _make_identifier_expression("a")
+    i0, i1 = _make_int_literal(0), _make_int_literal(1)
 
     access = ArrayAccessExpression(array_expression=array, indices=(i0, i1))
 
@@ -703,7 +779,8 @@ def test_array_access_expression_get_operands_returns_array_then_indices():
 def test_array_access_expression_serializes_indices_as_list():
     """Test ``serialize_data_to_dict`` emits ``indices`` as a list."""
     access = ArrayAccessExpression(
-        array_expression=_identifier_expression("a"), indices=(_int(0),)
+        array_expression=_make_identifier_expression("a"),
+        indices=(_make_int_literal(0),),
     )
 
     data = access.serialize_data_to_dict()
@@ -714,8 +791,8 @@ def test_array_access_expression_serializes_indices_as_list():
 def test_array_access_expression_round_trips_through_serialization():
     """Test ``ArrayAccessExpression`` survives a wrapped round-trip."""
     access = ArrayAccessExpression(
-        array_expression=_identifier_expression("a"),
-        indices=(_int(0), _int(1)),
+        array_expression=_make_identifier_expression("a"),
+        indices=(_make_int_literal(0), _make_int_literal(1)),
     )
 
     restored = Expression.deserialize_from_dict(access.serialize_to_dict())
@@ -731,18 +808,24 @@ def test_array_access_expression_round_trips_through_serialization():
 
 def test_function_expression_equivalent_when_all_components_match():
     """Test function expressions with matching function/indices/args are equivalent."""
-    fn = _identifier_expression("f")
-    a = FunctionExpression(function=fn, indices=(_int(0),), args=(_int(1),))
-    b = FunctionExpression(function=fn, indices=(_int(0),), args=(_int(1),))
+    fn = _make_identifier_expression("f")
+    a = FunctionExpression(
+        function=fn, indices=(_make_int_literal(0),), args=(_make_int_literal(1),)
+    )
+    b = FunctionExpression(
+        function=fn, indices=(_make_int_literal(0),), args=(_make_int_literal(1),)
+    )
 
     assert a.is_structurally_equivalent(b)
 
 
 def test_function_expression_inequivalent_when_args_count_differs():
     """Test differing argument count breaks equivalence."""
-    fn = _identifier_expression("f")
-    a = FunctionExpression(function=fn, args=(_int(1),))
-    b = FunctionExpression(function=fn, args=(_int(1), _int(2)))
+    fn = _make_identifier_expression("f")
+    a = FunctionExpression(function=fn, args=(_make_int_literal(1),))
+    b = FunctionExpression(
+        function=fn, args=(_make_int_literal(1), _make_int_literal(2))
+    )
 
     assert not a.is_structurally_equivalent(b)
 
@@ -750,12 +833,12 @@ def test_function_expression_inequivalent_when_args_count_differs():
 def test_function_expression_get_visit_children_excludes_template_types():
     """Test ``get_visit_children`` does not include ``template_types``."""
     template: DataType = TemplateDataType(Identifier("T"))
-    fn = _identifier_expression("f")
+    fn = _make_identifier_expression("f")
     function_expression = FunctionExpression(
         function=fn,
         template_types=(template,),
-        indices=(_int(0),),
-        args=(_int(1),),
+        indices=(_make_int_literal(0),),
+        args=(_make_int_literal(1),),
     )
 
     children = tuple(function_expression.get_visit_children())
@@ -765,9 +848,9 @@ def test_function_expression_get_visit_children_excludes_template_types():
 
 def test_function_expression_get_visit_children_includes_function_indices_and_args():
     """Test ``get_visit_children`` walks function, indices, and args in order."""
-    fn = _identifier_expression("f")
-    i0 = _int(0)
-    a0 = _int(1)
+    fn = _make_identifier_expression("f")
+    i0 = _make_int_literal(0)
+    a0 = _make_int_literal(1)
     function_expression = FunctionExpression(function=fn, indices=(i0,), args=(a0,))
 
     assert tuple(function_expression.get_visit_children()) == (fn, i0, a0)
@@ -775,8 +858,8 @@ def test_function_expression_get_visit_children_includes_function_indices_and_ar
 
 def test_function_expression_round_trips_through_serialization():
     """Test ``FunctionExpression`` survives a wrapped round-trip."""
-    fn = _identifier_expression("f")
-    function_expression = FunctionExpression(function=fn, args=(_int(1),))
+    fn = _make_identifier_expression("f")
+    function_expression = FunctionExpression(function=fn, args=(_make_int_literal(1),))
 
     restored = Expression.deserialize_from_dict(function_expression.serialize_to_dict())
 

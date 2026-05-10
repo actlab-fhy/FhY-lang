@@ -8,13 +8,9 @@ deserialization error paths.
 
 import pytest
 from fhy_core import (
-    CoreDataType,
     DeserializationDictStructureError,
     Identifier,
-    NumericalType,
-    PrimitiveDataType,
     TemplateDataType,
-    TypeQualifier,
 )
 
 from fhy_lang.ast.node import (
@@ -39,24 +35,14 @@ from fhy_lang.ast.node import (
 # ===========================================================================
 
 
-def _int32() -> NumericalType:
-    return NumericalType(PrimitiveDataType(CoreDataType.INT32))
-
-
-def _input_int32() -> QualifiedType:
-    return QualifiedType(base_type=_int32(), type_qualifier=TypeQualifier.INPUT)
-
-
-def _output_int32() -> QualifiedType:
-    return QualifiedType(base_type=_int32(), type_qualifier=TypeQualifier.OUTPUT)
-
-
-def _identifier_expression(name: str = "x") -> IdentifierExpression:
+def _make_identifier_expression(name: str = "x") -> IdentifierExpression:
+    """Build an ``IdentifierExpression`` whose identifier has the given name."""
     return IdentifierExpression(identifier=Identifier(name))
 
 
-def _argument(name: str = "x") -> Argument:
-    return Argument(name=Identifier(name), qualified_type=_input_int32())
+def _make_argument(name: str, qualified_type: QualifiedType) -> Argument:
+    """Build an ``Argument`` with the given name and qualified type."""
+    return Argument(name=Identifier(name), qualified_type=qualified_type)
 
 
 # ===========================================================================
@@ -64,43 +50,46 @@ def _argument(name: str = "x") -> Argument:
 # ===========================================================================
 
 
-def test_argument_equivalent_when_name_id_and_type_match():
+def test_argument_equivalent_when_name_id_and_type_match(input_int32: QualifiedType):
     """Test arguments sharing a name id and equivalent type are equivalent."""
     name = Identifier("a")
-    a = Argument(name=name, qualified_type=_input_int32())
-    b = Argument(name=name, qualified_type=_input_int32())
+    a = Argument(name=name, qualified_type=input_int32)
+    b = Argument(name=name, qualified_type=input_int32)
 
     assert a.is_structurally_equivalent(b)
 
 
-def test_argument_inequivalent_when_name_ids_differ():
+def test_argument_inequivalent_when_name_ids_differ(input_int32: QualifiedType):
     """Test independently-constructed names break equivalence."""
-    a = Argument(name=Identifier("a"), qualified_type=_input_int32())
-    b = Argument(name=Identifier("a"), qualified_type=_input_int32())
+    a = Argument(name=Identifier("a"), qualified_type=input_int32)
+    b = Argument(name=Identifier("a"), qualified_type=input_int32)
 
     assert not a.is_structurally_equivalent(b)
 
 
-def test_argument_inequivalent_when_qualified_type_differs():
+def test_argument_inequivalent_when_qualified_type_differs(
+    input_int32: QualifiedType, output_int32: QualifiedType
+):
     """Test differing qualified type breaks equivalence."""
     name = Identifier("a")
-    a = Argument(name=name, qualified_type=_input_int32())
-    b = Argument(name=name, qualified_type=_output_int32())
+    a = Argument(name=name, qualified_type=input_int32)
+    b = Argument(name=name, qualified_type=output_int32)
 
     assert not a.is_structurally_equivalent(b)
 
 
-def test_argument_get_visit_children_returns_qualified_type():
+def test_argument_get_visit_children_returns_qualified_type(
+    input_int32: QualifiedType,
+):
     """Test ``Argument.get_visit_children`` walks only the qualified type."""
-    qualified = _input_int32()
-    argument = Argument(name=Identifier("a"), qualified_type=qualified)
+    argument = Argument(name=Identifier("a"), qualified_type=input_int32)
 
-    assert tuple(argument.get_visit_children()) == (qualified,)
+    assert tuple(argument.get_visit_children()) == (input_int32,)
 
 
-def test_argument_round_trips_through_serialization():
+def test_argument_round_trips_through_serialization(input_int32: QualifiedType):
     """Test ``Argument`` survives a wrapped round-trip."""
-    argument = _argument("a")
+    argument = _make_argument("a", input_int32)
 
     restored = Argument.deserialize_from_dict(argument.serialize_to_dict())
 
@@ -156,80 +145,92 @@ def test_import_deserialize_data_rejects_missing_name():
 # ===========================================================================
 
 
-def test_declaration_statement_equivalent_with_no_expression():
+def test_declaration_statement_equivalent_with_no_expression(
+    input_int32: QualifiedType,
+):
     """Test declarations without expressions are equivalent when name + type match."""
     name = Identifier("x")
-    a = DeclarationStatement(variable_name=name, variable_type=_input_int32())
-    b = DeclarationStatement(variable_name=name, variable_type=_input_int32())
+    a = DeclarationStatement(variable_name=name, variable_type=input_int32)
+    b = DeclarationStatement(variable_name=name, variable_type=input_int32)
 
     assert a.is_structurally_equivalent(b)
 
 
-def test_declaration_statement_equivalent_with_matching_expression():
+def test_declaration_statement_equivalent_with_matching_expression(
+    input_int32: QualifiedType,
+):
     """Test declarations with matching expressions are equivalent."""
     name = Identifier("x")
     a = DeclarationStatement(
-        variable_name=name, variable_type=_input_int32(), expression=IntLiteral(value=1)
+        variable_name=name, variable_type=input_int32, expression=IntLiteral(value=1)
     )
     b = DeclarationStatement(
-        variable_name=name, variable_type=_input_int32(), expression=IntLiteral(value=1)
+        variable_name=name, variable_type=input_int32, expression=IntLiteral(value=1)
     )
 
     assert a.is_structurally_equivalent(b)
 
 
-def test_declaration_statement_inequivalent_when_one_has_expression():
+def test_declaration_statement_inequivalent_when_one_has_expression(
+    input_int32: QualifiedType,
+):
     """Test ``None`` vs. set ``expression`` breaks equivalence."""
     name = Identifier("x")
-    a = DeclarationStatement(variable_name=name, variable_type=_input_int32())
+    a = DeclarationStatement(variable_name=name, variable_type=input_int32)
     b = DeclarationStatement(
-        variable_name=name, variable_type=_input_int32(), expression=IntLiteral(value=1)
+        variable_name=name, variable_type=input_int32, expression=IntLiteral(value=1)
     )
 
     assert not a.is_structurally_equivalent(b)
 
 
-def test_declaration_statement_inequivalent_when_expressions_differ():
+def test_declaration_statement_inequivalent_when_expressions_differ(
+    input_int32: QualifiedType,
+):
     """Test differing expressions break equivalence."""
     name = Identifier("x")
     a = DeclarationStatement(
-        variable_name=name, variable_type=_input_int32(), expression=IntLiteral(value=1)
+        variable_name=name, variable_type=input_int32, expression=IntLiteral(value=1)
     )
     b = DeclarationStatement(
-        variable_name=name, variable_type=_input_int32(), expression=IntLiteral(value=2)
+        variable_name=name, variable_type=input_int32, expression=IntLiteral(value=2)
     )
 
     assert not a.is_structurally_equivalent(b)
 
 
-def test_declaration_statement_get_visit_children_omits_none_expression():
+def test_declaration_statement_get_visit_children_omits_none_expression(
+    input_int32: QualifiedType,
+):
     """Test the visit walk skips a ``None`` expression and yields only the type."""
-    qualified = _input_int32()
     declaration = DeclarationStatement(
-        variable_name=Identifier("x"), variable_type=qualified
+        variable_name=Identifier("x"), variable_type=input_int32
     )
 
-    assert tuple(declaration.get_visit_children()) == (qualified,)
+    assert tuple(declaration.get_visit_children()) == (input_int32,)
 
 
-def test_declaration_statement_get_visit_children_includes_expression_when_present():
+def test_declaration_statement_get_visit_children_includes_expression_when_present(
+    input_int32: QualifiedType,
+):
     """Test the visit walk yields type and expression when both are set."""
-    qualified = _input_int32()
     expression = IntLiteral(value=1)
     declaration = DeclarationStatement(
         variable_name=Identifier("x"),
-        variable_type=qualified,
+        variable_type=input_int32,
         expression=expression,
     )
 
-    assert tuple(declaration.get_visit_children()) == (qualified, expression)
+    assert tuple(declaration.get_visit_children()) == (input_int32, expression)
 
 
-def test_declaration_statement_round_trips_through_serialization():
+def test_declaration_statement_round_trips_through_serialization(
+    input_int32: QualifiedType,
+):
     """Test ``DeclarationStatement`` survives a wrapped round-trip."""
     statement = DeclarationStatement(
         variable_name=Identifier("x"),
-        variable_type=_input_int32(),
+        variable_type=input_int32,
         expression=IntLiteral(value=1),
     )
 
@@ -239,11 +240,13 @@ def test_declaration_statement_round_trips_through_serialization():
     assert restored.expression is not None
 
 
-def test_declaration_statement_round_trips_when_expression_is_none():
+def test_declaration_statement_round_trips_when_expression_is_none(
+    input_int32: QualifiedType,
+):
     """Test a ``DeclarationStatement`` with no expression round-trips."""
     statement = DeclarationStatement(
         variable_name=Identifier("x"),
-        variable_type=_input_int32(),
+        variable_type=input_int32,
     )
 
     restored = Statement.deserialize_from_dict(statement.serialize_to_dict())
@@ -352,15 +355,15 @@ def test_return_statement_round_trips_through_serialization():
 
 def test_forall_statement_default_name_has_forall_hint():
     """Test the default ``ForAllStatement.name`` has hint ``"forall"``."""
-    forall = ForAllStatement(index=_identifier_expression("i"))
+    forall = ForAllStatement(index=_make_identifier_expression("i"))
 
     assert forall.name.name_hint == "forall"
 
 
 def test_forall_statement_default_names_have_distinct_ids_across_instances():
     """Test default-named ``ForAllStatement``s get fresh ids per instance."""
-    a = ForAllStatement(index=_identifier_expression("i"))
-    b = ForAllStatement(index=_identifier_expression("i"))
+    a = ForAllStatement(index=_make_identifier_expression("i"))
+    b = ForAllStatement(index=_make_identifier_expression("i"))
 
     assert a.name.id != b.name.id
 
@@ -368,7 +371,7 @@ def test_forall_statement_default_names_have_distinct_ids_across_instances():
 def test_forall_statement_equivalent_when_name_id_and_index_share_identity():
     """Test forall statements sharing name + index identifiers are equivalent."""
     name = Identifier("loop")
-    index = _identifier_expression("i")
+    index = _make_identifier_expression("i")
     a = ForAllStatement(name=name, index=index)
     b = ForAllStatement(name=name, index=index)
 
@@ -377,8 +380,8 @@ def test_forall_statement_equivalent_when_name_id_and_index_share_identity():
 
 def test_forall_statement_inequivalent_when_name_ids_differ():
     """Test independently-constructed names break equivalence."""
-    a = ForAllStatement(name=Identifier("loop"), index=_identifier_expression("i"))
-    b = ForAllStatement(name=Identifier("loop"), index=_identifier_expression("i"))
+    a = ForAllStatement(name=Identifier("loop"), index=_make_identifier_expression("i"))
+    b = ForAllStatement(name=Identifier("loop"), index=_make_identifier_expression("i"))
 
     assert not a.is_structurally_equivalent(b)
 
@@ -386,7 +389,7 @@ def test_forall_statement_inequivalent_when_name_ids_differ():
 def test_forall_statement_inequivalent_when_body_count_differs():
     """Test differing body counts break equivalence."""
     name = Identifier("loop")
-    index = _identifier_expression("i")
+    index = _make_identifier_expression("i")
     return_stmt = ReturnStatement(expression=IntLiteral(value=1))
     a = ForAllStatement(name=name, index=index)
     b = ForAllStatement(name=name, index=index, body=(return_stmt,))
@@ -396,7 +399,7 @@ def test_forall_statement_inequivalent_when_body_count_differs():
 
 def test_forall_statement_get_visit_children_includes_index_then_body():
     """Test the visit walk yields ``index`` followed by ``body`` statements."""
-    index = _identifier_expression("i")
+    index = _make_identifier_expression("i")
     return_stmt = ReturnStatement(expression=IntLiteral(value=1))
     forall = ForAllStatement(index=index, body=(return_stmt,))
 
@@ -407,7 +410,7 @@ def test_forall_statement_round_trips_through_serialization():
     """Test ``ForAllStatement`` survives a wrapped round-trip."""
     statement = ForAllStatement(
         name=Identifier("loop"),
-        index=_identifier_expression("i"),
+        index=_make_identifier_expression("i"),
         body=(ReturnStatement(expression=IntLiteral(value=1)),),
     )
 
@@ -473,10 +476,10 @@ def test_selection_statement_round_trips_through_serialization():
 # ===========================================================================
 
 
-def test_procedure_equivalent_when_all_components_match():
+def test_procedure_equivalent_when_all_components_match(input_int32: QualifiedType):
     """Test procedures with matching name id, args, and body are equivalent."""
     name = Identifier("p")
-    arg = _argument("a")
+    arg = _make_argument("a", input_int32)
     body = ReturnStatement(expression=IntLiteral(value=1))
     a = Procedure(name=name, args=(arg,), body=(body,))
     b = Procedure(name=name, args=(arg,), body=(body,))
@@ -492,10 +495,10 @@ def test_procedure_inequivalent_when_name_ids_differ():
     assert not a.is_structurally_equivalent(b)
 
 
-def test_procedure_get_visit_children_excludes_templates():
+def test_procedure_get_visit_children_excludes_templates(input_int32: QualifiedType):
     """Test ``Procedure.get_visit_children`` skips templates."""
     template = TemplateDataType(Identifier("T"))
-    arg = _argument("a")
+    arg = _make_argument("a", input_int32)
     body_stmt = ReturnStatement(expression=IntLiteral(value=1))
 
     procedure = Procedure(
@@ -511,11 +514,11 @@ def test_procedure_get_visit_children_excludes_templates():
     assert children == (arg, body_stmt)
 
 
-def test_procedure_round_trips_through_serialization():
+def test_procedure_round_trips_through_serialization(input_int32: QualifiedType):
     """Test ``Procedure`` survives a wrapped round-trip."""
     procedure = Procedure(
         name=Identifier("p"),
-        args=(_argument("a"),),
+        args=(_make_argument("a", input_int32),),
         body=(ReturnStatement(expression=IntLiteral(value=1)),),
     )
 
@@ -541,64 +544,67 @@ def test_procedure_deserialize_data_rejects_payload_missing_required_key(
 # ===========================================================================
 
 
-def test_operation_equivalent_when_all_components_match():
+def test_operation_equivalent_when_all_components_match(
+    input_int32: QualifiedType, output_int32: QualifiedType
+):
     """Test operations matching on name, args, body, return type are equivalent."""
     name = Identifier("op")
-    arg = _argument("a")
+    arg = _make_argument("a", input_int32)
     body = ReturnStatement(expression=IntLiteral(value=1))
-    return_type = _output_int32()
-    a = Operation(name=name, args=(arg,), body=(body,), return_type=return_type)
-    b = Operation(name=name, args=(arg,), body=(body,), return_type=return_type)
+    a = Operation(name=name, args=(arg,), body=(body,), return_type=output_int32)
+    b = Operation(name=name, args=(arg,), body=(body,), return_type=output_int32)
 
     assert a.is_structurally_equivalent(b)
 
 
-def test_operation_inequivalent_when_return_type_differs():
+def test_operation_inequivalent_when_return_type_differs(
+    input_int32: QualifiedType, output_int32: QualifiedType
+):
     """Test differing ``return_type`` breaks equivalence."""
     name = Identifier("op")
-    a = Operation(name=name, return_type=_output_int32())
-    b = Operation(name=name, return_type=_input_int32())
+    a = Operation(name=name, return_type=output_int32)
+    b = Operation(name=name, return_type=input_int32)
 
     assert not a.is_structurally_equivalent(b)
 
 
-def test_operation_get_visit_children_excludes_templates_includes_return_type():
+def test_operation_get_visit_children_excludes_templates_includes_return_type(
+    input_int32: QualifiedType, output_int32: QualifiedType
+):
     """Test ``Operation.get_visit_children`` skips templates; ends with return_type."""
     template = TemplateDataType(Identifier("T"))
-    arg = _argument("a")
+    arg = _make_argument("a", input_int32)
     body_stmt = ReturnStatement(expression=IntLiteral(value=1))
-    return_type = _output_int32()
 
     operation = Operation(
         name=Identifier("op"),
         templates=(template,),
         args=(arg,),
         body=(body_stmt,),
-        return_type=return_type,
+        return_type=output_int32,
     )
 
     children = tuple(operation.get_visit_children())
 
     assert template not in children
-    assert children == (arg, body_stmt, return_type)
+    assert children == (arg, body_stmt, output_int32)
 
 
-def test_operation_round_trips_through_serialization():
+def test_operation_round_trips_through_serialization(output_int32: QualifiedType):
     """Test ``Operation`` survives a wrapped round-trip."""
-    operation = Operation(
-        name=Identifier("op"),
-        return_type=_output_int32(),
-    )
+    operation = Operation(name=Identifier("op"), return_type=output_int32)
 
     restored = Statement.deserialize_from_dict(operation.serialize_to_dict())
 
     assert isinstance(restored, Operation)
 
 
-def test_operation_deserialize_data_rejects_missing_return_type():
+def test_operation_deserialize_data_rejects_missing_return_type(
+    output_int32: QualifiedType,
+):
     """Test missing ``return_type`` raises ``DeserializationDictStructureError``."""
     payload = Operation(
-        name=Identifier("op"), return_type=_output_int32()
+        name=Identifier("op"), return_type=output_int32
     ).serialize_data_to_dict()
     payload.pop("return_type")
 
@@ -611,36 +617,36 @@ def test_operation_deserialize_data_rejects_missing_return_type():
 # ===========================================================================
 
 
-def test_native_equivalent_when_name_id_and_args_match():
+def test_native_equivalent_when_name_id_and_args_match(input_int32: QualifiedType):
     """Test natives with matching name id and args are equivalent."""
     name = Identifier("n")
-    arg = _argument("a")
+    arg = _make_argument("a", input_int32)
 
     assert Native(name=name, args=(arg,)).is_structurally_equivalent(
         Native(name=name, args=(arg,))
     )
 
 
-def test_native_inequivalent_when_args_count_differs():
+def test_native_inequivalent_when_args_count_differs(input_int32: QualifiedType):
     """Test differing argument count breaks equivalence."""
     name = Identifier("n")
     a = Native(name=name, args=())
-    b = Native(name=name, args=(_argument("a"),))
+    b = Native(name=name, args=(_make_argument("a", input_int32),))
 
     assert not a.is_structurally_equivalent(b)
 
 
-def test_native_get_visit_children_returns_args():
+def test_native_get_visit_children_returns_args(input_int32: QualifiedType):
     """Test ``Native.get_visit_children`` walks only its args."""
-    arg = _argument("a")
+    arg = _make_argument("a", input_int32)
     native = Native(name=Identifier("n"), args=(arg,))
 
     assert tuple(native.get_visit_children()) == (arg,)
 
 
-def test_native_round_trips_through_serialization():
+def test_native_round_trips_through_serialization(input_int32: QualifiedType):
     """Test ``Native`` survives a wrapped round-trip."""
-    native = Native(name=Identifier("n"), args=(_argument("a"),))
+    native = Native(name=Identifier("n"), args=(_make_argument("a", input_int32),))
 
     restored = Statement.deserialize_from_dict(native.serialize_to_dict())
 
