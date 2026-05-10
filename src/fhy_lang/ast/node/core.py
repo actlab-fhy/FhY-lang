@@ -3,8 +3,8 @@
 Defines ``Module`` plus the abstract families ``Statement``,
 ``Expression``, and ``Function``. The family-level data ``TypedDict``s
 and ``is_valid_*_data`` validators are public at the module level for
-sibling ``node`` modules to compose against; they are deliberately not
-re-exported from ``fhy_lang.ast``.
+sibling ``node`` modules to compose against. They are not re-exported
+from ``fhy_lang.ast``.
 """
 
 __all__ = [

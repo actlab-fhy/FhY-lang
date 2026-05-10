@@ -42,7 +42,7 @@ def test_function_is_abstract():
 
 
 # ===========================================================================
-# Module — default-name id-freshness
+# Module: default-name id-freshness
 # ===========================================================================
 
 
@@ -52,11 +52,7 @@ def test_module_default_name_has_module_hint():
 
 
 def test_module_default_names_have_distinct_ids_across_instances():
-    """Test default-named ``Module``s get fresh ``Identifier`` ids per instance.
-
-    Two ``Module()`` calls must not share the same id; the field uses a
-    ``default_factory`` so each instance allocates a new ``Identifier``.
-    """
+    """Test default-named ``Module``s get fresh ``Identifier`` ids per instance."""
     first = Module()
     second = Module()
 
@@ -64,25 +60,17 @@ def test_module_default_names_have_distinct_ids_across_instances():
 
 
 def test_module_default_names_are_inequivalent_across_instances():
-    """Test two default-named ``Module``s are not structurally equivalent.
-
-    Follows from id-based equivalence: each default-named module has a
-    distinct ``Identifier`` id, so they cannot match.
-    """
+    """Test two default-named ``Module``s are not structurally equivalent."""
     assert not Module().is_structurally_equivalent(Module())
 
 
 # ===========================================================================
-# Module — structural equivalence (id-based contract)
+# Module: structural equivalence (id-based contract)
 # ===========================================================================
 
 
 def test_module_is_inequivalent_when_inner_identifiers_have_independent_ids():
-    """Test a module with independently-constructed inner identifiers is inequivalent.
-
-    Equivalence must recurse through every Identifier-bearing field, not
-    just the outermost ``Module.name``.
-    """
+    """Test modules with independently-built inner identifiers are inequivalent."""
     name = Identifier("m")
     a = Module(name=name, statements=(Import(name=Identifier("foo")),))
     b = Module(name=name, statements=(Import(name=Identifier("foo")),))
@@ -134,7 +122,7 @@ def test_module_is_inequivalent_with_non_module():
 
 
 # ===========================================================================
-# Module — visitor and identifier contracts
+# Module: visitor and identifier contracts
 # ===========================================================================
 
 
@@ -156,7 +144,7 @@ def test_module_get_identifier_returns_name():
 
 
 # ===========================================================================
-# Module — serialization round-trip and error paths
+# Module: serialization round-trip and error paths
 # ===========================================================================
 
 
@@ -210,11 +198,7 @@ def test_module_deserialize_data_rejects_non_dict_statement_entry():
 
 
 def test_module_payload_through_statement_family_raises_serialization_error():
-    """Test feeding a ``Module`` payload to ``Statement.deserialize_from_dict`` fails.
-
-    ``Module`` is not a ``Statement`` subclass; the wrapped-family base must
-    reject it with ``SerializationError``.
-    """
+    """Test ``Statement.deserialize_from_dict`` rejects a ``Module`` payload."""
     wrapped = Module().serialize_to_dict()
 
     with pytest.raises(SerializationError):
@@ -222,10 +206,7 @@ def test_module_payload_through_statement_family_raises_serialization_error():
 
 
 def test_expression_payload_through_statement_family_raises_serialization_error():
-    """Test feeding an ``Expression`` payload to ``Statement`` family fails.
-
-    Pins the family-mismatch path in the deserialization error contract.
-    """
+    """Test ``Statement.deserialize_from_dict`` rejects an ``Expression`` payload."""
     wrapped = IntLiteral(value=1).serialize_to_dict()
 
     with pytest.raises(SerializationError):

@@ -116,7 +116,7 @@ def test_int_literal_deserialize_data_rejects_non_int_value():
 
 
 # ===========================================================================
-# FloatLiteral  (reject NaN/±inf at construction; deserialize coerces int → float)
+# FloatLiteral  (reject NaN/infinity at construction; deserialize coerces int to float)
 # ===========================================================================
 
 
@@ -138,7 +138,7 @@ def test_float_literal_inequivalent_when_value_differs():
     ids=["nan", "+inf", "-inf"],
 )
 def test_float_literal_construction_rejects_non_finite_values(value: float):
-    """Test ``FloatLiteral`` rejects NaN and ±inf at construction."""
+    """Test ``FloatLiteral`` rejects NaN and infinities at construction."""
     with pytest.raises(ValueError):
         FloatLiteral(value=value)
 
@@ -254,7 +254,7 @@ def test_complex_literal_inequivalent_when_imag_differs():
 def test_complex_literal_construction_rejects_non_finite_components(
     real: float, imag: float
 ):
-    """Test ``ComplexLiteral`` rejects NaN/±inf in either component."""
+    """Test ``ComplexLiteral`` rejects NaN or infinity in either component."""
     with pytest.raises(ValueError):
         ComplexLiteral(value=complex(real, imag))
 
@@ -338,10 +338,7 @@ def test_identifier_expression_equivalent_when_identifier_is_same():
 
 
 def test_identifier_expression_inequivalent_when_identifiers_are_independent():
-    """Test independently-constructed ``Identifier("x")`` instances are inequivalent.
-
-    Equivalence is id-based, not name-based.
-    """
+    """Test independently-constructed ``Identifier("x")`` instances are inequivalent."""
     a = IdentifierExpression(identifier=Identifier("x"))
     b = IdentifierExpression(identifier=Identifier("x"))
 
@@ -574,12 +571,7 @@ def test_binary_expression_deserialize_rejects_unknown_operation():
 
 
 def test_binary_expression_validator_delegates_to_expression_data_check(monkeypatch):
-    """Test the binary validator delegates to ``is_valid_expression_data``.
-
-    Monkeypatch ``is_valid_expression_data`` to always return False; if
-    the binary validator delegates correctly, deserialization rejects the
-    payload.
-    """
+    """Test the binary expression validator calls ``is_valid_expression_data``."""
     payload = BinaryExpression(
         operation=BinaryOperation.ADDITION,
         left=_make_int_literal(1),
@@ -729,7 +721,7 @@ def test_tuple_access_expression_equivalent_when_tuple_and_index_match():
         element_index=_make_int_literal(0),
     )
 
-    # Identifiers in tuple_expression are independent → inequivalent.
+    # Identifiers in tuple_expression are independent, so the nodes are inequivalent.
     assert not a.is_structurally_equivalent(b)
 
 

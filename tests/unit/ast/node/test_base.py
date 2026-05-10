@@ -100,7 +100,7 @@ def test_argument_deserialize_data_rejects_non_dict_provenance():
 
 
 def test_argument_is_frozen_against_attribute_assignment():
-    """Test ``Argument`` is frozen — assigning to a field raises."""
+    """Test assigning to a field on a frozen ``Argument`` raises."""
     argument = _build_argument()
 
     with pytest.raises((FrozenInstanceError, FrozenMutationError)):

@@ -1,10 +1,9 @@
 """Base abstract AST node.
 
 ``NodeData``, ``is_valid_node_data``, and ``deserialize_node_provenance``
-are public at the module level for use by sibling ``node`` modules when
-composing payload validators and deserializers; they are deliberately not
-re-exported from ``fhy_lang.ast`` (the subpackage's public surface is the
-node classes themselves).
+are public at the module level for sibling ``node`` modules to compose
+into payload validators and deserializers. They are not re-exported from
+``fhy_lang.ast``.
 """
 
 __all__ = [
@@ -63,14 +62,14 @@ class Node(
     ``deserialize_data_from_dict``, ``get_visit_children``, and an override
     of ``is_structurally_equivalent``.
 
-    Structural equivalence is **id-based** for ``Identifier``-typed fields:
+    Structural equivalence is id-based for ``Identifier``-typed fields:
     two nodes are equivalent only when every Identifier-bearing field is
-    *the same identifier* (same id, per ``Identifier.__eq__``). Two
-    ``Identifier("x")`` instances constructed independently are NOT
-    equivalent, even though they share a name hint. This contract recurses
-    through nested nodes — a Module whose statements contain
-    independently-constructed identifiers is not structurally equivalent
-    to one with the same name hints but separate ids.
+    the same identifier (same id, per ``Identifier.__eq__``). Two
+    ``Identifier("x")`` instances constructed independently are not
+    equivalent. This contract recurses through nested nodes: a ``Module``
+    whose statements contain independently-constructed identifiers is
+    not structurally equivalent to one with the same name hints but
+    separate ids.
 
     ``deserialize_data_from_dict`` raises:
 

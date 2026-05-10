@@ -1,8 +1,8 @@
-"""``QualifiedType`` AST node — pairs a ``Type`` with a ``TypeQualifier``.
+"""``QualifiedType`` AST node. Pairs a ``Type`` with a ``TypeQualifier``.
 
-Carries the ``HasTypeMixin[Type]`` contract so callers can recover the
-underlying type without unwrapping the qualifier. Deserialization rejects
-unknown ``TypeQualifier`` values with ``DeserializationValueError``.
+Implements ``HasTypeMixin[Type]``: ``get_type`` returns the ``base_type``.
+Deserialization rejects unknown ``TypeQualifier`` values with
+``DeserializationValueError``.
 """
 
 from dataclasses import dataclass
