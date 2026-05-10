@@ -57,13 +57,6 @@ def test_qualified_type_is_inequivalent_with_non_qualified_type(
     assert not input_int32.is_structurally_equivalent("not-a-type")
 
 
-def test_qualified_type_round_trips_through_serialization(input_int32: QualifiedType):
-    """Test a wrapped serialize/deserialize round-trip preserves equivalence."""
-    restored = QualifiedType.deserialize_from_dict(input_int32.serialize_to_dict())
-
-    assert input_int32.is_structurally_equivalent(restored)
-
-
 def test_qualified_type_deserialize_data_rejects_unknown_qualifier(
     input_int32: QualifiedType,
 ):
@@ -106,3 +99,17 @@ def test_qualified_type_deserialize_data_rejects_non_string_qualifier(
 
     with pytest.raises(DeserializationDictStructureError):
         QualifiedType.deserialize_data_from_dict(payload)
+
+
+@pytest.mark.parametrize("qualifier", list(TypeQualifier))
+def test_qualified_type_round_trips_for_every_qualifier(
+    int32: NumericalType, qualifier: TypeQualifier
+):
+    """Test every ``TypeQualifier`` value survives a wrapped round-trip."""
+    qualified_type = QualifiedType(base_type=int32, type_qualifier=qualifier)
+
+    restored = QualifiedType.deserialize_from_dict(qualified_type.serialize_to_dict())
+
+    assert isinstance(restored, QualifiedType)
+    assert restored.type_qualifier == qualifier
+    assert qualified_type.is_structurally_equivalent(restored)
