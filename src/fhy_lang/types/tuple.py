@@ -79,11 +79,13 @@ class TupleType(Type):
 def _(left: TupleType, right: object) -> bool:
     if not isinstance(right, TupleType):
         return False
-    if len(left.types) != len(right.types):
+    left_types = left.types
+    right_types = right.types
+    if len(left_types) != len(right_types):
         return False
     return all(
         is_structurally_equivalent(left_element, right_element)
-        for left_element, right_element in zip(left.types, right.types, strict=True)
+        for left_element, right_element in zip(left_types, right_types, strict=True)
     )
 
 
@@ -97,14 +99,16 @@ def _(
         raise VerificationError(
             f"Cannot bind TupleType pattern against {type(actual).__name__}."
         )
-    if len(pattern.types) != len(actual.types):
+    pattern_types = pattern.types
+    actual_types = actual.types
+    if len(pattern_types) != len(actual_types):
         raise VerificationError(
-            f"Tuple arity mismatch: pattern has {len(pattern.types)} "
-            f"elements, actual has {len(actual.types)}."
+            f"Tuple arity mismatch: pattern has {len(pattern_types)} "
+            f"elements, actual has {len(actual_types)}."
         )
     next_environment = environment
     for pattern_element, actual_element in zip(
-        pattern.types, actual.types, strict=True
+        pattern_types, actual_types, strict=True
     ):
         next_environment = bind_template(
             pattern_element, actual_element, next_environment
@@ -127,15 +131,17 @@ def _(
 ) -> tuple[Type, TypeUnificationEnvironment]:
     if not isinstance(actual, TupleType):
         raise VerificationError(f"Cannot unify TupleType with {type(actual).__name__}.")
-    if len(expected.types) != len(actual.types):
+    expected_types = expected.types
+    actual_types = actual.types
+    if len(expected_types) != len(actual_types):
         raise VerificationError(
             f"Tuple arity mismatch during unification: "
-            f"{len(expected.types)} vs {len(actual.types)}."
+            f"{len(expected_types)} vs {len(actual_types)}."
         )
     next_environment = environment
     unified_elements: list[Type] = []
     for expected_element, actual_element in zip(
-        expected.types, actual.types, strict=True
+        expected_types, actual_types, strict=True
     ):
         unified_element, next_environment = unify(
             expected_element, actual_element, next_environment
