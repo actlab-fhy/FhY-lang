@@ -1,6 +1,7 @@
 """Tests conversion of FhY source code from CST to AST."""
 
 from collections.abc import Callable
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -11,8 +12,10 @@ from fhy_core import (
     Identifier,
     IndexType,
     NumericalType,
+    Position,
     PrimitiveDataType,
     Provenance,
+    Span,
     TemplateDataType,
     Type,
     TypeQualifier,
@@ -31,6 +34,7 @@ from fhy_lang import FhYSyntaxError, TupleType
 from fhy_lang.ast import node as ast_node
 from fhy_lang.ast.passes import collect_identifiers
 from fhy_lang.ast.pprint import pformat_ast
+from fhy_lang.converter.from_fhy_source import from_fhy_source
 from fhy_lang.converter.from_parse_tree import _get_source_info
 
 from ..utils import assert_name, assert_sequence_type, assert_type
@@ -1258,3 +1262,51 @@ def test_built_in_type_identifier_identity_is_shared_across_parses(
     expr2 = ast2.statements[0].right
 
     assert expr1.identifier is expr2.identifier
+
+
+# ============================
+# UNSUPPORTED FEATURE PROVENANCE
+# ============================
+
+
+def _file_provenance(file_path: str = "/tmp/fake.fhy") -> FileProvenance:
+    """Helper: a FileProvenance with a known file path and a wide span."""
+    return FileProvenance(
+        Path(file_path),
+        Span(
+            start_position=Position(line=1, column=1),
+            end_position=Position(line=99, column=80),
+        ),
+    )
+
+
+def test_import_statement_raises_not_implemented_with_provenance() -> None:
+    """Test import statements raise NotImplementedError tagged with source location."""
+    with pytest.raises(NotImplementedError, match=r"/tmp/fake\.fhy:\d+:\d+"):
+        from_fhy_source("import foo.bar;", provenance=_file_provenance())
+
+
+def test_selection_statement_raises_not_implemented_with_provenance() -> None:
+    """Test selection statements raise NotImplementedError tagged with location."""
+    source: str = "proc main(output int32 b) { if (1) { b = 1; } else { b = 0; } }"
+    with pytest.raises(NotImplementedError, match=r"/tmp/fake\.fhy:\d+:\d+"):
+        from_fhy_source(source, provenance=_file_provenance())
+
+
+def test_function_declaration_raises_not_implemented_with_provenance() -> None:
+    """Test bodyless function declarations raise NotImplementedError with location."""
+    with pytest.raises(NotImplementedError, match=r"/tmp/fake\.fhy:\d+:\d+"):
+        from_fhy_source("proc main();", provenance=_file_provenance())
+
+
+def test_function_indices_raise_not_implemented_with_provenance() -> None:
+    """Test function indices raise NotImplementedError tagged with source location."""
+    source: str = "op f<>[i, j]() -> output int32 { return 0; }"
+    with pytest.raises(NotImplementedError, match=r"/tmp/fake\.fhy:\d+:\d+"):
+        from_fhy_source(source, provenance=_file_provenance())
+
+
+def test_dtype_template_parameters_raise_not_implemented_with_provenance() -> None:
+    """Test custom dtype template params raise NotImplementedError with location."""
+    with pytest.raises(NotImplementedError, match=r"/tmp/fake\.fhy:\d+:\d+"):
+        from_fhy_source("temp myparam<5> x;", provenance=_file_provenance())
