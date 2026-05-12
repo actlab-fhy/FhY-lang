@@ -26,7 +26,12 @@ def compile_fhy(
         The compiled FhY program.
 
     """
-    _logger.info("Compiling the FhY program...")
+    _logger.info(
+        "Compiling FhY program: source=%s, verbose=%s, perform_optimizations=%s.",
+        workspace.source_file,
+        options.verbose,
+        options.perform_optimizations,
+    )
     ast_program = build_ast_program(workspace, options)
     ast_program, symbol_table = validate_ast(
         ast_program, perform_optimizations=options.perform_optimizations

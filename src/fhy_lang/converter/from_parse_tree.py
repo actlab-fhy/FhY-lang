@@ -57,6 +57,10 @@ def _get_source_info(
             )
         current = getattr(current, "parentCtx", None)
 
+    _logger.debug(
+        "Lost provenance for %s; falling back to UnknownProvenance.",
+        type(ctx).__name__,
+    )
     return Provenance.unknown()
 
 
@@ -135,6 +139,7 @@ class ParseTreeConverter(FhYVisitor):
     def visitImport_statement(
         self, ctx: FhYParser.Import_statementContext
     ) -> ast.Import:
+        _logger.debug("Unsupported feature encountered: import statement.")
         raise NotImplementedError("Import statements are not supported.")
 
     def visitFunction_declaration(
@@ -142,6 +147,9 @@ class ParseTreeConverter(FhYVisitor):
     ) -> ast.Operation | ast.Procedure:
         provenance: Provenance = self._get_provenance(ctx)
         text: str = str(provenance)
+        _logger.debug(
+            "Unsupported feature encountered: function declaration at %s.", text
+        )
         raise NotImplementedError(f"Function Declarations are not supported. {text}")
 
     def visitFunction_definition(
@@ -232,6 +240,9 @@ class ParseTreeConverter(FhYVisitor):
 
         if (index_ctx := ctx.function_indices) is not None and index_ctx.function_arg():
             text = str(provenance)
+            _logger.debug(
+                "Unsupported feature encountered: function indices at %s.", text
+            )
             raise NotImplementedError(f"Function indices are not supported. {text}")
 
         # Visit args after template types, to register potential types beforehand
@@ -330,6 +341,7 @@ class ParseTreeConverter(FhYVisitor):
     def visitSelection_statement(
         self, ctx: FhYParser.Selection_statementContext
     ) -> ast.SelectionStatement:
+        _logger.debug("Unsupported feature encountered: selection statement.")
         raise NotImplementedError("Selection statements are not supported.")
 
     def visitIteration_statement(
@@ -661,6 +673,10 @@ class ParseTreeConverter(FhYVisitor):
     def visitDtype(self, ctx: FhYParser.DtypeContext) -> DataType:
         text: str = ctx.IDENTIFIER().getText()
         if ctx.expression_list() is not None:
+            _logger.debug(
+                "Unsupported feature encountered: dtype template parameters on %s.",
+                text,
+            )
             raise NotImplementedError(
                 "Template types with custom parameters are not yet supported."
             )
