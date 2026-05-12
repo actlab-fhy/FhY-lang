@@ -170,5 +170,5 @@ def serialize(
         show_id: bool = format == SerializationOptions.PRETTYID
         sys.stdout.write(pformat_ast(module, indent_char=space, show_id=show_id))
     else:
-        _logger.error(f"Unsupported or invalid serialization format: {format.value}")
+        _logger.error("Unsupported or invalid serialization format: %s", format.value)
         sys.exit(1)
