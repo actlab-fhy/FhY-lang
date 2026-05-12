@@ -5,15 +5,9 @@ __all__ = [
 ]
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 
-from fhy_core import (
-    BinaryExpression as CoreBinaryExpression,
-)
-from fhy_core import (
-    BinaryOperation as CoreBinaryOperation,
-)
 from fhy_core import (
     CoreDataType,
     DiagnosticLevel,
@@ -28,13 +22,16 @@ from fhy_core import (
     TypeQualifier,
     VariableSymbolTableFrame,
     collect_identifiers,
+    does_expression_imply,
     get_logger,
-    is_satisfiable,
+    holds_for_all_free_assignments,
     register_pass,
-    synthesize_expression_type,
 )
 from fhy_core import (
     Expression as CoreExpression,
+)
+from fhy_core import (
+    IdentifierExpression as CoreIdentifierExpression,
 )
 from fhy_core import (
     LiteralExpression as CoreLiteralExpression,
@@ -71,8 +68,8 @@ class _DomainCheckInput:
 
     array_name: Identifier
     ast_index: Expression
-    lower_bound: CoreExpression
-    upper_bound: CoreExpression
+    core_index: CoreExpression
+    preconditions: tuple[CoreExpression, ...]
     dimension_size: CoreExpression
 
 
@@ -88,6 +85,29 @@ def _is_unsigned_integer_param(
     )
 
 
+def _iter_subexpressions(expression: CoreExpression) -> Iterator[CoreExpression]:
+    yield expression
+    for child in expression.get_visit_children():
+        if isinstance(child, CoreExpression):
+            yield from _iter_subexpressions(child)
+
+
+def _contains_non_integer_literal(expression: CoreExpression) -> bool:
+    for sub in _iter_subexpressions(expression):
+        if isinstance(sub, CoreLiteralExpression) and (
+            isinstance(sub.value, bool) or not isinstance(sub.value, int)
+        ):
+            return True
+    return False
+
+
+def _conjoin(expressions: Sequence[CoreExpression]) -> CoreExpression:
+    result = expressions[0]
+    for expr in expressions[1:]:
+        result = result.logical_and(expr)
+    return result
+
+
 @register_pass(
     "fhy_ast_index_domain_validator",
     "Validates array accesses and that the indices fall within the array's dimensions.",
@@ -100,11 +120,14 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
     - Checks that the accessed base is an identifier expression.
     - Checks that the identifier resolves to a numerical (array) variable.
     - Checks that the rank of the access matches the rank of the array.
-    - Synthesizes the type of each index expression and derives its
-      ``[lower_bound, upper_bound]`` either from an :class:`IndexType` or
-      from a scalar unsigned-integer ``PARAM`` expression.
-    - Uses z3 satisfiability to verify
-      ``lower_bound >= 1 AND upper_bound <= dim_size``.
+    - Classifies every free identifier in the index expression as either an
+      :class:`IndexType` variable (whose ``[lower_bound, upper_bound]`` is
+      added to the precondition for the z3 check) or a scalar
+      unsigned-integer ``PARAM`` (left free for z3).
+    - Uses z3 to verify that the precondition implies
+      ``index >= 1 AND index <= dim_size``. This proves the symbolic
+      minimum and maximum of the index expression are inside the array
+      dimension.
 
     All failures are reported as diagnostics; the visitor continues so the
     user gets every diagnostic in one run.
@@ -149,52 +172,49 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
         except NotImplementedError:
             self._report_unsupported_index_type(ast_index)
             return
-        try:
-            index_type, index_qualifier = synthesize_expression_type(
-                core_index, self._get_identifier_type
-            )
-        except FhYCoreTypeError as exc:
-            self._report_failed_type_synthesis(ast_index, exc)
+        if _contains_non_integer_literal(core_index):
+            self._report_non_integer_index(ast_index)
             return
-        bounds = self._get_index_bounds(
-            ast_index, core_index, index_type, index_qualifier
-        )
-        if bounds is None:
+        preconditions = self._collect_index_preconditions(ast_index, core_index)
+        if preconditions is None:
             return
-        lower_bound, upper_bound = bounds
         self._check_index_in_domain(
             _DomainCheckInput(
                 array_name=array_name,
                 ast_index=ast_index,
-                lower_bound=lower_bound,
-                upper_bound=upper_bound,
+                core_index=core_index,
+                preconditions=preconditions,
                 dimension_size=dimension_size,
             )
         )
 
-    def _get_index_bounds(
-        self,
-        ast_index: Expression,
-        core_index: CoreExpression,
-        index_type: Type,
-        index_qualifier: TypeQualifier,
-    ) -> tuple[CoreExpression, CoreExpression] | None:
-        if isinstance(index_type, IndexType):
-            return index_type.lower_bound, index_type.upper_bound
-        if _is_unsigned_integer_param(index_type, index_qualifier):
-            return core_index, core_index
-        self.report(
-            DiagnosticLevel.ERROR,
-            format_diagnostic_message(
-                "type error",
-                f"Array-access index {ast_index} must resolve to either an "
-                "index type or a scalar unsigned-integer PARAM expression; "
-                f"got type {index_type} with qualifier "
-                f"{index_qualifier.value!r}.",
-                ast_index.provenance,
-            ),
-        )
-        return None
+    def _collect_index_preconditions(
+        self, ast_index: Expression, core_index: CoreExpression
+    ) -> tuple[CoreExpression, ...] | None:
+        preconditions: list[CoreExpression] = []
+        for identifier in collect_identifiers(core_index):
+            try:
+                identifier_type, identifier_qualifier = self._get_identifier_type(
+                    identifier
+                )
+            except (SymbolTableError, FhYCoreTypeError):
+                return None
+            if isinstance(identifier_type, IndexType):
+                identifier_expression = CoreIdentifierExpression(identifier)
+                preconditions.append(
+                    identifier_expression >= identifier_type.lower_bound
+                )
+                preconditions.append(
+                    identifier_expression <= identifier_type.upper_bound
+                )
+            elif _is_unsigned_integer_param(identifier_type, identifier_qualifier):
+                continue
+            else:
+                self._report_unsupported_index_identifier(
+                    ast_index, identifier, identifier_type, identifier_qualifier
+                )
+                return None
+        return tuple(preconditions)
 
     def _get_identifier_type(
         self, identifier: Identifier
@@ -207,29 +227,38 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
         return frame.type, frame.type_qualifier
 
     def _check_index_in_domain(self, check_input: _DomainCheckInput) -> None:
-        lower_bound_constraint = check_input.lower_bound >= CoreLiteralExpression(1)
-        upper_bound_constraint = check_input.upper_bound <= check_input.dimension_size
-        constraint = CoreBinaryExpression(
-            CoreBinaryOperation.LOGICAL_AND,
-            lower_bound_constraint,
-            upper_bound_constraint,
-        )
-        violation = constraint.logical_not()
-        identifiers = collect_identifiers(violation)
-        symbol_types = dict.fromkeys(identifiers, SymbolType.INT)
-        if not is_satisfiable(identifiers, violation, symbol_types):
+        lower_bound_constraint = check_input.core_index >= CoreLiteralExpression(1)
+        upper_bound_constraint = check_input.core_index <= check_input.dimension_size
+        constraint = lower_bound_constraint.logical_and(upper_bound_constraint)
+        symbol_types = self._build_symbol_types(check_input, constraint)
+        if check_input.preconditions:
+            antecedent = _conjoin(check_input.preconditions)
+            holds = does_expression_imply(antecedent, constraint, symbol_types)
+        else:
+            holds = holds_for_all_free_assignments(set(), constraint, symbol_types)
+        if holds is True:
             return
         self.report(
             DiagnosticLevel.ERROR,
             format_diagnostic_message(
                 "semantic error",
                 f"Array access on {check_input.array_name.name_hint!r} is out "
-                f"of bounds: index range [{check_input.lower_bound}, "
-                f"{check_input.upper_bound}] is not contained in "
-                f"[1, {check_input.dimension_size}].",
+                f"of bounds: index expression {check_input.core_index} is not "
+                f"provably within [1, {check_input.dimension_size}] given the "
+                "declared bounds of its index variables.",
                 check_input.ast_index.provenance,
             ),
         )
+
+    @staticmethod
+    def _build_symbol_types(
+        check_input: _DomainCheckInput, constraint: CoreExpression
+    ) -> dict[Identifier, SymbolType]:
+        identifiers: set[Identifier] = set()
+        identifiers |= collect_identifiers(constraint)
+        for precondition in check_input.preconditions:
+            identifiers |= collect_identifiers(precondition)
+        return dict.fromkeys(identifiers, SymbolType.INT)
 
     def _report_non_identifier_array_expression(
         self, node: ArrayAccessExpression
@@ -288,15 +317,33 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
             ),
         )
 
-    def _report_failed_type_synthesis(
-        self, ast_index: Expression, exc: FhYCoreTypeError
+    def _report_non_integer_index(self, ast_index: Expression) -> None:
+        self.report(
+            DiagnosticLevel.ERROR,
+            format_diagnostic_message(
+                "type error",
+                f"Array-access index {ast_index} contains a non-integer "
+                "literal; indices must be integer-valued.",
+                ast_index.provenance,
+            ),
+        )
+
+    def _report_unsupported_index_identifier(
+        self,
+        ast_index: Expression,
+        identifier: Identifier,
+        identifier_type: Type,
+        identifier_qualifier: TypeQualifier,
     ) -> None:
         self.report(
             DiagnosticLevel.ERROR,
             format_diagnostic_message(
                 "type error",
-                f"Failed to synthesize a type for array-access index "
-                f"{ast_index}: {exc}",
+                f"Identifier {identifier.name_hint!r} used in array-access "
+                f"index {ast_index} must be either an index variable or a "
+                "scalar unsigned-integer PARAM; got type "
+                f"{identifier_type} with qualifier "
+                f"{identifier_qualifier.value!r}.",
                 ast_index.provenance,
             ),
         )

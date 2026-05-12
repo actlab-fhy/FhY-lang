@@ -43,7 +43,7 @@ from fhy_core import (
     TypeQualifier,
     VariableSymbolTableFrame,
     get_logger,
-    is_satisfiable,
+    holds_for_all_free_assignments,
     register_pass,
 )
 from fhy_core import (
@@ -542,12 +542,7 @@ class _ArrayCoverageAnalysis:
         )
         identifiers = set(core_collect_identifiers(uncovered))
         symbol_types = dict.fromkeys(identifiers, SymbolType.INT)
-        sat = is_satisfiable(identifiers, uncovered, symbol_types)
-        _logger.debug(
-            "Array coverage SMT check: %d symbolic var(s), satisfiable=%s.",
-            len(identifiers),
-            sat,
-        )
+        sat = holds_for_all_free_assignments(identifiers, uncovered, symbol_types)
         if sat is None:
             return None
         else:
@@ -720,18 +715,12 @@ class DefiniteAssignmentValidator(CompilerPass[Module, None]):
 
     def run_pass(self, ir: Module) -> None:
         liveness = LivenessAnalysis().run(ir)
-        function_count = 0
         for statement in ir.statements:
             if isinstance(statement, Procedure | Operation):
                 _logger.debug(
                     "Definite assignment: validating function %s.", statement.name
                 )
                 self._validate_function(statement, liveness)
-                function_count += 1
-        _logger.info(
-            "Definite assignment validation complete: %d function(s) checked.",
-            function_count,
-        )
 
     def _validate_function(
         self, function: _FunctionDefinition, liveness: LivenessResult

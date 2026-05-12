@@ -225,12 +225,6 @@ class LivenessAnalysis(Analysis[Module, LivenessResult]):
     """Cached liveness analysis for a FhY AST module."""
 
     def run(self, ir: Module) -> LivenessResult:
-        _logger.info("Starting liveness analysis...")
         walker = _LivenessAnalysisPass()
         walker(ir)
-        result = walker.result
-        _logger.info(
-            "Liveness analysis complete: %d statement(s) analyzed.",
-            len(result.live_in),
-        )
-        return result
+        return walker.result

@@ -51,8 +51,6 @@ class ThrowingErrorListener(ErrorListener):  # type: ignore[misc]
             f'text="{text}" - msg={msg}'
         )
 
-        self.logger.error(message)
-
         raise FhYSyntaxError(message) from e
 
     def reportAmbiguity(
@@ -210,7 +208,8 @@ def from_fhy_source(
             bug rather than user error.
 
     """
-    _logger.debug("Lexing and parsing FhY source (%d chars).", len(fhy_source_content))
+    _logger.info("Lexing and parsing FhY source: %s.", provenance)
+    _logger.debug("Source size: %d char(s).", len(fhy_source_content))
     tree = _fhy_source_to_parse_tree(fhy_source_content)
     _logger.debug("Parse tree constructed. Converting to AST...")
     _ast = from_parse_tree(tree, provenance)

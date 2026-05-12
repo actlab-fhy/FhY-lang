@@ -168,10 +168,6 @@ class RecursionValidator(CompilerPass[Module, None]):
             self._report_recursive_component(
                 call_graph, function_definitions, component
             )
-        _logger.info(
-            "Recursion validation complete: %d recursive component(s) found.",
-            len(recursive_components),
-        )
 
     def _report_recursive_component(
         self,

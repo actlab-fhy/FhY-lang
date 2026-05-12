@@ -149,6 +149,11 @@ class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
         self, symbol: Identifier, provenance: Provenance | None
     ) -> None:
         if self._is_symbol_defined(symbol):
+            _logger.debug(
+                "Symbol redeclaration: %s in namespace %s.",
+                symbol,
+                self._namespace_stack.peek(),
+            )
             raise FhYSymbolTableBuilderError(
                 f"Symbol {symbol.name_hint} is already defined.",
                 provenance,
@@ -214,6 +219,9 @@ class _SymbolTableBuilder(AnalysisVisitablePass[Node]):
         for dimension in shape_dimension_identifiers:
             if self._is_symbol_defined(dimension):
                 continue
+            _logger.debug(
+                "Implicitly registered shape dim %s as PARAM uint32.", dimension
+            )
             dimension_frame = VariableSymbolTableFrame(
                 name=dimension,
                 type=NumericalType(PrimitiveDataType(CoreDataType.UINT32)),
@@ -254,8 +262,4 @@ def build_symbol_table(node: Module) -> SymbolTable:
     """
     builder = _SymbolTableBuilder()
     builder(node)
-    _logger.info(
-        "Symbol table built successfully (%d namespace(s)).",
-        builder.symbol_table.get_number_of_namespaces(),
-    )
     return builder.symbol_table
