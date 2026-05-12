@@ -3,7 +3,7 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Final
 
 import typer
 from fhy_core import SerializationFormat as CoreSerializationFormat
@@ -29,7 +29,7 @@ _logger: logging.Logger = get_logger(__name__)
 # plus a wide margin for symbolic differentiation, autograd, and similar
 # tools that emit deeply-nested arithmetic. Programmatic users who
 # bypass the CLI must raise the limit themselves.
-RECURSION_LIMIT: int = 50_000
+RECURSION_LIMIT: Final[int] = 50_000
 
 
 def report_version(value: bool) -> None:
