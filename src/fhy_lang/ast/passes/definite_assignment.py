@@ -715,19 +715,12 @@ class DefiniteAssignmentValidator(CompilerPass[Module, None]):
 
     def run_pass(self, ir: Module) -> None:
         liveness = LivenessAnalysis().run(ir)
-        function_count = 0
         for statement in ir.statements:
             if isinstance(statement, Procedure | Operation):
                 _logger.debug(
                     "Definite assignment: validating function %s.", statement.name
                 )
                 self._validate_function(statement, liveness)
-                function_count += 1
-        self.report(
-            DiagnosticLevel.INFO,
-            "Definite assignment validation complete: %d function(s) checked.",
-            function_count,
-        )
 
     def _validate_function(
         self, function: _FunctionDefinition, liveness: LivenessResult

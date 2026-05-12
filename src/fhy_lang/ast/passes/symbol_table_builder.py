@@ -254,8 +254,4 @@ def build_symbol_table(node: Module) -> SymbolTable:
     """
     builder = _SymbolTableBuilder()
     builder(node)
-    _logger.info(
-        "Symbol table built successfully (%d namespace(s)).",
-        builder.symbol_table.get_number_of_namespaces(),
-    )
     return builder.symbol_table

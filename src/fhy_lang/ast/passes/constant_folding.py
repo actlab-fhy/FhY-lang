@@ -305,13 +305,7 @@ class ConstantFoldingPass(Transformer):
 
     def run_pass(self, ir: Node) -> Node:
         self._folded_count = 0
-        _logger.info("Starting constant folding pass...")
-        result = super().run_pass(ir)
-        _logger.info(
-            "Constant folding complete: %d expression(s) folded.",
-            self._folded_count,
-        )
-        return result
+        return super().run_pass(ir)
 
     def did_change(self, input_ir: Node, output: Node) -> bool:
         _ = (input_ir, output)

@@ -275,10 +275,6 @@ class TypeChecker(AnalysisPassWithSymbolTable):
             len(self._operation_return_types),
         )
 
-    def after_visit_module(self, node: Module) -> None:
-        super().after_visit_module(node)
-        _logger.info("Type checking complete: %d error(s) reported.", self._error_count)
-
     def before_visit_operation(self, node: Operation) -> None:
         super().before_visit_operation(node)
         self._current_return_type = node.return_type.base_type

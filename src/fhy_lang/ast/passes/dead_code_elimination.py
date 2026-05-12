@@ -128,7 +128,6 @@ class DeadCodeEliminationPass(Transformer):
                 f"{type(self).__name__} requires a Module input; "
                 f"got {type(ir).__name__}."
             )
-        _logger.info("Starting dead code elimination pass...")
         liveness: LivenessResult = self.get_analysis(LivenessAnalysis, ir)
         self._live_out = dict(liveness.live_out)
         self._identifier_use_counts = _count_identifier_occurrences(ir)
@@ -138,12 +137,7 @@ class DeadCodeEliminationPass(Transformer):
             len(self._live_out),
             len(self._identifier_use_counts),
         )
-        result = super().run_pass(ir)
-        _logger.info(
-            "Dead code elimination complete: %d statement(s) removed.",
-            self._removed_count,
-        )
-        return result
+        return super().run_pass(ir)
 
     def did_change(self, input_ir: Node, output: Node) -> bool:
         _ = (input_ir, output)
