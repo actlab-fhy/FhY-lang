@@ -20,6 +20,38 @@ This package provides the user-facing surface of the compiler: the FhY source la
 - Compilation driver with configurable options (verbose logging, optimization)
 - AST serialization to JSON or human-readable pretty-printed formats
 
+## Installation
+
+`fhy_lang` requires Python >= 3.10.
+
+### From PyPI (end users)
+
+```bash
+pip install fhy_lang
+```
+
+The published wheel ships the ANTLR-generated parser modules, so no external build tooling is required at install time.
+
+### From source (contributors)
+
+A source checkout does not include the generated parser modules (`src/fhy_lang/parser/FhY*.py` are gitignored). Building them requires JDK 11 and the ANTLR4 tools:
+
+```bash
+git clone https://github.com/actlab-fhy/FhY-lang.git
+cd FhY-lang
+
+# 1. Install build-time dependencies (includes antlr4-tools).
+pip install -r requirements_build.txt
+
+# 2. Generate the parser modules from grammar/FhY.g4.
+./build_grammar.sh
+
+# 3. Install the package in editable mode with dev extras.
+pip install -e '.[dev]'
+```
+
+Skipping step 2 will produce an `ImportError` on first use: `fhy_lang.parser` only exists once `build_grammar.sh` has populated it. Re-run `build_grammar.sh` whenever `grammar/FhY.g4` changes.
+
 ## Command Line Interface
 
 Installing the package exposes the `compile-fhy-lang` command:
