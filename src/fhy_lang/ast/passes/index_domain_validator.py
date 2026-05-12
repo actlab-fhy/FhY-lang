@@ -29,7 +29,7 @@ from fhy_core import (
     VariableSymbolTableFrame,
     collect_identifiers,
     get_logger,
-    is_satisfiable,
+    holds_for_all_free_assignments,
     register_pass,
     synthesize_expression_type,
 )
@@ -217,7 +217,7 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
         violation = constraint.logical_not()
         identifiers = collect_identifiers(violation)
         symbol_types = dict.fromkeys(identifiers, SymbolType.INT)
-        if not is_satisfiable(identifiers, violation, symbol_types):
+        if not holds_for_all_free_assignments(identifiers, violation, symbol_types):
             return
         self.report(
             DiagnosticLevel.ERROR,
