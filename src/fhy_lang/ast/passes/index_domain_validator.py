@@ -44,6 +44,7 @@ from fhy_lang.ast.node import (
 )
 from fhy_lang.ast.shape import narrow_shape
 
+from ..pprint import pformat_ast
 from .analysis_pass_with_symbol_table import AnalysisPassWithSymbolTable
 from .ast_to_core_expression_converter import (
     convert_ast_expression_to_core_expression,
@@ -311,8 +312,8 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
             DiagnosticLevel.ERROR,
             format_diagnostic_message(
                 "type error",
-                f"Array-access index {ast_index} is not a supported type; "
-                f"got type {type(ast_index).__name__}.",
+                f"Array-access index {pformat_ast(ast_index)} is not a "
+                f"supported type; got type {type(ast_index).__name__}.",
                 ast_index.provenance,
             ),
         )
@@ -322,8 +323,8 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
             DiagnosticLevel.ERROR,
             format_diagnostic_message(
                 "type error",
-                f"Array-access index {ast_index} contains a non-integer "
-                "literal; indices must be integer-valued.",
+                f"Array-access index {pformat_ast(ast_index)} contains a "
+                "non-integer literal; indices must be integer-valued.",
                 ast_index.provenance,
             ),
         )
@@ -340,8 +341,8 @@ class IndexDomainValidator(AnalysisPassWithSymbolTable):
             format_diagnostic_message(
                 "type error",
                 f"Identifier {identifier.name_hint!r} used in array-access "
-                f"index {ast_index} must be either an index variable or a "
-                "scalar unsigned-integer PARAM; got type "
+                f"index {pformat_ast(ast_index)} must be either an index "
+                "variable or a scalar unsigned-integer PARAM; got type "
                 f"{identifier_type} with qualifier "
                 f"{identifier_qualifier.value!r}.",
                 ast_index.provenance,
