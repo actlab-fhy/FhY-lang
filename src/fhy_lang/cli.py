@@ -20,6 +20,17 @@ app = typer.Typer(
 
 _logger: logging.Logger = get_logger(__name__)
 
+# AST passes are recursive; nontrivial source programs (especially
+# code-generated ones) routinely produce expression chains deeper than
+# Python's default ~1000-frame recursion limit. Each AST node typically
+# costs 3-4 stack frames in the visitor pattern, so a 50_000-frame limit
+# covers expression chains of roughly 12_000 nodes -- enough for every
+# program we have seen in practice (LeNet5, FIR convolutions, matmul)
+# plus a wide margin for symbolic differentiation, autograd, and similar
+# tools that emit deeply-nested arithmetic. Programmatic users who
+# bypass the CLI must raise the limit themselves.
+RECURSION_LIMIT: int = 50_000
+
 
 def report_version(value: bool) -> None:
     """Report version to stdout and exit if true.
@@ -53,6 +64,8 @@ def compile_fhy_source(
     log_file: Path | None = None,
 ) -> tuple[ASTModule, SymbolTable]:
     """Parse a FhY project, compile it, and return the final AST module."""
+    sys.setrecursionlimit(RECURSION_LIMIT)
+
     if log_file is not None:
         add_file_handler(
             _logger,
