@@ -24,11 +24,21 @@ _logger: logging.Logger = get_logger(__name__)
 # code-generated ones) routinely produce expression chains deeper than
 # Python's default ~1000-frame recursion limit. Each AST node typically
 # costs 3-4 stack frames in the visitor pattern, so a 50_000-frame limit
-# covers expression chains of roughly 12_000 nodes -- enough for every
-# program we have seen in practice (LeNet5, FIR convolutions, matmul)
-# plus a wide margin for symbolic differentiation, autograd, and similar
-# tools that emit deeply-nested arithmetic. Programmatic users who
-# bypass the CLI must raise the limit themselves.
+# covers expression chains of roughly 12_000 nodes on platforms with
+# enough OS thread stack to use them.
+#
+# Caveat: ``sys.setrecursionlimit`` only raises Python's interpreter
+# check; it cannot enlarge the OS thread stack. The achievable depth is
+# bounded by the smaller of (this limit, OS-stack-frames). On Linux and
+# macOS the default 8 MB stack accommodates the full 50_000 frames; on
+# Windows the default ~1 MB main-thread stack runs out around 1000-2000
+# frames regardless of this value, raising a process-level SIGSEGV
+# rather than a clean RecursionError. Users who compile very deep ASTs
+# on Windows should also raise the thread stack via
+# ``threading.stack_size()`` before invoking the compiler, or run on a
+# Python built with a larger default stack.
+#
+# Programmatic users who bypass the CLI must raise the limit themselves.
 RECURSION_LIMIT: Final[int] = 50_000
 
 
