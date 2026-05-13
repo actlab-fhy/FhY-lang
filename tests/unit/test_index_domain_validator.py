@@ -747,3 +747,131 @@ def test_fails_with_tuple_access_index():
 
     with pytest.raises(ValidationFailedError, match="type error"):
         run_validator(IndexDomainValidator(symbol_table), program_ast)
+
+
+# ============================
+# DIAGNOSTIC FORMAT
+# ============================
+
+
+def _vector_int32_input(name: Identifier, size: int) -> Argument:
+    return Argument(
+        name=name,
+        qualified_type=QualifiedType(
+            base_type=NumericalType(
+                PrimitiveDataType(CoreDataType.INT32),
+                shape=(LiteralExpression(size),),
+            ),
+            type_qualifier=TypeQualifier.INPUT,
+        ),
+    )
+
+
+def test_unsupported_index_type_diagnostic_uses_pretty_form():
+    """Test the unsupported-index-type diagnostic renders the index in FhY syntax."""
+    main = Identifier("main")
+    a, t = Identifier("a"), Identifier("t")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(_vector_int32_input(a, 10),),
+                body=(
+                    ExpressionStatement(
+                        left=None,
+                        right=ArrayAccessExpression(
+                            array_expression=IdentifierExpression(identifier=a),
+                            indices=(
+                                TupleAccessExpression(
+                                    tuple_expression=IdentifierExpression(identifier=t),
+                                    element_index=IntLiteral(value=0),
+                                ),
+                            ),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(ValidationFailedError) as excinfo:
+        run_validator(IndexDomainValidator(symbol_table), program_ast)
+
+    message = str(excinfo.value)
+    assert "TupleAccessExpression(" not in message
+    assert "Provenance(" not in message
+    assert "t.0" in message or "(t).0" in message
+
+
+def test_non_integer_index_diagnostic_uses_pretty_form():
+    """Test the non-integer-index diagnostic renders the index in FhY syntax."""
+    main = Identifier("main")
+    a = Identifier("a")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(_vector_int32_input(a, 10),),
+                body=(
+                    ExpressionStatement(
+                        left=None,
+                        right=ArrayAccessExpression(
+                            array_expression=IdentifierExpression(identifier=a),
+                            indices=(FloatLiteral(value=1.5),),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(ValidationFailedError) as excinfo:
+        run_validator(IndexDomainValidator(symbol_table), program_ast)
+
+    message = str(excinfo.value)
+    assert "FloatLiteral(" not in message
+    assert "Provenance(" not in message
+    assert "1.5" in message
+
+
+def test_unsupported_index_identifier_diagnostic_uses_pretty_form():
+    """Test diagnostic for non-PARAM scalar identifier renders index pretty."""
+    main = Identifier("main")
+    a, t = Identifier("a"), Identifier("t")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(_vector_int32_input(a, 10),),
+                body=(
+                    DeclarationStatement(
+                        variable_name=t,
+                        variable_type=QualifiedType(
+                            base_type=NumericalType(
+                                PrimitiveDataType(CoreDataType.UINT32),
+                            ),
+                            type_qualifier=TypeQualifier.TEMP,
+                        ),
+                    ),
+                    ExpressionStatement(
+                        left=None,
+                        right=ArrayAccessExpression(
+                            array_expression=IdentifierExpression(identifier=a),
+                            indices=(IdentifierExpression(identifier=t),),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(ValidationFailedError) as excinfo:
+        run_validator(IndexDomainValidator(symbol_table), program_ast)
+
+    message = str(excinfo.value)
+    assert "IdentifierExpression(" not in message
+    assert "Provenance(" not in message
+    assert "t" in message

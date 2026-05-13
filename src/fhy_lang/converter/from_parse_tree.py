@@ -139,8 +139,10 @@ class ParseTreeConverter(FhYVisitor):
     def visitImport_statement(
         self, ctx: FhYParser.Import_statementContext
     ) -> ast.Import:
-        _logger.debug("Unsupported feature encountered: import statement.")
-        raise NotImplementedError("Import statements are not supported.")
+        provenance: Provenance = self._get_provenance(ctx)
+        text: str = str(provenance)
+        _logger.debug("Unsupported feature encountered: import statement at %s.", text)
+        raise NotImplementedError(f"{text}: Import statements are not yet supported.")
 
     def visitFunction_declaration(
         self, ctx: FhYParser.Function_declarationContext
@@ -150,7 +152,9 @@ class ParseTreeConverter(FhYVisitor):
         _logger.debug(
             "Unsupported feature encountered: function declaration at %s.", text
         )
-        raise NotImplementedError(f"Function Declarations are not supported. {text}")
+        raise NotImplementedError(
+            f"{text}: Function declarations are not yet supported."
+        )
 
     def visitFunction_definition(
         self, ctx: FhYParser.Function_definitionContext
@@ -243,7 +247,9 @@ class ParseTreeConverter(FhYVisitor):
             _logger.debug(
                 "Unsupported feature encountered: function indices at %s.", text
             )
-            raise NotImplementedError(f"Function indices are not supported. {text}")
+            raise NotImplementedError(
+                f"{text}: Function indices are not yet supported."
+            )
 
         # Visit args after template types, to register potential types beforehand
         args_ctx: FhYParser.Function_argsContext = ctx.function_args(0)
@@ -341,8 +347,14 @@ class ParseTreeConverter(FhYVisitor):
     def visitSelection_statement(
         self, ctx: FhYParser.Selection_statementContext
     ) -> ast.SelectionStatement:
-        _logger.debug("Unsupported feature encountered: selection statement.")
-        raise NotImplementedError("Selection statements are not supported.")
+        provenance: Provenance = self._get_provenance(ctx)
+        text: str = str(provenance)
+        _logger.debug(
+            "Unsupported feature encountered: selection statement at %s.", text
+        )
+        raise NotImplementedError(
+            f"{text}: Selection statements are not yet supported."
+        )
 
     def visitIteration_statement(
         self, ctx: FhYParser.Iteration_statementContext
@@ -673,12 +685,16 @@ class ParseTreeConverter(FhYVisitor):
     def visitDtype(self, ctx: FhYParser.DtypeContext) -> DataType:
         text: str = ctx.IDENTIFIER().getText()
         if ctx.expression_list() is not None:
+            provenance: Provenance = self._get_provenance(ctx)
+            location: str = str(provenance)
             _logger.debug(
-                "Unsupported feature encountered: dtype template parameters on %s.",
+                "Unsupported feature: dtype template parameters on %s at %s.",
                 text,
+                location,
             )
             raise NotImplementedError(
-                "Template types with custom parameters are not yet supported."
+                f"{location}: Template types with custom parameters "
+                "are not yet supported."
             )
 
         try:

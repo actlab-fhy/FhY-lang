@@ -3,7 +3,7 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Final
 
 import typer
 from fhy_core import SerializationFormat as CoreSerializationFormat
@@ -19,6 +19,27 @@ app = typer.Typer(
 )
 
 _logger: logging.Logger = get_logger(__name__)
+
+# AST passes are recursive; nontrivial source programs (especially
+# code-generated ones) routinely produce expression chains deeper than
+# Python's default ~1000-frame recursion limit. Each AST node typically
+# costs 3-4 stack frames in the visitor pattern, so a 50_000-frame limit
+# covers expression chains of roughly 12_000 nodes on platforms with
+# enough OS thread stack to use them.
+#
+# Caveat: ``sys.setrecursionlimit`` only raises Python's interpreter
+# check; it cannot enlarge the OS thread stack. The achievable depth is
+# bounded by the smaller of (this limit, OS-stack-frames). On Linux and
+# macOS the default 8 MB stack accommodates the full 50_000 frames; on
+# Windows the default ~1 MB main-thread stack runs out around 1000-2000
+# frames regardless of this value, raising a process-level SIGSEGV
+# rather than a clean RecursionError. Users who compile very deep ASTs
+# on Windows should also raise the thread stack via
+# ``threading.stack_size()`` before invoking the compiler, or run on a
+# Python built with a larger default stack.
+#
+# Programmatic users who bypass the CLI must raise the limit themselves.
+RECURSION_LIMIT: Final[int] = 50_000
 
 
 def report_version(value: bool) -> None:
@@ -53,6 +74,8 @@ def compile_fhy_source(
     log_file: Path | None = None,
 ) -> tuple[ASTModule, SymbolTable]:
     """Parse a FhY project, compile it, and return the final AST module."""
+    sys.setrecursionlimit(RECURSION_LIMIT)
+
     if log_file is not None:
         add_file_handler(
             _logger,
@@ -170,5 +193,5 @@ def serialize(
         show_id: bool = format == SerializationOptions.PRETTYID
         sys.stdout.write(pformat_ast(module, indent_char=space, show_id=show_id))
     else:
-        _logger.error(f"Unsupported or invalid serialization format: {format.value}")
+        _logger.error("Unsupported or invalid serialization format: %s", format.value)
         sys.exit(1)

@@ -35,7 +35,6 @@ def _clean_pretty_print_output(output: str) -> str:
 
 
 @pytest.mark.integration
-@pytest.mark.slow
 @pytest.mark.parametrize("file", examples)
 def test_single_file_examples_through_cli_pretty(file: str):
     """Test the FhY CLI using pretty print on a collection of example files."""

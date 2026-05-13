@@ -8,6 +8,7 @@ from fhy_core import (
     LiteralExpression,
     NumericalType,
     PrimitiveDataType,
+    Type,
     TypeQualifier,
     ValidationFailedError,
 )
@@ -20,8 +21,10 @@ from fhy_lang.ast import (
     ArrayAccessExpression,
     BinaryExpression,
     BinaryOperation,
+    ComplexLiteral,
     DeclarationStatement,
     ExpressionStatement,
+    FloatLiteral,
     ForAllStatement,
     FunctionExpression,
     IdentifierExpression,
@@ -32,6 +35,8 @@ from fhy_lang.ast import (
     QualifiedType,
     ReturnStatement,
     TernaryExpression,
+    UnaryExpression,
+    UnaryOperation,
 )
 from fhy_lang.ast.passes import TypeChecker, build_symbol_table
 from fhy_lang.builtins import BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS
@@ -1380,3 +1385,652 @@ def test_valid_call_site_literal_shape_match_with_promotion():
     # Should not raise: arg data type int32 promotes to the declared
     # int64 parameter type; shapes match on literal 3 == 3.
     run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def _make_int32_returning_op(
+    input_name: Identifier, input_type: Type, body: tuple
+) -> Module:
+    """Build a Module with a single int32-returning Operation around ``body``.
+
+    The operation is named ``op`` and takes a single INPUT argument
+    ``input_name`` of type ``input_type``. The ``body`` is the operation
+    body and is responsible for ending with a ``ReturnStatement``.
+    """
+    op = Identifier("op")
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    return Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=input_name,
+                        qualified_type=QualifiedType(
+                            base_type=input_type,
+                            type_qualifier=TypeQualifier.INPUT,
+                        ),
+                    ),
+                ),
+                body=body,
+                return_type=QualifiedType(
+                    base_type=int32_scalar, type_qualifier=TypeQualifier.OUTPUT
+                ),
+            ),
+        ),
+    )
+
+
+def test_fails_on_ternary_condition_with_shape():
+    """Test ternary fails when condition is a shaped (non-scalar) value."""
+    a = Identifier("a")
+    int32_vec3 = NumericalType(
+        PrimitiveDataType(CoreDataType.INT32), shape=(LiteralExpression(3),)
+    )
+    body = (
+        ReturnStatement(
+            expression=TernaryExpression(
+                condition=IdentifierExpression(identifier=a),
+                true=IntLiteral(value=1),
+                false=IntLiteral(value=0),
+            ),
+        ),
+    )
+
+    program_ast = _make_int32_returning_op(a, int32_vec3, body)
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        ValidationFailedError, match="Ternary condition must be a scalar"
+    ):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_ternary_condition_with_float():
+    """Test ternary fails when condition is a float (non-integer) scalar."""
+    a = Identifier("a")
+    float32_scalar = _make_float32_type()
+    body = (
+        ReturnStatement(
+            expression=TernaryExpression(
+                condition=IdentifierExpression(identifier=a),
+                true=IntLiteral(value=1),
+                false=IntLiteral(value=0),
+            ),
+        ),
+    )
+
+    program_ast = _make_int32_returning_op(a, float32_scalar, body)
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        ValidationFailedError, match="Ternary condition must be an integer-typed scalar"
+    ):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_unary_bitwise_not_on_float():
+    """Test unary `~` fails on a float operand."""
+    a = Identifier("a")
+    float32_scalar = _make_float32_type()
+    body = (
+        ReturnStatement(
+            expression=UnaryExpression(
+                operation=UnaryOperation.BITWISE_NOT,
+                expression=IdentifierExpression(identifier=a),
+            ),
+        ),
+    )
+
+    program_ast = _make_int32_returning_op(a, float32_scalar, body)
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        ValidationFailedError, match="Unary '~' requires an integer operand"
+    ):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_unary_logical_not_on_shaped_operand():
+    """Test unary `!` fails on a shaped (non-scalar) operand."""
+    a = Identifier("a")
+    int32_vec3 = NumericalType(
+        PrimitiveDataType(CoreDataType.INT32), shape=(LiteralExpression(3),)
+    )
+    body = (
+        ReturnStatement(
+            expression=UnaryExpression(
+                operation=UnaryOperation.LOGICAL_NOT,
+                expression=IdentifierExpression(identifier=a),
+            ),
+        ),
+    )
+
+    program_ast = _make_int32_returning_op(a, int32_vec3, body)
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        ValidationFailedError, match="Unary '!' requires a scalar operand"
+    ):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_binary_with_shape_mismatch():
+    """Test binary expression fails when operand shapes are not equivalent."""
+    op = Identifier("op")
+    a, b = Identifier("a"), Identifier("b")
+    int32_vec3 = NumericalType(
+        PrimitiveDataType(CoreDataType.INT32), shape=(LiteralExpression(3),)
+    )
+    int32_vec5 = NumericalType(
+        PrimitiveDataType(CoreDataType.INT32), shape=(LiteralExpression(5),)
+    )
+
+    def qt(t_, q):
+        return QualifiedType(base_type=t_, type_qualifier=q)
+
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a, qualified_type=qt(int32_vec3, TypeQualifier.INPUT)
+                    ),
+                    Argument(
+                        name=b, qualified_type=qt(int32_vec5, TypeQualifier.INPUT)
+                    ),
+                ),
+                body=(
+                    ReturnStatement(
+                        expression=BinaryExpression(
+                            operation=BinaryOperation.ADDITION,
+                            left=IdentifierExpression(identifier=a),
+                            right=IdentifierExpression(identifier=b),
+                        ),
+                    ),
+                ),
+                return_type=qt(int32_vec3, TypeQualifier.OUTPUT),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        ValidationFailedError,
+        match="Binary expression operand shapes are not structurally equivalent",
+    ):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_array_access_with_wrong_index_arity():
+    """Test array access fails when index count differs from array dimensions."""
+    op = Identifier("op")
+    a, i, j = Identifier("a"), Identifier("i"), Identifier("j")
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    int32_vec3 = NumericalType(
+        PrimitiveDataType(CoreDataType.INT32), shape=(LiteralExpression(3),)
+    )
+
+    def qt(t_, q):
+        return QualifiedType(base_type=t_, type_qualifier=q)
+
+    index_type = IndexType(
+        lower_bound=LiteralExpression(1),
+        upper_bound=LiteralExpression(3),
+        stride=None,
+    )
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a, qualified_type=qt(int32_vec3, TypeQualifier.INPUT)
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=i,
+                        variable_type=qt(index_type, TypeQualifier.TEMP),
+                    ),
+                    DeclarationStatement(
+                        variable_name=j,
+                        variable_type=qt(index_type, TypeQualifier.TEMP),
+                    ),
+                    ReturnStatement(
+                        expression=ArrayAccessExpression(
+                            array_expression=IdentifierExpression(identifier=a),
+                            indices=(
+                                IdentifierExpression(identifier=i),
+                                IdentifierExpression(identifier=j),
+                            ),
+                        ),
+                    ),
+                ),
+                return_type=qt(int32_scalar, TypeQualifier.OUTPUT),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(ValidationFailedError, match="indices but the array has"):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_reduction_with_multiple_arguments():
+    """Test that a reduction call must receive exactly one argument."""
+    op = Identifier("op")
+    a, k = Identifier("a"), Identifier("k")
+    sum_ = BUILTIN_REDUCTION_FUNCTION_IDENTIFIERS["sum"]
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    int32_vec3 = NumericalType(
+        PrimitiveDataType(CoreDataType.INT32), shape=(LiteralExpression(3),)
+    )
+
+    def qt(t_, q):
+        return QualifiedType(base_type=t_, type_qualifier=q)
+
+    index_type = IndexType(
+        lower_bound=LiteralExpression(1),
+        upper_bound=LiteralExpression(3),
+        stride=None,
+    )
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a, qualified_type=qt(int32_vec3, TypeQualifier.INPUT)
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=k,
+                        variable_type=qt(index_type, TypeQualifier.TEMP),
+                    ),
+                    ReturnStatement(
+                        expression=FunctionExpression(
+                            function=IdentifierExpression(identifier=sum_),
+                            indices=(IdentifierExpression(identifier=k),),
+                            args=(
+                                ArrayAccessExpression(
+                                    array_expression=IdentifierExpression(identifier=a),
+                                    indices=(IdentifierExpression(identifier=k),),
+                                ),
+                                IntLiteral(value=0),
+                            ),
+                        ),
+                    ),
+                ),
+                return_type=qt(int32_scalar, TypeQualifier.OUTPUT),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        ValidationFailedError, match="must be passed exactly one argument"
+    ):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_calling_procedure_as_expression():
+    """Test that calling a Procedure (no return value) as an expression fails."""
+    p, main = Identifier("p"), Identifier("main")
+    a, t = Identifier("a"), Identifier("t")
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+
+    def qt(t_, q):
+        return QualifiedType(base_type=t_, type_qualifier=q)
+
+    callee = Procedure(
+        name=p,
+        args=(Argument(name=a, qualified_type=qt(int32_scalar, TypeQualifier.INPUT)),),
+        body=(),
+    )
+    caller = Operation(
+        name=main,
+        args=(Argument(name=a, qualified_type=qt(int32_scalar, TypeQualifier.INPUT)),),
+        body=(
+            DeclarationStatement(
+                variable_name=t,
+                variable_type=qt(int32_scalar, TypeQualifier.TEMP),
+                expression=FunctionExpression(
+                    function=IdentifierExpression(identifier=p),
+                    args=(IdentifierExpression(identifier=a),),
+                ),
+            ),
+            ReturnStatement(expression=IdentifierExpression(identifier=t)),
+        ),
+        return_type=qt(int32_scalar, TypeQualifier.OUTPUT),
+    )
+    program_ast = Module(statements=(callee, caller))
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(ValidationFailedError, match="cannot be used as an expression"):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_int_literal_overflowing_all_integer_types():
+    """Test that an integer literal too large for any supported type fails."""
+    op = Identifier("op")
+    a, t = Identifier("a"), Identifier("t")
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+
+    def qt(t_, q):
+        return QualifiedType(base_type=t_, type_qualifier=q)
+
+    # 2**128 exceeds every supported integer width.
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a, qualified_type=qt(int32_scalar, TypeQualifier.INPUT)
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=t,
+                        variable_type=qt(int32_scalar, TypeQualifier.TEMP),
+                        expression=IntLiteral(value=2**128),
+                    ),
+                    ReturnStatement(expression=IdentifierExpression(identifier=t)),
+                ),
+                return_type=qt(int32_scalar, TypeQualifier.OUTPUT),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        ValidationFailedError, match="does not fit in any supported integer type"
+    ):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_complex_literal_in_expression():
+    """Test that a ComplexLiteral is rejected by the type checker."""
+    op = Identifier("op")
+    a, t = Identifier("a"), Identifier("t")
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+
+    def qt(t_, q):
+        return QualifiedType(base_type=t_, type_qualifier=q)
+
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a, qualified_type=qt(int32_scalar, TypeQualifier.INPUT)
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=t,
+                        variable_type=qt(int32_scalar, TypeQualifier.TEMP),
+                        expression=ComplexLiteral(value=complex(1, 2)),
+                    ),
+                    ReturnStatement(expression=IdentifierExpression(identifier=t)),
+                ),
+                return_type=qt(int32_scalar, TypeQualifier.OUTPUT),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        ValidationFailedError, match="Complex literals are not yet supported"
+    ):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_valid_negative_int_literal_resolves_to_signed_type():
+    """Test that a negative IntLiteral resolves through the signed integer chain."""
+    op = Identifier("op")
+    a, t = Identifier("a"), Identifier("t")
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+
+    def qt(t_, q):
+        return QualifiedType(base_type=t_, type_qualifier=q)
+
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a, qualified_type=qt(int32_scalar, TypeQualifier.INPUT)
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=t,
+                        variable_type=qt(int32_scalar, TypeQualifier.TEMP),
+                        expression=IntLiteral(value=-1),
+                    ),
+                    ReturnStatement(expression=IdentifierExpression(identifier=t)),
+                ),
+                return_type=qt(int32_scalar, TypeQualifier.OUTPUT),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    # -1 picks the INT weak target, then resolves to a signed concrete type
+    # that promotes into int32.
+    run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_bare_procedure_call_with_mismatched_argument_type():
+    """Test bare-statement procedure call validates argument types."""
+    p, main = Identifier("p"), Identifier("main")
+    a, b = Identifier("a"), Identifier("b")
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    float32_scalar = NumericalType(PrimitiveDataType(CoreDataType.FLOAT32))
+
+    def qt(t_, q):
+        return QualifiedType(base_type=t_, type_qualifier=q)
+
+    callee = Procedure(
+        name=p,
+        args=(Argument(name=a, qualified_type=qt(int32_scalar, TypeQualifier.INPUT)),),
+        body=(),
+    )
+    caller = Procedure(
+        name=main,
+        args=(
+            Argument(name=b, qualified_type=qt(float32_scalar, TypeQualifier.INPUT)),
+        ),
+        body=(
+            ExpressionStatement(
+                left=None,
+                right=FunctionExpression(
+                    function=IdentifierExpression(identifier=p),
+                    args=(IdentifierExpression(identifier=b),),
+                ),
+            ),
+        ),
+    )
+    program_ast = Module(statements=(callee, caller))
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(ValidationFailedError, match="cannot pass"):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_valid_float_literal_in_declaration():
+    """Test that a FloatLiteral expression infers to float and matches a float LHS."""
+    op = Identifier("op")
+    a, t = Identifier("a"), Identifier("t")
+    float32_scalar = _make_float32_type()
+
+    def qt(t_, q):
+        return QualifiedType(base_type=t_, type_qualifier=q)
+
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a, qualified_type=qt(float32_scalar, TypeQualifier.INPUT)
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=t,
+                        variable_type=qt(float32_scalar, TypeQualifier.TEMP),
+                        expression=FloatLiteral(value=3.14),
+                    ),
+                    ReturnStatement(expression=IdentifierExpression(identifier=t)),
+                ),
+                return_type=qt(float32_scalar, TypeQualifier.OUTPUT),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_ternary_condition_with_index_type():
+    """Test ternary fails when condition resolves to a non-numerical (index) type."""
+    op = Identifier("op")
+    a, i = Identifier("a"), Identifier("i")
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+
+    def qt(t_, q):
+        return QualifiedType(base_type=t_, type_qualifier=q)
+
+    index_type = IndexType(
+        lower_bound=LiteralExpression(1),
+        upper_bound=LiteralExpression(3),
+        stride=None,
+    )
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a, qualified_type=qt(int32_scalar, TypeQualifier.INPUT)
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=i,
+                        variable_type=qt(index_type, TypeQualifier.TEMP),
+                    ),
+                    ReturnStatement(
+                        expression=TernaryExpression(
+                            condition=IdentifierExpression(identifier=i),
+                            true=IntLiteral(value=1),
+                            false=IntLiteral(value=0),
+                        ),
+                    ),
+                ),
+                return_type=qt(int32_scalar, TypeQualifier.OUTPUT),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        ValidationFailedError, match="Ternary condition must be a numerical scalar"
+    ):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_array_access_on_non_numerical_base():
+    """Test that indexing a non-numerical (index-typed) identifier fails."""
+    op = Identifier("op")
+    a, i = Identifier("a"), Identifier("i")
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+
+    def qt(t_, q):
+        return QualifiedType(base_type=t_, type_qualifier=q)
+
+    index_type = IndexType(
+        lower_bound=LiteralExpression(1),
+        upper_bound=LiteralExpression(3),
+        stride=None,
+    )
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a, qualified_type=qt(int32_scalar, TypeQualifier.INPUT)
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=i,
+                        variable_type=qt(index_type, TypeQualifier.TEMP),
+                    ),
+                    ReturnStatement(
+                        expression=ArrayAccessExpression(
+                            array_expression=IdentifierExpression(identifier=i),
+                            indices=(IdentifierExpression(identifier=i),),
+                        ),
+                    ),
+                ),
+                return_type=qt(int32_scalar, TypeQualifier.OUTPUT),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(
+        ValidationFailedError, match="Array access requires a numerical type"
+    ):
+        run_validator(TypeChecker(symbol_table), program_ast)
+
+
+def test_fails_on_binary_with_promotion_failure():
+    """Test binary expression fails when operand data types cannot be promoted."""
+    op = Identifier("op")
+    a, b = Identifier("a"), Identifier("b")
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    complex_scalar = NumericalType(PrimitiveDataType(CoreDataType.COMPLEX64))
+    int64_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT64))
+
+    def qt(t_, q):
+        return QualifiedType(base_type=t_, type_qualifier=q)
+
+    # Mixing int64 and complex64 has no common promotion target.
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a, qualified_type=qt(int64_scalar, TypeQualifier.INPUT)
+                    ),
+                    Argument(
+                        name=b, qualified_type=qt(complex_scalar, TypeQualifier.INPUT)
+                    ),
+                ),
+                body=(
+                    ReturnStatement(
+                        expression=BinaryExpression(
+                            operation=BinaryOperation.ADDITION,
+                            left=IdentifierExpression(identifier=a),
+                            right=IdentifierExpression(identifier=b),
+                        ),
+                    ),
+                ),
+                return_type=qt(int32_scalar, TypeQualifier.OUTPUT),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(ValidationFailedError, match="Cannot promote"):
+        run_validator(TypeChecker(symbol_table), program_ast)

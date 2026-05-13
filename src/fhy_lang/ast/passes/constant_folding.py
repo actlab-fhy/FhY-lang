@@ -267,7 +267,11 @@ def _core_expressions_equal(
         return False
     try:
         return left.is_structurally_equivalent(right)
-    except Exception:
+    except Exception as exc:
+        _logger.debug(
+            "Structural-equivalence check failed; falling back to repr comparison.",
+            exc_info=exc,
+        )
         return repr(left) == repr(right)
 
 
