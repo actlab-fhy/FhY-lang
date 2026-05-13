@@ -1,4 +1,4 @@
-proc fir_filter<>(input int32[(-1 + (k + n))] x, input int32[k] h, output int32[n] y) {
+proc main<>(input int32[(-1 + (k + n))] x, input int32[k] h, output int32[n] y) {
   temp index[1:n:1] i;
   temp index[1:k:1] j;
   y[i] = sum<>[j]((x[((i + j) - 1)] * h[j]));

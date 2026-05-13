@@ -257,6 +257,15 @@ class ParseTreeConverter(FhYVisitor):
 
         return_type: ast.QualifiedType | None = None
         if (return_type_ctx := ctx.qualified_type()) is not None:
+            if keyword == "proc":
+                # Catch `proc f() -> T` *before* visiting the return type's
+                # qualified_type rule, which would otherwise raise an
+                # FhYInternalError when the (optional) type qualifier on
+                # the return type is missing. Mirrors the check in
+                # visitFunction_definition.
+                pos = self._get_provenance(return_type_ctx)
+                text = str(pos)
+                raise FhYSyntaxError(f"Procedures do not have return types. {text}")
             return_type = self.visitQualified_type(return_type_ctx)
 
         return keyword, name, templates, args, return_type

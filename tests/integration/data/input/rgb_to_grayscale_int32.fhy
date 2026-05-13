@@ -1,6 +1,6 @@
 # Integer-approximate luminance conversion using the standard Rec. 601
 # weights scaled by 256: Y = (76 R + 150 G + 29 B) / 256.
-proc rgb_to_grayscale(
+proc main(
     input int32[h, w, 3] image,
 
     output int32[h, w] gray

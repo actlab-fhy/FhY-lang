@@ -1310,3 +1310,312 @@ def test_dtype_template_parameters_raise_not_implemented_with_provenance() -> No
     """Test custom dtype template params raise NotImplementedError with location."""
     with pytest.raises(NotImplementedError, match=r"fake\.fhy:\d+:\d+"):
         from_fhy_source("temp myparam<5> x;", provenance=_file_provenance())
+
+
+# ====================
+# Whitespace and comments
+# ====================
+
+
+def test_block_comment_is_rejected(construct_ast: _ConstructAst) -> None:
+    """Test C-style block comments are not recognized."""
+    with pytest.raises(FhYSyntaxError):
+        construct_ast("/* hi */")
+
+
+@pytest.mark.parametrize(
+    ["line_ending"],
+    [
+        ("\n",),
+        ("\r",),
+        ("\r\n",),
+    ],
+)
+def test_statements_separated_by_carriage_return_line_endings_parse(
+    construct_ast: _ConstructAst, line_ending: str
+) -> None:
+    r"""Test \n, \r, and \r\n all separate statements."""
+    source = f"temp int32 x;{line_ending}temp int32 y;"
+    ast = construct_ast(source)
+    _assert_is_expected_module(ast, 2)
+
+
+def test_trailing_comment_does_not_change_statement(
+    construct_ast: _ConstructAst,
+) -> None:
+    """Test a trailing comment on the same line is consumed up to EOL."""
+    source = "temp int32 x = 5;  # trailing comment\ntemp int32 y = 6;"
+    ast = construct_ast(source)
+    _assert_is_expected_module(ast, 2)
+
+
+def test_comments_at_every_token_boundary_parse(
+    construct_ast: _ConstructAst,
+) -> None:
+    """Test comments interspersed at legal token boundaries still parse."""
+    source = (
+        "# leading\n"
+        "temp # after type qualifier\n"
+        "int32 # after type\n"
+        "x # after name\n"
+        "= # after equals\n"
+        "5 # after value\n"
+        "; # after semicolon\n"
+    )
+    ast = construct_ast(source)
+    _assert_is_expected_module(ast, 1)
+
+
+# ====================
+# Identifiers
+# ====================
+
+
+def test_identifiers_are_case_sensitive(construct_ast: _ConstructAst) -> None:
+    """Test `X` and `x` resolve to distinct identifiers."""
+    source = "temp int32 X; temp int32 x;"
+    ast = construct_ast(source)
+    _assert_is_expected_module(ast, 2)
+    upper_name = ast.statements[0].variable_name
+    lower_name = ast.statements[1].variable_name
+    assert upper_name.name_hint == "X"
+    assert lower_name.name_hint == "x"
+    assert upper_name != lower_name
+
+
+def test_long_identifier_parses(construct_ast: _ConstructAst) -> None:
+    """Test that a very long identifier still parses."""
+    long_name = "a" + "b" * 256
+    source = f"temp int32 {long_name};"
+    ast = construct_ast(source)
+    _assert_is_expected_module(ast, 1)
+    assert ast.statements[0].variable_name.name_hint == long_name
+
+
+def test_identifier_starting_with_digit_is_rejected(
+    construct_ast: _ConstructAst,
+) -> None:
+    """Test an identifier starting with a digit is a lexical error."""
+    with pytest.raises(FhYSyntaxError):
+        construct_ast("temp int32 9foo;")
+
+
+# ====================
+# Keywords
+# ====================
+
+
+@pytest.mark.parametrize(
+    ["keyword"],
+    [
+        # Active keywords
+        ("tuple",),
+        ("index",),
+        ("proc",),
+        ("op",),
+        ("forall",),
+        ("return",),
+        # Reserved-but-currently-unused keywords
+        ("native",),
+        ("if",),
+        ("else",),
+        ("import",),
+        ("from",),
+        ("as",),
+        ("reduc",),
+    ],
+)
+def test_reserved_keyword_as_user_identifier_is_rejected(
+    construct_ast: _ConstructAst, keyword: str
+) -> None:
+    """Test reserved keywords cannot be used as user-defined names."""
+    with pytest.raises(FhYSyntaxError):
+        construct_ast(f"temp int32 {keyword};")
+
+
+# ====================
+# Literals
+# ====================
+
+
+@pytest.mark.parametrize(
+    ["source", "value"],
+    [
+        ("1_000;", 1000),
+        ("1_000_000;", 1_000_000),
+        ("0b1010_0101;", 0b10100101),
+        ("0o7_7;", 0o77),
+        ("0xFF_FF;", 0xFFFF),
+        ("0X1_2_3;", 0x123),
+    ],
+)
+def test_integer_literal_with_underscore_separators(
+    construct_ast: _ConstructAst, source: str, value: int
+) -> None:
+    """Test integer literals accept underscore digit separators."""
+    ast = construct_ast(source)
+    _assert_is_expected_module(ast, 1)
+    statement = ast.statements[0]
+    _assert_is_expected_expression_statement(
+        statement,
+        None,
+        ast_node.IntLiteral(value=value),
+    )
+
+
+# ====================
+# Procedures
+# ====================
+
+
+def test_proc_with_return_type_is_rejected(construct_ast: _ConstructAst) -> None:
+    """Test procedures cannot declare a return type."""
+    with pytest.raises(FhYSyntaxError, match="Procedures do not have return types"):
+        construct_ast("proc foo() -> int32 {}")
+
+
+# ====================
+# Operator precedence and associativity
+# ====================
+
+
+@pytest.mark.parametrize(
+    ["source", "top_op", "inner_op"],
+    [
+        # Power tighter than multiplicative: 2 ** 3 * 4 -> (2 ** 3) * 4
+        (
+            "temp int32 x = 2 ** 3 * 4;",
+            ast_node.BinaryOperation.MULTIPLICATION,
+            ast_node.BinaryOperation.POWER,
+        ),
+        # Multiplicative tighter than additive: 2 * 3 + 4 -> (2 * 3) + 4
+        (
+            "temp int32 x = 2 * 3 + 4;",
+            ast_node.BinaryOperation.ADDITION,
+            ast_node.BinaryOperation.MULTIPLICATION,
+        ),
+        # Additive tighter than shift: 2 + 3 << 1 -> (2 + 3) << 1
+        (
+            "temp int32 x = 2 + 3 << 1;",
+            ast_node.BinaryOperation.LEFT_SHIFT,
+            ast_node.BinaryOperation.ADDITION,
+        ),
+        # Shift tighter than relational: 1 << 2 < 8 -> (1 << 2) < 8
+        (
+            "temp int32 x = 1 << 2 < 8;",
+            ast_node.BinaryOperation.LESS_THAN,
+            ast_node.BinaryOperation.LEFT_SHIFT,
+        ),
+        # Relational tighter than equality: 1 < 2 == 0 -> (1 < 2) == 0
+        (
+            "temp int32 x = 1 < 2 == 0;",
+            ast_node.BinaryOperation.EQUAL_TO,
+            ast_node.BinaryOperation.LESS_THAN,
+        ),
+        # Equality tighter than bitwise and: 1 == 2 & 3 -> (1 == 2) & 3
+        (
+            "temp int32 x = 1 == 2 & 3;",
+            ast_node.BinaryOperation.BITWISE_AND,
+            ast_node.BinaryOperation.EQUAL_TO,
+        ),
+        # Bitwise and tighter than bitwise xor: 1 & 2 ^ 3 -> (1 & 2) ^ 3
+        (
+            "temp int32 x = 1 & 2 ^ 3;",
+            ast_node.BinaryOperation.BITWISE_XOR,
+            ast_node.BinaryOperation.BITWISE_AND,
+        ),
+        # Bitwise xor tighter than bitwise or: 1 ^ 2 | 3 -> (1 ^ 2) | 3
+        (
+            "temp int32 x = 1 ^ 2 | 3;",
+            ast_node.BinaryOperation.BITWISE_OR,
+            ast_node.BinaryOperation.BITWISE_XOR,
+        ),
+        # Bitwise or tighter than logical and: 1 | 2 && 3 -> (1 | 2) && 3
+        (
+            "temp int32 x = 1 | 2 && 3;",
+            ast_node.BinaryOperation.LOGICAL_AND,
+            ast_node.BinaryOperation.BITWISE_OR,
+        ),
+        # Logical and tighter than logical or: 1 && 2 || 3 -> (1 && 2) || 3
+        (
+            "temp int32 x = 1 && 2 || 3;",
+            ast_node.BinaryOperation.LOGICAL_OR,
+            ast_node.BinaryOperation.LOGICAL_AND,
+        ),
+    ],
+)
+def test_operator_precedence_adjacent_levels(
+    construct_ast: _ConstructAst,
+    source: str,
+    top_op: ast_node.BinaryOperation,
+    inner_op: ast_node.BinaryOperation,
+) -> None:
+    """Test adjacent precedence levels: the tighter op nests inside the looser
+    .
+
+     Each source places the tighter operator on the left so the expected
+     tree is `(a tighter b) looser c`.
+    """
+    ast = construct_ast(source)
+    _assert_is_expected_module(ast, 1)
+    expr = ast.statements[0].expression
+    assert_type(expr, ast_node.BinaryExpression, "top-level expression")
+    assert expr.operation == top_op
+    assert_type(expr.left, ast_node.BinaryExpression, "nested (left) expression")
+    assert expr.left.operation == inner_op
+
+
+def test_unary_binds_tighter_than_power(construct_ast: _ConstructAst) -> None:
+    """Test `-x ** 2` parses as `(-x) ** 2`."""
+    source = "temp int32 i = -2 ** 3;"
+    ast = construct_ast(source)
+    _assert_is_expected_module(ast, 1)
+    expr = ast.statements[0].expression
+    assert_type(expr, ast_node.BinaryExpression, "top-level expression")
+    assert expr.operation == ast_node.BinaryOperation.POWER
+    assert_type(expr.left, ast_node.UnaryExpression, "left of power")
+    assert expr.left.operation == ast_node.UnaryOperation.NEGATION
+
+
+def test_power_is_left_associative(construct_ast: _ConstructAst) -> None:
+    """Test `a ** b ** c` parses as `(a ** b) ** c`."""
+    source = "temp int32 i = 2 ** 3 ** 4;"
+    ast = construct_ast(source)
+    _assert_is_expected_module(ast, 1)
+    expr = ast.statements[0].expression
+    assert_type(expr, ast_node.BinaryExpression, "top-level expression")
+    assert expr.operation == ast_node.BinaryOperation.POWER
+    assert_type(expr.left, ast_node.BinaryExpression, "left of top-level power")
+    assert expr.left.operation == ast_node.BinaryOperation.POWER
+    assert_type(expr.right, ast_node.IntLiteral, "right of top-level power")
+    assert expr.right.value == 4
+
+
+def test_additive_is_left_associative(construct_ast: _ConstructAst) -> None:
+    """Test `a + b + c` parses as `(a + b) + c`."""
+    source = "temp int32 i = 1 + 2 + 3;"
+    ast = construct_ast(source)
+    _assert_is_expected_module(ast, 1)
+    expr = ast.statements[0].expression
+    assert_type(expr, ast_node.BinaryExpression, "top-level expression")
+    assert expr.operation == ast_node.BinaryOperation.ADDITION
+    assert_type(expr.left, ast_node.BinaryExpression, "left of top-level addition")
+    assert expr.left.operation == ast_node.BinaryOperation.ADDITION
+    assert_type(expr.right, ast_node.IntLiteral, "right of top-level addition")
+    assert expr.right.value == 3
+
+
+def test_multiplicative_is_left_associative(construct_ast: _ConstructAst) -> None:
+    """Test `a * b * c` parses as `(a * b) * c`."""
+    source = "temp int32 i = 2 * 3 * 4;"
+    ast = construct_ast(source)
+    _assert_is_expected_module(ast, 1)
+    expr = ast.statements[0].expression
+    assert_type(expr, ast_node.BinaryExpression, "top-level expression")
+    assert expr.operation == ast_node.BinaryOperation.MULTIPLICATION
+    assert_type(
+        expr.left, ast_node.BinaryExpression, "left of top-level multiplication"
+    )
+    assert expr.left.operation == ast_node.BinaryOperation.MULTIPLICATION
+    assert_type(expr.right, ast_node.IntLiteral, "right of top-level multiplication")
+    assert expr.right.value == 4

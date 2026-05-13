@@ -1,4 +1,4 @@
-proc transpose(
+proc main(
     input int32[m, n] A,
 
     output int32[n, m] B

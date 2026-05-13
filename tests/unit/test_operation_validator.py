@@ -4,6 +4,8 @@ import pytest
 from fhy_core import (
     CoreDataType,
     Identifier,
+    IndexType,
+    LiteralExpression,
     NumericalType,
     PrimitiveDataType,
     TypeQualifier,
@@ -13,6 +15,7 @@ from fhy_core import (
     IdentifierExpression as CoreIdentifierExpression,
 )
 
+from fhy_lang import TupleType
 from fhy_lang.ast import (
     Argument,
     IdentifierExpression,
@@ -192,3 +195,70 @@ def test_procedure_is_not_validated_as_operation():
     )
 
     run_validator(OperationValidator(), program_ast)
+
+
+def test_fails_with_tuple_argument():
+    """Test failure when an operation takes a tuple-type argument."""
+    op = Identifier("op")
+    a = Identifier("a")
+    tuple_int32_int32 = TupleType(
+        [
+            NumericalType(PrimitiveDataType(CoreDataType.INT32)),
+            NumericalType(PrimitiveDataType(CoreDataType.INT32)),
+        ]
+    )
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=_qt(tuple_int32_int32, TypeQualifier.INPUT),
+                    ),
+                ),
+                body=(
+                    ReturnStatement(
+                        expression=IntLiteral(value=0),
+                    ),
+                ),
+                return_type=_qt(_scalar_int32(), TypeQualifier.OUTPUT),
+            ),
+        ),
+    )
+
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(OperationValidator(), program_ast)
+
+
+def test_fails_with_index_argument():
+    """Test failure when an operation takes an index-type argument."""
+    op = Identifier("op")
+    a = Identifier("a")
+    index_type = IndexType(
+        lower_bound=LiteralExpression(1),
+        upper_bound=LiteralExpression(10),
+        stride=None,
+    )
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=_qt(index_type, TypeQualifier.INPUT),
+                    ),
+                ),
+                body=(
+                    ReturnStatement(
+                        expression=IntLiteral(value=0),
+                    ),
+                ),
+                return_type=_qt(_scalar_int32(), TypeQualifier.OUTPUT),
+            ),
+        ),
+    )
+
+    with pytest.raises(ValidationFailedError, match="type error"):
+        run_validator(OperationValidator(), program_ast)

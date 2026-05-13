@@ -1,6 +1,6 @@
 # Squared Euclidean distance between every pair of N points in 3-space.
 # Typical first step of an N-body force calculation or a radial basis kernel.
-proc pairwise_distances(
+proc main(
     input float32[n, 3] pos,
 
     output float32[n, n] d2

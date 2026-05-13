@@ -35,6 +35,7 @@ from fhy_core import (
     SymbolTable,
     SymbolTableError,
     Type,
+    TypeQualifier,
     VariableSymbolTableFrame,
     get_logger,
     promote_primitive_data_types,
@@ -47,8 +48,12 @@ from fhy_core import (
 from fhy_core import (
     LiteralExpression as CoreLiteralExpression,
 )
+from fhy_core import (
+    collect_identifiers as collect_core_identifiers,
+)
 
 from fhy_lang.ast.node import (
+    Argument,
     ArrayAccessExpression,
     BinaryExpression,
     ComplexLiteral,
@@ -62,6 +67,7 @@ from fhy_lang.ast.node import (
     IntLiteral,
     Module,
     Operation,
+    QualifiedType,
     ReturnStatement,
     TernaryExpression,
     UnaryExpression,
@@ -117,6 +123,32 @@ _INTEGER_CORE_DATA_TYPES: frozenset[CoreDataType] = frozenset(
 )
 
 _UINT32_MAX_EXCLUSIVE = 1 << 32
+
+_MAX_PLACEHOLDERS_PER_FORMAL_DIM = 1
+
+
+def _collect_type_dimension_expressions(node_type: Type) -> list[CoreExpression]:
+    """Return every dimension-bearing CoreExpression in a base type.
+
+    For a :class:`NumericalType` that's the shape expressions; for an
+    :class:`IndexType` it's lower / upper bound and stride (when
+    present); other types contribute nothing.
+    """
+    if isinstance(node_type, NumericalType):
+        return [
+            expression
+            for expression in node_type.shape
+            if isinstance(expression, CoreExpression)
+        ]
+    if isinstance(node_type, IndexType):
+        expressions: list[CoreExpression] = [
+            node_type.lower_bound,
+            node_type.upper_bound,
+        ]
+        if node_type.stride is not None:
+            expressions.append(node_type.stride)
+        return expressions
+    return []
 
 
 def _are_shapes_equivalent(
@@ -317,6 +349,10 @@ class TypeChecker(AnalysisPassWithSymbolTable):
             self._report_type_error(error)
 
     def visit_declaration_statement(self, node: DeclarationStatement) -> None:
+        self._check_type_dimensions_are_constant(
+            node.variable_type,
+            f"declaration of {node.variable_name.name_hint!r}",
+        )
         if node.expression is None:
             return
         try:
@@ -332,6 +368,12 @@ class TypeChecker(AnalysisPassWithSymbolTable):
             )
         except _TypeCheckError as error:
             self._report_type_error(error)
+
+    def visit_argument(self, node: Argument) -> None:
+        self._check_type_dimensions_are_constant(
+            node.qualified_type,
+            f"argument {node.name.name_hint!r}",
+        )
 
     def visit_return_statement(self, node: ReturnStatement) -> None:
         if self._current_return_type is None:
@@ -349,6 +391,45 @@ class TypeChecker(AnalysisPassWithSymbolTable):
             )
         except _TypeCheckError as error:
             self._report_type_error(error)
+
+    def _check_type_dimensions_are_constant(
+        self, qualified_type: QualifiedType, context: str
+    ) -> None:
+        """Reject non-compile-time-reducible dimensions in a type.
+
+        Every shape dimension on a ``NumericalType`` and every bound or
+        stride on an ``IndexType`` must be reducible to a compile-time
+        constant. The check is conservative: every identifier referenced
+        by a dimension expression must resolve to a ``PARAM`` symbol.
+        Identifiers that cannot be resolved through the symbol table are
+        skipped; other passes are responsible for those.
+        """
+        expressions = _collect_type_dimension_expressions(qualified_type.base_type)
+        for expression in expressions:
+            for identifier in collect_core_identifiers(expression):
+                try:
+                    frame = self.get_frame_from_namespace(
+                        self.current_namespace, identifier
+                    )
+                except SymbolTableError:
+                    continue
+                if not isinstance(frame, VariableSymbolTableFrame):
+                    continue
+                if frame.type_qualifier == TypeQualifier.PARAM:
+                    continue
+                self.report(
+                    DiagnosticLevel.ERROR,
+                    format_diagnostic_message(
+                        "type error",
+                        f"{context}: type dimension references runtime "
+                        f"variable {identifier.name_hint!r} (qualifier "
+                        f"{frame.type_qualifier.value!r}); dimensions must "
+                        "be compile-time-reducible.",
+                        qualified_type.provenance,
+                    ),
+                )
+                self._error_count += 1
+                return
 
     def _report_type_error(self, error: _TypeCheckError) -> None:
         """Convert a raised :class:`_TypeCheckError` into an ERROR diagnostic."""
@@ -409,11 +490,13 @@ class TypeChecker(AnalysisPassWithSymbolTable):
             # per-argument type checks avoids cascaded diagnostics.
             return frozenset()
         argument_free_indices: frozenset[Identifier] = frozenset()
+        actual_types: list[Type] = []
         for position, (actual_expression, (_qualifier, param_type)) in enumerate(
             zip(expression.args, signature)
         ):
             actual = self._infer_type(actual_expression)
             argument_free_indices |= actual.free_indices
+            actual_types.append(actual.type)
             if not _is_callable_with(param_type, actual.type):
                 raise _TypeCheckError(
                     f"Argument {position} to {identifier.name_hint!r}: "
@@ -421,7 +504,137 @@ class TypeChecker(AnalysisPassWithSymbolTable):
                     "expected.",
                     actual_expression.provenance,
                 )
+        self._check_call_site_placeholder_resolution(
+            identifier, expression, signature, actual_types
+        )
         return argument_free_indices
+
+    def _check_call_site_placeholder_resolution(
+        self,
+        callee_identifier: Identifier,
+        expression: FunctionExpression,
+        signature: Sequence[tuple[object, Type]],
+        actual_types: Sequence[Type],
+    ) -> None:
+        """Resolve callee shape placeholders against actual argument dims.
+
+        Every shape placeholder in the callee's signature must be bound
+        to at least one actual dim. The walker is intentionally simple
+        (it does not solve linear systems across dims), so a formal dim
+        that mentions two or more unbound placeholders is rejected, as
+        is any binding that conflicts with a placeholder's existing
+        value.
+
+        Raises:
+            _TypeCheckError: At the first placeholder-resolution failure.
+
+        """
+        placeholders = self._collect_callee_shape_placeholders(
+            callee_identifier, signature
+        )
+        if not placeholders:
+            return
+        bindings: dict[Identifier, CoreExpression] = {}
+        for position, (param_type, actual_type) in enumerate(
+            zip((p for _, p in signature), actual_types)
+        ):
+            if not isinstance(param_type, NumericalType) or not isinstance(
+                actual_type, NumericalType
+            ):
+                continue
+            param_shape = narrow_shape(param_type.shape)
+            actual_shape = narrow_shape(actual_type.shape)
+            if len(param_shape) != len(actual_shape):
+                continue
+            self._resolve_one_argument_placeholders(
+                position,
+                callee_identifier,
+                expression,
+                param_shape,
+                actual_shape,
+                placeholders,
+                bindings,
+            )
+        unbound = placeholders - bindings.keys()
+        if unbound:
+            unbound_names = sorted(identifier.name_hint for identifier in unbound)
+            raise _TypeCheckError(
+                f"Call to {callee_identifier.name_hint!r}: shape placeholder(s) "
+                f"{unbound_names!r} were not bound by any actual argument dim.",
+                expression.provenance,
+            )
+
+    def _collect_callee_shape_placeholders(
+        self,
+        callee_identifier: Identifier,
+        signature: Sequence[tuple[object, Type]],
+    ) -> set[Identifier]:
+        placeholders: set[Identifier] = set()
+        for _qualifier, param_type in signature:
+            if not isinstance(param_type, NumericalType):
+                continue
+            for dim in narrow_shape(param_type.shape):
+                for identifier in collect_core_identifiers(dim):
+                    if self._is_callee_param(callee_identifier, identifier):
+                        placeholders.add(identifier)
+        return placeholders
+
+    def _is_callee_param(
+        self, callee_identifier: Identifier, candidate: Identifier
+    ) -> bool:
+        try:
+            frame = self.get_frame_from_namespace(callee_identifier, candidate)
+        except SymbolTableError:
+            return False
+        return (
+            isinstance(frame, VariableSymbolTableFrame)
+            and frame.type_qualifier == TypeQualifier.PARAM
+        )
+
+    def _resolve_one_argument_placeholders(
+        self,
+        position: int,
+        callee_identifier: Identifier,
+        expression: FunctionExpression,
+        param_shape: Sequence[CoreExpression],
+        actual_shape: Sequence[CoreExpression],
+        placeholders: set[Identifier],
+        bindings: dict[Identifier, CoreExpression],
+    ) -> None:
+        for dim_index, (param_dim, actual_dim) in enumerate(
+            zip(param_shape, actual_shape)
+        ):
+            placeholders_in_dim = [
+                identifier
+                for identifier in collect_core_identifiers(param_dim)
+                if identifier in placeholders
+            ]
+            if not placeholders_in_dim:
+                continue
+            if len(placeholders_in_dim) > _MAX_PLACEHOLDERS_PER_FORMAL_DIM:
+                placeholder_names = sorted(
+                    identifier.name_hint for identifier in placeholders_in_dim
+                )
+                raise _TypeCheckError(
+                    f"Argument {position} to {callee_identifier.name_hint!r}: "
+                    f"formal dim {dim_index} mentions multiple placeholders "
+                    f"{placeholder_names!r}; FhY does not solve linear systems "
+                    "across dimensions.",
+                    expression.args[position].provenance,
+                )
+            placeholder = placeholders_in_dim[0]
+            if placeholder in bindings:
+                existing = bindings[placeholder]
+                if not existing.is_structurally_equivalent(actual_dim):
+                    raise _TypeCheckError(
+                        f"Argument {position} to {callee_identifier.name_hint!r}: "
+                        f"formal dim {dim_index} would rebind placeholder "
+                        f"{placeholder.name_hint!r} to a different value "
+                        f"({actual_dim}) than its existing binding ({existing}).",
+                        expression.args[position].provenance,
+                    )
+                continue
+            bindings[placeholder] = actual_dim
 
     def _check_compatible(
         self,

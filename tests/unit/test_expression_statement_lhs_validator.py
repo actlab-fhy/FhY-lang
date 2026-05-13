@@ -22,6 +22,7 @@ from fhy_lang.ast import (
     Module,
     Procedure,
     QualifiedType,
+    TupleAccessExpression,
 )
 from fhy_lang.ast.passes import (
     ExpressionStatementLHSValidator,
@@ -352,3 +353,122 @@ def test_does_not_warn_on_function_call_statement(int32: NumericalType):
     result = validator.execute(program_ast)
     warnings = [d for d in result.diagnostics if d.level == DiagnosticLevel.WARNING]
     assert warnings == []
+
+
+def test_fails_with_function_call_lhs(int32: NumericalType):
+    """Test failure when the LHS is a function-call expression."""
+    main = Identifier("main")
+    f = Identifier("f")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(),
+                body=(
+                    ExpressionStatement(
+                        left=FunctionExpression(
+                            function=IdentifierExpression(identifier=f),
+                            args=(),
+                        ),
+                        right=IntLiteral(value=0),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    with pytest.raises(
+        ValidationFailedError,
+        match="structural error",
+    ):
+        run_validator(ExpressionStatementLHSValidator(), program_ast)
+
+
+def test_fails_with_tuple_access_lhs(int32: NumericalType):
+    """Test failure when the LHS is a tuple-access expression."""
+    main = Identifier("main")
+    t = Identifier("t")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(),
+                body=(
+                    ExpressionStatement(
+                        left=TupleAccessExpression(
+                            tuple_expression=IdentifierExpression(identifier=t),
+                            element_index=IntLiteral(value=0),
+                        ),
+                        right=IntLiteral(value=0),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    with pytest.raises(
+        ValidationFailedError,
+        match="structural error",
+    ):
+        run_validator(ExpressionStatementLHSValidator(), program_ast)
+
+
+def test_fails_with_chained_array_access_lhs(int32: NumericalType):
+    """Test failure when the LHS is a chained array access ``a[i][j]``."""
+    main = Identifier("main")
+    a, i, j = Identifier("a"), Identifier("i"), Identifier("j")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(),
+                body=(
+                    ExpressionStatement(
+                        left=ArrayAccessExpression(
+                            array_expression=ArrayAccessExpression(
+                                array_expression=IdentifierExpression(identifier=a),
+                                indices=(IdentifierExpression(identifier=i),),
+                            ),
+                            indices=(IdentifierExpression(identifier=j),),
+                        ),
+                        right=IntLiteral(value=0),
+                    ),
+                ),
+            ),
+        ),
+    )
+
+    with pytest.raises(
+        ValidationFailedError,
+        match="structural error",
+    ):
+        run_validator(ExpressionStatementLHSValidator(), program_ast)
+
+
+def test_warns_on_bare_binary_expression_statement(int32: NumericalType):
+    """Test that a bare binary expression statement emits a warning diagnostic."""
+    main = Identifier("main")
+    x, y = Identifier("x"), Identifier("y")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(),
+                body=(
+                    ExpressionStatement(
+                        left=None,
+                        right=BinaryExpression(
+                            operation=BinaryOperation.ADDITION,
+                            left=IdentifierExpression(identifier=x),
+                            right=IdentifierExpression(identifier=y),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    validator = ExpressionStatementLHSValidator()
+    result = validator.execute(program_ast)
+    warnings = [d for d in result.diagnostics if d.level == DiagnosticLevel.WARNING]
+    assert len(warnings) == 1
+    assert "BinaryExpression" in warnings[0].message_text

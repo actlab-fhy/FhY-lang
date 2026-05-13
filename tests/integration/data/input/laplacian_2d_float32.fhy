@@ -2,7 +2,7 @@
 # cell on every side. Appears in Poisson / diffusion solvers as the spatial
 # operator: (L u)_{i,j} = u_{i-1,j} + u_{i+1,j} + u_{i,j-1} + u_{i,j+1}
 #                         - 4 u_{i,j}.
-proc laplacian_2d(
+proc main(
     input float32[h + 2, w + 2] u,
 
     output float32[h, w] lap

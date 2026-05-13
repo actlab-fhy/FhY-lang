@@ -1,7 +1,7 @@
 # Two-stage stream-cipher kernel: XOR each word of plaintext with a
 # corresponding keystream word, then diffuse bits of the result using a
 # pair of shifts and XORs (a one-round ARX-style mixer).
-proc xor_mix_cipher(
+proc main(
     input uint32[n] plaintext,
     input uint32[n] key,
 

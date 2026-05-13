@@ -1,4 +1,4 @@
-proc heat_step_1d<>(input float32[(2 + n)] u, param float32 alpha, output float32[n] u_new) {
+proc main<>(input float32[(2 + n)] u, param float32 alpha, output float32[n] u_new) {
   temp index[1:n:1] i;
   u_new[i] = (u[(i + 1)] + (alpha * ((u[i] - (2.0 * u[(i + 1)])) + u[(i + 2)])));
 }

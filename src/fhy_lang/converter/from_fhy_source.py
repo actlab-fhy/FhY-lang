@@ -7,6 +7,7 @@ from antlr4 import (  # type: ignore[import-untyped]
     DFA,
     CommonTokenStream,
     InputStream,
+    Token,
 )
 from antlr4.atn.ATNConfigSet import ATNConfigSet  # type: ignore[import-untyped]
 from antlr4.error.ErrorListener import (  # type: ignore[import-untyped]
@@ -179,9 +180,30 @@ def create_parser(input_str: str) -> FhYParser:
     return parser
 
 
+def _require_token_stream_consumed(fhy_parser: FhYParser) -> None:
+    """Raise FhYSyntaxError if the parser left tokens unconsumed.
+
+    The ``module`` grammar rule is ``scope`` (which matches zero or more
+    statements), so without this check ANTLR accepts any program whose
+    prefix is empty and silently discards the rest -- which is how
+    plainly-malformed source like ``"/* hi */"`` would otherwise slip
+    through as an empty module instead of raising.
+    """
+    token_stream = fhy_parser.getTokenStream()
+    next_token = token_stream.LT(1)
+    if next_token is None or next_token.type == Token.EOF:
+        return
+    text = next_token.text or ""
+    raise FhYSyntaxError(
+        f"unexpected input {text!r} at line {next_token.line}:"
+        f"{next_token.column}; expected end of file."
+    )
+
+
 def _fhy_source_to_parse_tree(fhy_source_content: str) -> FhYParser.ModuleContext:
     fhy_parser = create_parser(fhy_source_content)
     tree = fhy_parser.module()  # type: ignore[no-untyped-call]
+    _require_token_stream_consumed(fhy_parser)
     return cast(FhYParser.ModuleContext, tree)
 
 

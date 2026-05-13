@@ -1,4 +1,4 @@
-proc forward_price<>(input float32[n] S, input float32[n] q, param float32 r, param float32 T, output float32[n] F) {
+proc main<>(input float32[n] S, input float32[n] q, param float32 r, param float32 T, output float32[n] F) {
   temp index[1:n:1] i;
   F[i] = (S[i] * exp<>[](((r - q[i]) * T)));
 }

@@ -1,4 +1,4 @@
-proc rgb_to_grayscale<>(input int32[h, w, 3] image, output int32[h, w] gray) {
+proc main<>(input int32[h, w, 3] image, output int32[h, w] gray) {
   temp index[1:h:1] i;
   temp index[1:w:1] j;
   gray[i, j] = ((((76 * image[i, j, 1]) + (150 * image[i, j, 2])) + (29 * image[i, j, 3])) / 256);

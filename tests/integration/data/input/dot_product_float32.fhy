@@ -1,4 +1,4 @@
-proc dot_product(
+proc main(
     input float32[n] a,
     input float32[n] b,
 

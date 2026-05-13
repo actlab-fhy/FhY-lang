@@ -27,6 +27,7 @@ from fhy_lang.ast.node import (
 )
 
 from .analysis_pass_with_symbol_table import AnalysisPassWithSymbolTable
+from .identifier_collector import collect_identifiers
 from .utils import format_diagnostic_message
 
 _logger: logging.Logger = get_logger(__name__)
@@ -95,6 +96,45 @@ class TypeQualifierValidator(AnalysisPassWithSymbolTable):
                 "OUTPUT variables may only be defined in argument lists or "
                 "return types.",
             )
+        elif qualifier == TypeQualifier.PARAM:
+            self._check_param_initializer_is_constant(node)
+
+    def _check_param_initializer_is_constant(self, node: DeclarationStatement) -> None:
+        """Reject a ``param`` decl whose initializer references a runtime variable.
+
+        ``PARAM`` initializers must be compile-time-reducible. The check
+        is conservative: if every identifier referenced by the
+        initializer resolves to a ``PARAM`` symbol (or no identifier is
+        referenced at all), the initializer is treated as
+        compile-time-reducible. Identifiers that cannot be resolved
+        through the symbol table (e.g. forward references) are skipped;
+        other passes are responsible for those.
+        """
+        if node.expression is None:
+            return
+        for identifier in collect_identifiers(node.expression):
+            try:
+                frame = self.get_frame_from_namespace(
+                    self.current_namespace, identifier
+                )
+            except SymbolTableError:
+                continue
+            if not isinstance(frame, VariableSymbolTableFrame):
+                continue
+            if frame.type_qualifier == TypeQualifier.PARAM:
+                continue
+            self.report(
+                DiagnosticLevel.ERROR,
+                format_diagnostic_message(
+                    _TYPE_QUALIFIER_ERROR_KIND,
+                    f"PARAM declaration {node.variable_name.name_hint!r} "
+                    "initializer must be compile-time-reducible; it references "
+                    f"runtime variable {identifier.name_hint!r} (qualifier "
+                    f"{frame.type_qualifier.value!r}).",
+                    node.provenance,
+                ),
+            )
+            return
 
     def visit_operation(self, node: Operation) -> None:
         qualifier = node.return_type.type_qualifier

@@ -1,4 +1,4 @@
-proc matmul<>(input int32[m, n] A, input int32[n, p] B, output int32[m, p] C) {
+proc main<>(input int32[m, n] A, input int32[n, p] B, output int32[m, p] C) {
   temp index[1:m:1] i;
   temp index[1:p:1] j;
   temp index[1:n:1] k;

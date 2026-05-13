@@ -29,14 +29,18 @@ from .passes import (
     CallSiteValidator,
     ConstantFoldingPass,
     ConstantSafetyValidator,
+    CrossIterationStateValidator,
     DeadCodeEliminationPass,
     DefiniteAssignmentValidator,
     ExpressionStatementLHSValidator,
     ForAllStatementValidator,
     IndexDomainValidator,
+    MainProcedureValidator,
+    ModuleScopeValidator,
     OperationValidator,
     RecursionValidator,
     ReductionValidator,
+    ReservedNameValidator,
     ReturnValidator,
     TupleAccessValidator,
     TypeChecker,
@@ -85,6 +89,9 @@ def build_structural_validation_manager(
 
     """
     manager = ValidationManager[Module](Identifier("fhy_ast_structural_validation"))
+    manager.add(_as_module_validator(ModuleScopeValidator()))
+    manager.add(_as_module_validator(MainProcedureValidator()))
+    manager.add(_as_module_validator(ReservedNameValidator()))
     manager.add(_as_module_validator(ExpressionStatementLHSValidator()))
     manager.add(_as_module_validator(ForAllStatementValidator(symbol_table)))
     manager.add(_as_module_validator(CallSiteValidator(symbol_table)))
@@ -115,8 +122,10 @@ def build_semantic_validation_manager(
 
     Returns:
         A :class:`ValidationManager` pre-populated with the type checker,
-        qualifier validator, index-domain validator, definite-assignment
-        validator, and constant-safety validator, in a stable order.
+        qualifier validator, tuple-access validator, index-domain
+        validator, definite-assignment validator, constant-safety
+        validator, and cross-iteration-state validator, in a stable
+        order.
 
     """
     manager = ValidationManager[Module](Identifier("fhy_ast_semantic_validation"))
@@ -126,6 +135,7 @@ def build_semantic_validation_manager(
     manager.add(_as_module_validator(IndexDomainValidator(symbol_table)))
     manager.add(_as_module_validator(DefiniteAssignmentValidator(symbol_table)))
     manager.add(_as_module_validator(ConstantSafetyValidator()))
+    manager.add(_as_module_validator(CrossIterationStateValidator()))
     _logger.debug(
         "Semantic validation pipeline built (%d validators).",
         len(manager.validators),

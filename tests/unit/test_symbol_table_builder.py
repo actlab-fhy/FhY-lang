@@ -12,10 +12,16 @@ from fhy_core import (
     TypeQualifier,
     VariableSymbolTableFrame,
 )
+from fhy_core import (
+    IdentifierExpression as CoreIdentifierExpression,
+)
 
 from fhy_lang.ast import (
     Argument,
     DeclarationStatement,
+    ForAllStatement,
+    IdentifierExpression,
+    IntLiteral,
     Module,
     Procedure,
     QualifiedType,
@@ -235,3 +241,96 @@ def test_fails_with_already_defined_procedure():
     )
     with pytest.raises(PassExecutionError, match=FhYSymbolTableBuilderError.__name__):
         build_symbol_table(program_ast)
+
+
+def test_shape_identifier_resolves_to_existing_module_param(int32):
+    """Test a shape identifier used in an argument type resolves to an
+    existing module-level ``param`` instead of being implicitly redeclared
+    in the function namespace."""
+    main = Identifier("main")
+    a = Identifier("a")
+    n = Identifier("N")
+    program_ast = Module(
+        statements=(
+            DeclarationStatement(
+                variable_name=n,
+                variable_type=QualifiedType(
+                    base_type=NumericalType(PrimitiveDataType(CoreDataType.UINT32)),
+                    type_qualifier=TypeQualifier.PARAM,
+                ),
+                expression=IntLiteral(value=8),
+            ),
+            Procedure(
+                name=main,
+                templates=(),
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=NumericalType(
+                                PrimitiveDataType(CoreDataType.INT32),
+                                shape=(CoreIdentifierExpression(n),),
+                            ),
+                            type_qualifier=TypeQualifier.INPUT,
+                        ),
+                    ),
+                ),
+                body=(),
+            ),
+        ),
+    )
+
+    symbol_table = build_symbol_table(program_ast)
+
+    module_namespace = symbol_table.get_namespace(program_ast.name)
+    assert n in module_namespace, (
+        "Module-level 'param' N should be registered in the module namespace."
+    )
+    assert main in module_namespace
+    # N must not be implicitly re-declared inside the procedure namespace.
+    main_namespace = symbol_table.get_namespace(main)
+    assert n not in main_namespace, (
+        "Module-level 'param' N should be reused; the builder should not "
+        "introduce a second implicit symbol for it inside the procedure."
+    )
+
+
+def test_forall_introduces_new_namespace_scope(int32):
+    """Test that a ``forall`` body lives in its own namespace, distinct
+    from the enclosing procedure's namespace."""
+    main = Identifier("main")
+    i = Identifier("i")
+    y = Identifier("y")
+    forall_name = Identifier("forall_body")
+    forall = ForAllStatement(
+        name=forall_name,
+        index=IdentifierExpression(identifier=i),
+        body=(
+            DeclarationStatement(
+                variable_name=y,
+                variable_type=QualifiedType(
+                    base_type=int32,
+                    type_qualifier=TypeQualifier.TEMP,
+                ),
+            ),
+        ),
+    )
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                templates=(),
+                args=(),
+                body=(forall,),
+            ),
+        ),
+    )
+
+    symbol_table = build_symbol_table(program_ast)
+
+    main_namespace = symbol_table.get_namespace(main)
+    forall_namespace = symbol_table.get_namespace(forall_name)
+    assert y in forall_namespace, "'y' should live in the forall's namespace."
+    assert y not in main_namespace, (
+        "'y' should NOT leak into the enclosing procedure's namespace."
+    )

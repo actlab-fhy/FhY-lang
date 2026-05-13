@@ -665,3 +665,45 @@ def test_warns_on_operation_called_as_bare_statement(int32: NumericalType):
     warnings = [d for d in result.diagnostics if d.level == DiagnosticLevel.WARNING]
     assert len(warnings) == 1
     assert "op" in warnings[0].message_text
+
+
+def test_warns_when_operation_called_with_no_args_as_procedure_call_statement(
+    int32: NumericalType,
+):
+    """Test that an operation called as a procedure-call statement warns."""
+    main = Identifier("main")
+    op = Identifier("op")
+    program_ast = Module(
+        statements=(
+            Operation(
+                name=op,
+                args=(),
+                body=(),
+                return_type=QualifiedType(
+                    base_type=int32,
+                    type_qualifier=TypeQualifier.OUTPUT,
+                ),
+            ),
+            Procedure(
+                name=main,
+                args=(),
+                body=(
+                    ExpressionStatement(
+                        left=None,
+                        right=FunctionExpression(
+                            function=IdentifierExpression(
+                                identifier=op,
+                            ),
+                            args=(),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+    validator = CallSiteValidator(symbol_table)
+    result = validator.execute(program_ast)
+    warnings = [d for d in result.diagnostics if d.level == DiagnosticLevel.WARNING]
+    assert len(warnings) == 1
+    assert "op" in warnings[0].message_text

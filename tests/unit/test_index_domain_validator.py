@@ -875,3 +875,104 @@ def test_unsupported_index_identifier_diagnostic_uses_pretty_form():
     assert "IdentifierExpression(" not in message
     assert "Provenance(" not in message
     assert "t" in message
+
+
+def test_one_based_indexing_first_valid_index_is_one():
+    """Test that an indexed assignment with index range ``[1:N]`` passes."""
+    main = Identifier("main")
+    n = Identifier("N")
+    a, i = Identifier("a"), Identifier("i")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=_make_int32_vector(n),
+                            type_qualifier=TypeQualifier.OUTPUT,
+                        ),
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=i,
+                        variable_type=QualifiedType(
+                            base_type=IndexType(
+                                lower_bound=LiteralExpression(1),
+                                upper_bound=CoreIdentifierExpression(n),
+                                stride=None,
+                            ),
+                            type_qualifier=TypeQualifier.TEMP,
+                        ),
+                    ),
+                    ExpressionStatement(
+                        left=ArrayAccessExpression(
+                            array_expression=IdentifierExpression(identifier=a),
+                            indices=(
+                                IdentifierExpression(
+                                    identifier=i,
+                                ),
+                            ),
+                        ),
+                        right=IntLiteral(value=0),
+                    ),
+                ),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    run_validator(IndexDomainValidator(symbol_table), program_ast)
+
+
+def test_one_based_indexing_rejects_zero_lower_bound_symbolic():
+    """Test that an indexed assignment with index range ``[0:N]`` is rejected."""
+    main = Identifier("main")
+    n = Identifier("N")
+    a, j = Identifier("a"), Identifier("j")
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=_make_int32_vector(n),
+                            type_qualifier=TypeQualifier.OUTPUT,
+                        ),
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=j,
+                        variable_type=QualifiedType(
+                            base_type=IndexType(
+                                lower_bound=LiteralExpression(0),
+                                upper_bound=CoreIdentifierExpression(n),
+                                stride=None,
+                            ),
+                            type_qualifier=TypeQualifier.TEMP,
+                        ),
+                    ),
+                    ExpressionStatement(
+                        left=ArrayAccessExpression(
+                            array_expression=IdentifierExpression(identifier=a),
+                            indices=(
+                                IdentifierExpression(
+                                    identifier=j,
+                                ),
+                            ),
+                        ),
+                        right=IntLiteral(value=0),
+                    ),
+                ),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(ValidationFailedError, match="semantic error"):
+        run_validator(IndexDomainValidator(symbol_table), program_ast)

@@ -1,0 +1,7 @@
+param uint32 M = 4;
+param uint32 N = 8;
+proc main<>(input int32[M, N] a, output int32[M, N] b) {
+  temp index[1:M:1] i;
+  temp index[1:N:1] j;
+  b[i, j] = a[i, j];
+}

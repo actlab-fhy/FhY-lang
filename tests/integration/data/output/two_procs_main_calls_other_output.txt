@@ -1,0 +1,6 @@
+proc helper<>(input int32 x, output int32 y) {
+  y = (x + 1);
+}
+proc main<>(input int32 a, output int32 b) {
+  helper<>[](a, b);
+}

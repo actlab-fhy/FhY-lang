@@ -2,15 +2,24 @@
 
 import pytest
 from fhy_core import (
+    CoreDataType,
     Identifier,
+    IndexType,
+    LiteralExpression,
     NumericalType,
+    PrimitiveDataType,
     TypeQualifier,
     ValidationFailedError,
+)
+from fhy_core import (
+    IdentifierExpression as CoreIdentifierExpression,
 )
 
 from fhy_lang.ast import (
     Argument,
     ArrayAccessExpression,
+    BinaryExpression,
+    BinaryOperation,
     DeclarationStatement,
     ExpressionStatement,
     IdentifierExpression,
@@ -414,3 +423,200 @@ def test_valid_array_access_assignment_to_output(int32: NumericalType):
     symbol_table = build_symbol_table(program_ast)
 
     run_validator(TypeQualifierValidator(symbol_table), program_ast)
+
+
+def test_fails_on_indexed_assignment_to_input_array():
+    """Test failure when an indexed assignment targets an ``input`` array."""
+    main = Identifier("main")
+    n = Identifier("N")
+    a, i = Identifier("a"), Identifier("i")
+    int32_vector_n = NumericalType(
+        PrimitiveDataType(CoreDataType.INT32),
+        shape=(CoreIdentifierExpression(n),),
+    )
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(
+                    Argument(
+                        name=a,
+                        qualified_type=QualifiedType(
+                            base_type=int32_vector_n,
+                            type_qualifier=TypeQualifier.INPUT,
+                        ),
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=i,
+                        variable_type=QualifiedType(
+                            base_type=IndexType(
+                                lower_bound=LiteralExpression(1),
+                                upper_bound=CoreIdentifierExpression(n),
+                                stride=None,
+                            ),
+                            type_qualifier=TypeQualifier.TEMP,
+                        ),
+                    ),
+                    ExpressionStatement(
+                        left=ArrayAccessExpression(
+                            array_expression=IdentifierExpression(identifier=a),
+                            indices=(IdentifierExpression(identifier=i),),
+                        ),
+                        right=IntLiteral(value=0),
+                    ),
+                ),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(ValidationFailedError, match="type qualifier error"):
+        run_validator(TypeQualifierValidator(symbol_table), program_ast)
+
+
+# === HARDENING TESTS ===
+
+
+def test_passes_on_param_decl_with_literal_initializer():
+    """Test ``param int32 y = 5`` is allowed (literal is constant)."""
+    main = Identifier("main")
+    y = Identifier("y")
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(),
+                body=(
+                    DeclarationStatement(
+                        variable_name=y,
+                        variable_type=QualifiedType(
+                            base_type=int32_scalar,
+                            type_qualifier=TypeQualifier.PARAM,
+                        ),
+                        expression=IntLiteral(value=5),
+                    ),
+                ),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    run_validator(TypeQualifierValidator(symbol_table), program_ast)
+
+
+def test_passes_on_param_decl_with_param_referenced_initializer():
+    """Test a ``param`` initialized from another ``param`` is allowed."""
+    main = Identifier("main")
+    k_param, y = Identifier("K"), Identifier("y")
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(
+                    Argument(
+                        name=k_param,
+                        qualified_type=QualifiedType(
+                            base_type=int32_scalar,
+                            type_qualifier=TypeQualifier.PARAM,
+                        ),
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=y,
+                        variable_type=QualifiedType(
+                            base_type=int32_scalar,
+                            type_qualifier=TypeQualifier.PARAM,
+                        ),
+                        expression=IdentifierExpression(identifier=k_param),
+                    ),
+                ),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    run_validator(TypeQualifierValidator(symbol_table), program_ast)
+
+
+def test_fails_on_param_decl_with_non_constant_initializer():
+    """Test ``param int32 y = x + 1`` (where ``x`` is a TEMP) is rejected
+    ."""
+    main = Identifier("main")
+    x_temp, y_param = Identifier("x"), Identifier("y")
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(),
+                body=(
+                    DeclarationStatement(
+                        variable_name=x_temp,
+                        variable_type=QualifiedType(
+                            base_type=int32_scalar,
+                            type_qualifier=TypeQualifier.TEMP,
+                        ),
+                        expression=IntLiteral(value=5),
+                    ),
+                    DeclarationStatement(
+                        variable_name=y_param,
+                        variable_type=QualifiedType(
+                            base_type=int32_scalar,
+                            type_qualifier=TypeQualifier.PARAM,
+                        ),
+                        expression=BinaryExpression(
+                            operation=BinaryOperation.ADDITION,
+                            left=IdentifierExpression(identifier=x_temp),
+                            right=IntLiteral(value=1),
+                        ),
+                    ),
+                ),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(ValidationFailedError, match="compile-time-reducible"):
+        run_validator(TypeQualifierValidator(symbol_table), program_ast)
+
+
+def test_fails_on_param_decl_with_input_referenced_initializer():
+    """Test ``param int32 y = a`` (where ``a`` is INPUT) is rejected."""
+    main = Identifier("main")
+    a_input, y_param = Identifier("a"), Identifier("y")
+    int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
+    program_ast = Module(
+        statements=(
+            Procedure(
+                name=main,
+                args=(
+                    Argument(
+                        name=a_input,
+                        qualified_type=QualifiedType(
+                            base_type=int32_scalar,
+                            type_qualifier=TypeQualifier.INPUT,
+                        ),
+                    ),
+                ),
+                body=(
+                    DeclarationStatement(
+                        variable_name=y_param,
+                        variable_type=QualifiedType(
+                            base_type=int32_scalar,
+                            type_qualifier=TypeQualifier.PARAM,
+                        ),
+                        expression=IdentifierExpression(identifier=a_input),
+                    ),
+                ),
+            ),
+        ),
+    )
+    symbol_table = build_symbol_table(program_ast)
+
+    with pytest.raises(ValidationFailedError, match="compile-time-reducible"):
+        run_validator(TypeQualifierValidator(symbol_table), program_ast)

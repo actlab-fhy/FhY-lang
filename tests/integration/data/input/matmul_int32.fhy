@@ -1,4 +1,4 @@
-proc matmul(
+proc main(
    input int32[m, n] A, 
    input int32[n, p] B, 
    

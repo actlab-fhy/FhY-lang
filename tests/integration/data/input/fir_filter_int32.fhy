@@ -1,7 +1,7 @@
 # One-dimensional finite impulse response (FIR) filter. Convolves an input
 # signal of length n + k - 1 with a kernel of length k to produce an output
 # signal of length n (valid convolution).
-proc fir_filter(
+proc main(
     input int32[n + k - 1] x,
     input int32[k] h,
 

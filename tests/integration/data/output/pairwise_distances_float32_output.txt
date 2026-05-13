@@ -1,4 +1,4 @@
-proc pairwise_distances<>(input float32[n, 3] pos, output float32[n, n] d2) {
+proc main<>(input float32[n, 3] pos, output float32[n, n] d2) {
   temp index[1:n:1] i;
   temp index[1:n:1] j;
   temp float32[n, n] dx;
