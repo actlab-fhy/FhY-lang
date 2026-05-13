@@ -1282,31 +1282,31 @@ def _file_provenance(file_path: str = "/tmp/fake.fhy") -> FileProvenance:
 
 def test_import_statement_raises_not_implemented_with_provenance() -> None:
     """Test import statements raise NotImplementedError tagged with source location."""
-    with pytest.raises(NotImplementedError, match=r"/tmp/fake\.fhy:\d+:\d+"):
+    with pytest.raises(NotImplementedError, match=r"fake\.fhy:\d+:\d+"):
         from_fhy_source("import foo.bar;", provenance=_file_provenance())
 
 
 def test_selection_statement_raises_not_implemented_with_provenance() -> None:
     """Test selection statements raise NotImplementedError tagged with location."""
     source: str = "proc main(output int32 b) { if (1) { b = 1; } else { b = 0; } }"
-    with pytest.raises(NotImplementedError, match=r"/tmp/fake\.fhy:\d+:\d+"):
+    with pytest.raises(NotImplementedError, match=r"fake\.fhy:\d+:\d+"):
         from_fhy_source(source, provenance=_file_provenance())
 
 
 def test_function_declaration_raises_not_implemented_with_provenance() -> None:
     """Test bodyless function declarations raise NotImplementedError with location."""
-    with pytest.raises(NotImplementedError, match=r"/tmp/fake\.fhy:\d+:\d+"):
+    with pytest.raises(NotImplementedError, match=r"fake\.fhy:\d+:\d+"):
         from_fhy_source("proc main();", provenance=_file_provenance())
 
 
 def test_function_indices_raise_not_implemented_with_provenance() -> None:
     """Test function indices raise NotImplementedError tagged with source location."""
     source: str = "op f<>[i, j]() -> output int32 { return 0; }"
-    with pytest.raises(NotImplementedError, match=r"/tmp/fake\.fhy:\d+:\d+"):
+    with pytest.raises(NotImplementedError, match=r"fake\.fhy:\d+:\d+"):
         from_fhy_source(source, provenance=_file_provenance())
 
 
 def test_dtype_template_parameters_raise_not_implemented_with_provenance() -> None:
     """Test custom dtype template params raise NotImplementedError with location."""
-    with pytest.raises(NotImplementedError, match=r"/tmp/fake\.fhy:\d+:\d+"):
+    with pytest.raises(NotImplementedError, match=r"fake\.fhy:\d+:\d+"):
         from_fhy_source("temp myparam<5> x;", provenance=_file_provenance())

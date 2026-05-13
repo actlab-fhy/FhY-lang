@@ -26,11 +26,13 @@ from fhy_lang.ast import (
 from fhy_lang.cli import RECURSION_LIMIT, compile_fhy_source
 
 # Programmatically chosen so the AST is well above the default ~1000
-# Python recursion limit but well within the bumped CLI limit.
+# Python recursion limit but well within the bumped CLI limit. We do
+# not also test "huge depth raises RecursionError" because Python's
+# setrecursionlimit only gates the interpreter's check; the OS thread
+# stack can run out first (default ~8 MB on Linux, smaller on Windows),
+# and the result is a SIGSEGV rather than a clean RecursionError. That
+# behavior is a property of CPython, not of fhy_lang.
 _DEEP_BUT_SAFE_DEPTH = 5_000
-
-# Far above the bumped CLI limit so the test still hits a RecursionError.
-_DEEP_BEYOND_BUMP_DEPTH = 50_000
 
 
 def _int32() -> NumericalType:
@@ -107,30 +109,5 @@ def test_validate_ast_handles_deep_chain_with_raised_limit():
         output_ast, _ = validate_ast(program_ast, perform_optimizations=False)
 
         assert output_ast is not None
-    finally:
-        sys.setrecursionlimit(original_limit)
-
-
-def test_validate_ast_still_raises_recursion_error_at_excessive_depth():
-    """Test the bumped limit is finite: extreme depths still raise RecursionError."""
-    original_limit = sys.getrecursionlimit()
-    sys.setrecursionlimit(RECURSION_LIMIT)
-    try:
-        excessive_expression = _make_left_leaning_addition_chain(
-            _DEEP_BEYOND_BUMP_DEPTH
-        )
-        program_ast = _make_module_assigning_expression_to_b(excessive_expression)
-
-        with pytest.raises((RecursionError, Exception)) as excinfo:
-            validate_ast(program_ast, perform_optimizations=False)
-
-        # Either RecursionError directly or wrapped by a pass; either way
-        # the cause chain must contain RecursionError.
-        cause: BaseException | None = excinfo.value
-        while cause is not None:
-            if isinstance(cause, RecursionError):
-                return
-            cause = cause.__cause__ or cause.__context__
-        pytest.fail(f"expected RecursionError in cause chain, got {excinfo.value!r}")
     finally:
         sys.setrecursionlimit(original_limit)
