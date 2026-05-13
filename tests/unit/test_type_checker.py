@@ -8,6 +8,7 @@ from fhy_core import (
     LiteralExpression,
     NumericalType,
     PrimitiveDataType,
+    Type,
     TypeQualifier,
     ValidationFailedError,
 )
@@ -1386,37 +1387,34 @@ def test_valid_call_site_literal_shape_match_with_promotion():
     run_validator(TypeChecker(symbol_table), program_ast)
 
 
-def _make_int32_op_with_body(body, *extra_args):
-    """Build a Module with a single int32-returning Operation around `body`.
+def _make_int32_returning_op(
+    input_name: Identifier, input_type: Type, body: tuple
+) -> Module:
+    """Build a Module with a single int32-returning Operation around ``body``.
 
-    Helper for the negative-path tests below. ``body`` is a tuple of
-    statements; ``extra_args`` is a sequence of ``(name, type)`` pairs added
-    after the implicit ``int32 a`` input argument.
+    The operation is named ``op`` and takes a single INPUT argument
+    ``input_name`` of type ``input_type``. The ``body`` is the operation
+    body and is responsible for ending with a ``ReturnStatement``.
     """
     op = Identifier("op")
-    a = Identifier("a")
     int32_scalar = NumericalType(PrimitiveDataType(CoreDataType.INT32))
-
-    def qt(t_, q):
-        return QualifiedType(base_type=t_, type_qualifier=q)
-
-    extra_arg_objs = tuple(
-        Argument(name=name, qualified_type=qt(t_, TypeQualifier.INPUT))
-        for name, t_ in extra_args
-    )
     return Module(
         statements=(
             Operation(
                 name=op,
                 args=(
                     Argument(
-                        name=a,
-                        qualified_type=qt(int32_scalar, TypeQualifier.INPUT),
+                        name=input_name,
+                        qualified_type=QualifiedType(
+                            base_type=input_type,
+                            type_qualifier=TypeQualifier.INPUT,
+                        ),
                     ),
-                    *extra_arg_objs,
                 ),
                 body=body,
-                return_type=qt(int32_scalar, TypeQualifier.OUTPUT),
+                return_type=QualifiedType(
+                    base_type=int32_scalar, type_qualifier=TypeQualifier.OUTPUT
+                ),
             ),
         ),
     )
@@ -1438,7 +1436,7 @@ def test_fails_on_ternary_condition_with_shape():
         ),
     )
 
-    program_ast = _make_int32_op_with_body(body, (a, int32_vec3))
+    program_ast = _make_int32_returning_op(a, int32_vec3, body)
     symbol_table = build_symbol_table(program_ast)
 
     with pytest.raises(
@@ -1461,7 +1459,7 @@ def test_fails_on_ternary_condition_with_float():
         ),
     )
 
-    program_ast = _make_int32_op_with_body(body, (a, float32_scalar))
+    program_ast = _make_int32_returning_op(a, float32_scalar, body)
     symbol_table = build_symbol_table(program_ast)
 
     with pytest.raises(
@@ -1483,7 +1481,7 @@ def test_fails_on_unary_bitwise_not_on_float():
         ),
     )
 
-    program_ast = _make_int32_op_with_body(body, (a, float32_scalar))
+    program_ast = _make_int32_returning_op(a, float32_scalar, body)
     symbol_table = build_symbol_table(program_ast)
 
     with pytest.raises(
@@ -1507,7 +1505,7 @@ def test_fails_on_unary_logical_not_on_shaped_operand():
         ),
     )
 
-    program_ast = _make_int32_op_with_body(body, (a, int32_vec3))
+    program_ast = _make_int32_returning_op(a, int32_vec3, body)
     symbol_table = build_symbol_table(program_ast)
 
     with pytest.raises(
